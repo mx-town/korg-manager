@@ -252,17 +252,140 @@ function initDrumPart(buffer, offset) {
   buffer.writeUInt8(0x40, offset + 16);
   // +17: motionseqstatus = 0x00
   buffer.writeUInt8(0x00, offset + 17);
-  // +18-33: sequencedata = 16x 0x11 (all steps active, factory default)
+  // +18-33: sequencedata = 16x 0x00 (no steps — user programs manually)
   for (let i = 0; i < 16; i++) {
-    buffer.writeUInt8(0x11, offset + 18 + i);
+    buffer.writeUInt8(0x00, offset + 18 + i);
+  }
+}
+
+/**
+ * Initialize a keyboard part (274 bytes) with factory Init defaults.
+ * Layout: 18-byte header + 128 note bytes + 128 gate bytes
+ * Note byte 0xBC = OFF at C4 (bit7=OFF, bits0-6=0x3C=C4)
+ */
+function initKeyboardPart(buffer, offset) {
+  buffer.writeUInt16BE(0x0000, offset + 0);  // samplepointer (sample 0)
+  buffer.writeUInt8(0x00, offset + 2);       // slice
+  buffer.writeUInt8(0x00, offset + 3);       // reserved
+  buffer.writeUInt8(0x00, offset + 4);       // glide
+  buffer.writeUInt8(0x00, offset + 5);       // filtertype (LPF)
+  buffer.writeUInt8(0x7F, offset + 6);       // cutoff (open)
+  buffer.writeUInt8(0x00, offset + 7);       // resonance
+  buffer.writeUInt8(0x40, offset + 8);       // egint (center)
+  buffer.writeUInt8(0x64, offset + 9);       // level (factory default)
+  buffer.writeUInt8(0x40, offset + 10);      // pan (center)
+  buffer.writeUInt8(0x40, offset + 11);      // egtime
+  buffer.writeUInt8(0x00, offset + 12);      // startpoint
+  buffer.writeUInt8(0x00, offset + 13);      // flags
+  buffer.writeUInt8(0x20, offset + 14);      // modflags (factory default)
+  buffer.writeUInt8(0x40, offset + 15);      // modspeed
+  buffer.writeUInt8(0x40, offset + 16);      // moddepth (center)
+  buffer.writeUInt8(0x00, offset + 17);      // motionseq off
+  // Note bytes: 128 × 0xBC (all steps OFF, default note C4)
+  buffer.fill(0xBC, offset + 18, offset + 146);
+  // Gate bytes: 128 × 0x02 (default gate time)
+  buffer.fill(0x02, offset + 146, offset + 274);
+}
+
+/**
+ * Initialize a stretch/slice part (32 bytes) with factory Init defaults.
+ * Layout: 16-byte header + 16-byte step data (like drum but no slice field)
+ */
+function initStretchPart(buffer, offset) {
+  buffer.writeUInt16BE(0x0000, offset + 0);  // samplepointer (sample 0)
+  buffer.writeUInt8(0x00, offset + 2);       // filtertype (LPF)
+  buffer.writeUInt8(0x7F, offset + 3);       // cutoff (open)
+  buffer.writeUInt8(0x00, offset + 4);       // resonance
+  buffer.writeUInt8(0x40, offset + 5);       // egint (center)
+  buffer.writeUInt8(0x40, offset + 6);       // pitch (center)
+  buffer.writeUInt8(0x64, offset + 7);       // level (factory default)
+  buffer.writeUInt8(0x40, offset + 8);       // pan (center)
+  buffer.writeUInt8(0x7F, offset + 9);       // egtime (factory default)
+  buffer.writeUInt8(0x00, offset + 10);      // startpoint
+  buffer.writeUInt8(0x00, offset + 11);      // flags
+  buffer.writeUInt8(0x20, offset + 12);      // modflags (factory default)
+  buffer.writeUInt8(0x40, offset + 13);      // modspeed
+  buffer.writeUInt8(0x40, offset + 14);      // moddepth (center)
+  buffer.writeUInt8(0x00, offset + 15);      // motionseq off
+  // Step data: 16 × 0x00 (no active steps)
+  buffer.fill(0x00, offset + 16, offset + 32);
+}
+
+/**
+ * Initialize the audio-in part (156 bytes) with factory Init defaults.
+ * Layout: 12-byte header + 16-byte steps + 128-byte gate data
+ */
+function initAudioInPart(buffer, offset) {
+  buffer.writeUInt8(0x00, offset + 0);       // filtertype (LPF)
+  buffer.writeUInt8(0x7F, offset + 1);       // cutoff (open)
+  buffer.writeUInt8(0x00, offset + 2);       // resonance
+  buffer.writeUInt8(0x40, offset + 3);       // egint (center)
+  buffer.writeUInt8(0x64, offset + 4);       // level (factory default)
+  buffer.writeUInt8(0x40, offset + 5);       // pan (center)
+  buffer.writeUInt8(0x40, offset + 6);       // egtime
+  buffer.writeUInt8(0x00, offset + 7);       // flags
+  buffer.writeUInt8(0x21, offset + 8);       // modcfg (factory: 0x21)
+  buffer.writeUInt8(0x40, offset + 9);       // modspeed
+  buffer.writeUInt8(0x40, offset + 10);      // moddepth (center)
+  buffer.writeUInt8(0x00, offset + 11);      // motionseq off
+  // Steps: 16 × 0x00 (no active steps)
+  buffer.fill(0x00, offset + 12, offset + 28);
+  // Gate bytes: 128 × 0x02 (default gate time)
+  buffer.fill(0x02, offset + 28, offset + 156);
+}
+
+/**
+ * Initialize the accent part (18 bytes) with factory Init defaults.
+ */
+function initAccentPart(buffer, offset) {
+  buffer.writeUInt8(0x40, offset + 0);       // level
+  buffer.writeUInt8(0x00, offset + 1);       // reserved
+  // Steps: 16 × 0xFF (factory default)
+  buffer.fill(0xFF, offset + 2, offset + 18);
+}
+
+/**
+ * Initialize FX params (3 × 4 bytes) with factory Init defaults.
+ */
+function initFxParams(buffer, offset) {
+  for (let i = 0; i < 3; i++) {
+    const fx = offset + i * 4;
+    buffer.writeUInt8(0x01, fx + 0);         // type (factory default)
+    buffer.writeUInt8(0x40, fx + 1);         // param1
+    buffer.writeUInt8(0x40, fx + 2);         // param2
+    buffer.writeUInt8(0x00, fx + 3);         // param3
+  }
+}
+
+/**
+ * Initialize motion sequences (24 × 130 bytes) with factory Init defaults.
+ * Each: uint16BE opNum=0xFFFF (disabled) + 128 × 0x80
+ */
+function initMotionSeqs(buffer, offset) {
+  for (let i = 0; i < 24; i++) {
+    const ms = offset + i * 130;
+    buffer.writeUInt16BE(0xFFFF, ms);        // opNum (disabled)
+    buffer.fill(0x80, ms + 2, ms + 130);    // 128 × 0x80
   }
 }
 
 /**
  * Initialize a single pattern (4280 bytes) with default values.
+ * Matches factory "Init" pattern (pattern 200 in ESX1_Fact.ESX).
+ *
+ * Layout:
+ *   [0-23]     Pattern header (24 bytes)
+ *   [24-329]   9 Drum Parts (9 × 34 = 306 bytes)
+ *   [330-603]  Keyboard Part 1 (274 bytes)
+ *   [604-877]  Keyboard Part 2 (274 bytes)
+ *   [878-909]  Stretch Part 1 (32 bytes)
+ *   [910-941]  Stretch Part 2 (32 bytes)
+ *   [942-973]  Slice Part (32 bytes)
+ *   [974-1129] Audio In Part (156 bytes)
+ *   [1130-1147] Accent Part (18 bytes)
+ *   [1148-1159] FX Params (3 × 4 = 12 bytes)
+ *   [1160-4279] Motion Sequences (24 × 130 = 3120 bytes)
  */
-// Init pattern — matches factory "Init" pattern (pat 200 in ESX1_Fact.ESX)
-// Factory hex: 496e6974202020203c000000000f003c00007fff7fff7fff
 function initDefaultPattern(buffer, patternOffset) {
   // +0-7: name = "Init    " (space-padded, factory default)
   buffer.write('Init    ', patternOffset, 'ascii');
@@ -300,10 +423,31 @@ function initDefaultPattern(buffer, patternOffset) {
   // +22-23: accentstatus = 0x7FFF (factory default)
   buffer.writeUInt16BE(0x7FFF, patternOffset + 22);
 
-  // 9 Drum Parts (starting at offset 24, each 34 bytes)
+  // 9 Drum Parts (offset 24, each 34 bytes)
   for (let i = 0; i < 9; i++) {
     initDrumPart(buffer, patternOffset + 24 + i * 34);
   }
+
+  // 2 Keyboard Parts (offset 330 and 604, each 274 bytes)
+  initKeyboardPart(buffer, patternOffset + 330);
+  initKeyboardPart(buffer, patternOffset + 604);
+
+  // 2 Stretch Parts + 1 Slice Part (offset 878, 910, 942, each 32 bytes)
+  initStretchPart(buffer, patternOffset + 878);
+  initStretchPart(buffer, patternOffset + 910);
+  initStretchPart(buffer, patternOffset + 942);
+
+  // Audio In Part (offset 974, 156 bytes)
+  initAudioInPart(buffer, patternOffset + 974);
+
+  // Accent Part (offset 1130, 18 bytes)
+  initAccentPart(buffer, patternOffset + 1130);
+
+  // FX Params (offset 1148, 3 × 4 bytes)
+  initFxParams(buffer, patternOffset + 1148);
+
+  // Motion Sequences (offset 1160, 24 × 130 bytes)
+  initMotionSeqs(buffer, patternOffset + 1160);
 }
 
 /**
@@ -553,11 +697,9 @@ function buildEsxFile(samples) {
   headerBuffer.writeUInt32BE(0, ADDR.NUM_STEREO_SAMPLES);
   headerBuffer.writeUInt32BE(currentOffset, ADDR.CURRENT_OFFSET);
 
-  // Auto-assign loaded samples to Pattern 0 drum parts (up to 9 per pattern)
-  // initDefaultPattern already sets samplePtr=0x0000 and steps=0x11 for all parts.
-  // We just need to update the sample pointers to point to the right samples.
+  // Auto-assign loaded samples to drum parts across patterns (9 parts per pattern).
+  // Only Part 0 gets active steps — rest are silent until user programs them.
   if (monoCount > 0) {
-    // Fill patterns with sample assignments (9 parts per pattern)
     const patternsNeeded = Math.ceil(monoCount / 9);
     for (let pat = 0; pat < Math.min(patternsNeeded, NUM.PATTERNS); pat++) {
       const patOff = ADDR.PATTERN_DATA + pat * 4280;
@@ -572,10 +714,14 @@ function buildEsxFile(samples) {
         const sampleIdx = pat * 9 + p;
         const partOff = patOff + 24 + p * 34;
         if (sampleIdx < monoCount) {
-          // Assign sample to part
           headerBuffer.writeUInt16BE(sampleIdx, partOff + 0);
         }
-        // Parts beyond loaded samples keep default (samplePtr=0x0000 = first sample)
+        // Only Part 0 gets active steps (like factory Init pattern)
+        if (p === 0) {
+          for (let s = 0; s < 16; s++) {
+            headerBuffer.writeUInt8(0x11, partOff + 18 + s);
+          }
+        }
       }
     }
   }
