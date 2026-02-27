@@ -769,3 +769,383 @@ function getSamplesInfo() {
     })),
   };
 }
+
+// ═══════════════════════════════════════════════════════════
+//  PARSER MODULES
+// ═══════════════════════════════════════════════════════════
+const e2sFormat  = require('./src/e2s-format');
+const e2patFormat = require('./src/e2pat-format');
+const emxFormat  = require('./src/emx-format');
+const fileIO     = require('./src/file-io');
+
+// ═══════════════════════════════════════════════════════════
+//  E2S HANDLERS
+// ═══════════════════════════════════════════════════════════
+// Stored E2S state — pcmData stays in main process, only metadata goes to renderer
+let e2sStoredSamples = new Array(e2sFormat.MAX_SLOTS).fill(null);
+// Each non-null entry: { slot, name, pcmData (Buffer), sampleRate, category, loopType, loudness, playLogPeriod, playVolume }
+let e2sFilePath = null;
+
+/** Convert a stored E2S sample to UI-friendly metadata (no pcmData). */
+function e2sSampleToUI(s, i) {
+  if (!s) return { index: i, empty: true };
+  const numFrames = s.pcmData ? s.pcmData.length / 2 : 0;
+  const sr = s.sampleRate || e2sFormat.NATIVE_RATE;
+  return {
+    index: i, name: s.name || '', category: s.category || 0,
+    tune: 0, playMode: s.loopType ? 'loop' : 'oneshot', boost: false,
+    sampleRate: sr, numFrames, duration: numFrames / sr,
+    sizeBytes: s.pcmData ? s.pcmData.length : 0, empty: !numFrames,
+  };
+}
+
+/** Return UI-friendly sample list for all non-empty slots. */
+function e2sGetSamplesUI() {
+  const out = [];
+  for (let i = 0; i < e2sStoredSamples.length; i++) {
+    const s = e2sStoredSamples[i];
+    if (s) out.push(e2sSampleToUI(s, i));
+  }
+  return out;
+}
+
+ipcMain.handle('e2s:open-file', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Open E2S Sample File',
+    filters: [{ name: 'E2S Sample File', extensions: ['all'] }, { name: 'All Files', extensions: ['*'] }],
+    properties: ['openFile']
+  });
+  if (result.canceled) return null;
+  try {
+    const buffer = fs.readFileSync(result.filePaths[0]);
+    e2sFilePath = result.filePaths[0];
+    const parsed = e2sFormat.parseE2sAllFile(buffer);
+    // Store raw samples (with pcmData) in main process
+    e2sStoredSamples = new Array(e2sFormat.MAX_SLOTS).fill(null);
+    for (let i = 0; i < parsed.samples.length; i++) {
+      const s = parsed.samples[i];
+      if (!s || s.error) continue;
+      e2sStoredSamples[i] = {
+        slot: i, name: s.esli ? s.esli.name : '', pcmData: s.pcmData,
+        sampleRate: s.esli ? s.esli.sampleRate : e2sFormat.NATIVE_RATE,
+        category: s.esli ? s.esli.category : 0,
+        loopType: s.esli ? s.esli.loopType : 0,
+        loopStart: s.esli ? s.esli.loopStart : 0xFFFFFFFF,
+        loudness: s.esli ? s.esli.loudness : 127,
+        playLogPeriod: s.esli ? s.esli.playLogPeriod : 0,
+        playVolume: s.esli ? s.esli.playVolume : 0x4000,
+      };
+    }
+    return { filePath: result.filePaths[0], samples: e2sGetSamplesUI() };
+  } catch (err) { return { error: err.message }; }
+});
+
+ipcMain.handle('e2s:save-file', async () => {
+  const hasData = e2sStoredSamples.some(s => s !== null);
+  if (!hasData) return { error: 'No E2S samples loaded' };
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: 'Save E2S Sample File', defaultPath: e2sFilePath || 'e2sSample.all',
+    filters: [{ name: 'E2S Sample File', extensions: ['all'] }]
+  });
+  if (result.canceled) return null;
+  try {
+    const buf = e2sFormat.buildE2sAllFile(e2sStoredSamples.filter(s => s !== null));
+    fs.writeFileSync(result.filePath, buf);
+    e2sFilePath = result.filePath;
+    return { filePath: result.filePath, size: buf.length };
+  } catch (err) { return { error: err.message }; }
+});
+
+ipcMain.handle('e2s:import-wav', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Import WAV to E2S (48kHz)',
+    filters: [{ name: 'Audio', extensions: ['wav', 'WAV', 'aif', 'aiff'] }],
+    properties: ['openFile', 'multiSelections']
+  });
+  if (result.canceled) return null;
+  const imported = [];
+  for (const fp of result.filePaths) {
+    const displayName = path.basename(fp, path.extname(fp));
+    try {
+      // Find next free slot
+      let freeSlot = -1;
+      for (let i = 0; i < e2sFormat.MAX_SLOTS; i++) {
+        if (!e2sStoredSamples[i]) { freeSlot = i; break; }
+      }
+      if (freeSlot < 0) { imported.push({ name: displayName, ok: false, error: 'All 1000 slots full' }); continue; }
+
+      const wavBuf = fs.readFileSync(fp);
+      const wavInfo = esx.parseWavFile(wavBuf);
+      const converted = esx.convertTo16BitMono(wavInfo);
+      // Resample to 48kHz if needed (ESX converter outputs 44.1kHz by default)
+      let pcmLE;
+      if (converted.sampleRate !== e2sFormat.NATIVE_RATE) {
+        const floats = e2sFormat.pcmBEToFloat(converted.pcmData); // ESX output is BE
+        const resampled = e2sFormat.resampleLinear(floats, converted.sampleRate, e2sFormat.NATIVE_RATE);
+        pcmLE = e2sFormat.floatToPcmLE(resampled);
+      } else {
+        // Convert BE to LE
+        const floats = e2sFormat.pcmBEToFloat(converted.pcmData);
+        pcmLE = e2sFormat.floatToPcmLE(floats);
+      }
+      const name = displayName.substring(0, 24).toUpperCase().replace(/[^A-Z0-9 _\-\.]/g, '');
+      e2sStoredSamples[freeSlot] = {
+        slot: freeSlot, name, pcmData: pcmLE,
+        sampleRate: e2sFormat.NATIVE_RATE, category: 0,
+        loopType: 0, loopStart: 0xFFFFFFFF, loudness: 127,
+        playLogPeriod: 0, playVolume: 0x4000,
+      };
+      imported.push({ name, ok: true, slot: freeSlot });
+    } catch (err) { imported.push({ name: displayName, ok: false, error: err.message }); }
+  }
+  return { imported, samples: e2sGetSamplesUI() };
+});
+
+ipcMain.handle('e2s:export-wav', async (ev, slot) => {
+  if (slot < 0 || slot >= e2sFormat.MAX_SLOTS || !e2sStoredSamples[slot]) return null;
+  const s = e2sStoredSamples[slot];
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: 'Export E2S Sample as WAV', defaultPath: `${(s.name || 'e2s_sample').trim()}.wav`,
+    filters: [{ name: 'WAV', extensions: ['wav'] }]
+  });
+  if (result.canceled) return null;
+  try {
+    // Build a standard WAV from 16-bit LE PCM
+    const numFrames = s.pcmData.length / 2;
+    const sr = s.sampleRate || e2sFormat.NATIVE_RATE;
+    const dataSize = numFrames * 2;
+    const wav = Buffer.alloc(44 + dataSize);
+    wav.write('RIFF', 0); wav.writeUInt32LE(36 + dataSize, 4); wav.write('WAVE', 8);
+    wav.write('fmt ', 12); wav.writeUInt32LE(16, 16); wav.writeUInt16LE(1, 20);
+    wav.writeUInt16LE(1, 22); wav.writeUInt32LE(sr, 24); wav.writeUInt32LE(sr * 2, 28);
+    wav.writeUInt16LE(2, 32); wav.writeUInt16LE(16, 34);
+    wav.write('data', 36); wav.writeUInt32LE(dataSize, 40);
+    s.pcmData.copy(wav, 44);
+    fs.writeFileSync(result.filePath, wav);
+    return result.filePath;
+  } catch (err) { return null; }
+});
+
+// E2S sample updates from renderer (name, category, etc.)
+ipcMain.handle('e2s:update-sample', async (ev, { slot, name, category, loopType }) => {
+  if (slot < 0 || slot >= e2sFormat.MAX_SLOTS || !e2sStoredSamples[slot]) return null;
+  const s = e2sStoredSamples[slot];
+  if (name !== undefined)     s.name = name;
+  if (category !== undefined) s.category = category;
+  if (loopType !== undefined) s.loopType = loopType;
+  return e2sSampleToUI(s, slot);
+});
+
+ipcMain.handle('e2s:remove-sample', async (ev, slot) => {
+  if (slot >= 0 && slot < e2sFormat.MAX_SLOTS) e2sStoredSamples[slot] = null;
+  return e2sGetSamplesUI();
+});
+
+ipcMain.handle('e2s:get-waveform', async (ev, slot) => {
+  if (slot < 0 || slot >= e2sFormat.MAX_SLOTS || !e2sStoredSamples[slot]) return null;
+  const s = e2sStoredSamples[slot];
+  const numFrames = s.pcmData.length / 2;
+  if (numFrames === 0) return null;
+  const N = 500, step = Math.max(1, Math.floor(numFrames / N));
+  const waveform = [];
+  for (let i = 0; i < N && i * step < numFrames; i++) {
+    let mn = 0, mx = 0;
+    for (let j = 0; j < step; j++) {
+      const fi = i * step + j;
+      if (fi >= numFrames) break;
+      const v = s.pcmData.readInt16LE(fi * 2) / 32768;
+      if (v < mn) mn = v; if (v > mx) mx = v;
+    }
+    waveform.push({ min: mn, max: mx });
+  }
+  let peak = 0, rms = 0;
+  for (let i = 0; i < numFrames; i++) {
+    const v = Math.abs(s.pcmData.readInt16LE(i * 2));
+    if (v > peak) peak = v;
+    rms += (v / 32768) * (v / 32768);
+  }
+  rms = Math.sqrt(rms / numFrames);
+  const peakDb = peak > 0 ? (20 * Math.log10(peak / 32767)).toFixed(1) : '-inf';
+  const rmsDb = rms > 0 ? (20 * Math.log10(rms)).toFixed(1) : '-inf';
+  return { waveform, sampleRate: s.sampleRate, numFrames, duration: numFrames / s.sampleRate, name: s.name, peakDb, rmsDb };
+});
+
+ipcMain.handle('e2s:get-wav-preview', async (ev, slot) => {
+  if (slot < 0 || slot >= e2sFormat.MAX_SLOTS || !e2sStoredSamples[slot]) return null;
+  const s = e2sStoredSamples[slot];
+  const numFrames = s.pcmData.length / 2;
+  const sr = s.sampleRate || e2sFormat.NATIVE_RATE;
+  const dataSize = numFrames * 2;
+  const wav = Buffer.alloc(44 + dataSize);
+  wav.write('RIFF', 0); wav.writeUInt32LE(36 + dataSize, 4); wav.write('WAVE', 8);
+  wav.write('fmt ', 12); wav.writeUInt32LE(16, 16); wav.writeUInt16LE(1, 20);
+  wav.writeUInt16LE(1, 22); wav.writeUInt32LE(sr, 24); wav.writeUInt32LE(sr * 2, 28);
+  wav.writeUInt16LE(2, 32); wav.writeUInt16LE(16, 34);
+  wav.write('data', 36); wav.writeUInt32LE(dataSize, 40);
+  s.pcmData.copy(wav, 44);
+  return wav.toString('base64');
+});
+
+// ═══════════════════════════════════════════════════════════
+//  E2 PATTERN HANDLERS
+// ═══════════════════════════════════════════════════════════
+let patStoredRaw = null; // raw all-patterns buffer for split/save
+const BEAT_NAMES = ['16th', '32nd', '8th', '8-tri'];
+
+/** Convert a parser pattern to UI-friendly format. */
+function patternToUI(pat) {
+  const h = pat.header || {};
+  const parts = (pat.parts || []).map((p, j) => {
+    const pr = p.params || {};
+    return {
+      name: `Part ${j + 1}`,
+      oscType: `Type ${pr.oscType || 0}`,
+      level: pr.level ?? 100,
+      steps: (p.steps || []).map(s => s.gate > 0),
+      velocities: (p.steps || []).map(s => s.velocity || 0),
+    };
+  });
+  return {
+    name: h.name || '', bpm: h.tempo || 120, swing: h.swing || 0,
+    steps: (h.length || 1) * (h.beat === 1 ? 32 : 16),
+    beat: BEAT_NAMES[h.beat] || '16th',
+    key: h.key || 0, scale: h.scale || 0,
+    deviceId: h.deviceId || 0,
+    parts,
+  };
+}
+
+ipcMain.handle('e2pat:open-file', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Open E2 Pattern',
+    filters: [
+      { name: 'E2 Pattern Files', extensions: ['e2pat', 'e2spat', 'e2allpat', 'e2sallpat'] },
+      { name: 'All Files', extensions: ['*'] }
+    ],
+    properties: ['openFile']
+  });
+  if (result.canceled) return null;
+  try {
+    const buffer = fs.readFileSync(result.filePaths[0]);
+    patStoredRaw = buffer;
+    if (buffer.length === e2patFormat.PATTERN_SIZE) {
+      // Single pattern
+      const pat = e2patFormat.parsePattern(buffer, 0);
+      return { filePath: result.filePaths[0], patterns: [patternToUI(pat)] };
+    } else if (buffer.length >= e2patFormat.ALL_FILE_SIZE) {
+      // All-patterns file
+      const data = e2patFormat.parseAllPatterns(buffer);
+      return { filePath: result.filePaths[0], patterns: data.patterns.map(patternToUI) };
+    } else {
+      return { filePath: result.filePaths[0], patterns: [], error: `Unknown pattern file size: ${buffer.length}` };
+    }
+  } catch (err) { return { error: err.message }; }
+});
+
+ipcMain.handle('e2pat:save-file', async (ev, patIdx, ext) => {
+  if (!patStoredRaw) return { error: 'No pattern data loaded' };
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: 'Save E2 Pattern', defaultPath: `pattern.${ext || 'e2pat'}`,
+    filters: [{ name: 'E2 Pattern', extensions: [ext || 'e2pat'] }]
+  });
+  if (result.canceled) return null;
+  try {
+    let outBuf;
+    if (patIdx !== undefined && patIdx !== null && patStoredRaw.length >= e2patFormat.ALL_FILE_SIZE) {
+      outBuf = e2patFormat.splitPattern(patStoredRaw, patIdx);
+    } else {
+      outBuf = patStoredRaw;
+    }
+    fs.writeFileSync(result.filePath, outBuf);
+    return { filePath: result.filePath };
+  } catch (err) { return { error: err.message }; }
+});
+
+ipcMain.handle('e2pat:split-save', async () => {
+  if (!patStoredRaw || patStoredRaw.length < e2patFormat.ALL_FILE_SIZE) {
+    return { error: 'No all-patterns file loaded' };
+  }
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Select Output Directory', properties: ['openDirectory']
+  });
+  if (result.canceled) return null;
+  try {
+    const dir = result.filePaths[0];
+    let count = 0;
+    for (let i = 0; i < e2patFormat.NUM_PATTERNS; i++) {
+      const patBuf = e2patFormat.splitPattern(patStoredRaw, i);
+      const fn = path.join(dir, `pattern_${String(i).padStart(3, '0')}.e2pat`);
+      fs.writeFileSync(fn, patBuf);
+      count++;
+    }
+    return { dir, count };
+  } catch (err) { return { error: err.message }; }
+});
+
+// ═══════════════════════════════════════════════════════════
+//  EMX HANDLERS
+// ═══════════════════════════════════════════════════════════
+const EMX_BEAT_NAMES = ['16th', '32nd', '8th', '8-tri'];
+
+ipcMain.handle('emx:open-file', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Open EMX-1 File',
+    filters: [{ name: 'EMX-1 Files', extensions: ['emx'] }, { name: 'All Files', extensions: ['*'] }],
+    properties: ['openFile']
+  });
+  if (result.canceled) return null;
+  try {
+    const buffer = fs.readFileSync(result.filePaths[0]);
+    const data = emxFormat.parseEmxDump(buffer);
+    // Transform to UI-friendly format
+    const patterns = data.patterns.map((p, i) => {
+      if (p.error) return { index: i, name: '', bpm: 120, swing: 0, steps: 16, beat: '16th', parts: [] };
+      const h = p.header || {};
+      const parts = [];
+      for (const sp of (p.synthParts || [])) {
+        parts.push({ name: `Synth`, oscType: `Type ${sp.oscType || 0}`, level: sp.level || 0 });
+      }
+      for (const dp of (p.drumParts || [])) {
+        parts.push({ name: `Drum`, oscType: `Smp ${dp.samplePtr || 0}`, level: dp.level || 0 });
+      }
+      return {
+        index: i, name: h.name || '', bpm: h.tempo || 120, swing: h.swing || 0,
+        steps: (h.lastStep || 15) + 1, beat: EMX_BEAT_NAMES[h.beat] || '16th', parts,
+      };
+    });
+    return { filePath: result.filePaths[0], patterns };
+  } catch (err) { return { error: err.message }; }
+});
+
+// ═══════════════════════════════════════════════════════════
+//  UNIVERSAL FILE OPEN (auto-detect format)
+// ═══════════════════════════════════════════════════════════
+ipcMain.handle('file:open-any', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Open File',
+    filters: [
+      { name: 'All Supported', extensions: ['esx', 'all', 'e2pat', 'e2spat', 'e2allpat', 'e2sallpat', 'emx'] },
+      { name: 'ESX-1', extensions: ['esx'] },
+      { name: 'E2S Samples', extensions: ['all'] },
+      { name: 'E2 Patterns', extensions: ['e2pat', 'e2spat', 'e2allpat', 'e2sallpat'] },
+      { name: 'EMX-1', extensions: ['emx'] },
+      { name: 'All Files', extensions: ['*'] }
+    ],
+    properties: ['openFile']
+  });
+  if (result.canceled) return null;
+  const fp = result.filePaths[0];
+  // Use file-io auto-detection
+  try {
+    const buffer = fs.readFileSync(fp);
+    const format = fileIO.detectFormat(buffer, path.basename(fp));
+    return { format: format || 'unknown', filePath: fp };
+  } catch (err) {
+    const ext = path.extname(fp).toLowerCase();
+    if (ext === '.esx') return { format: 'esx', filePath: fp };
+    if (ext === '.all') return { format: 'e2s', filePath: fp };
+    if (['.e2pat', '.e2spat', '.e2allpat', '.e2sallpat'].includes(ext)) return { format: 'e2pat', filePath: fp };
+    if (ext === '.emx') return { format: 'emx', filePath: fp };
+    return { format: 'unknown', filePath: fp };
+  }
+});

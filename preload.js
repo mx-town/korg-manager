@@ -46,4 +46,33 @@ contextBridge.exposeInMainWorld('api', {
   fxDcRemove:       (i)             => ipcRenderer.invoke('fx-dc-remove', i),
   fxLoopXfade:      (i, ms)         => ipcRenderer.invoke('fx-loop-xfade', { index: i, ms }),
   fxEnvelope:       (i, a, d, s, r) => ipcRenderer.invoke('fx-envelope', { index: i, attackMs: a, decayMs: d, sustainLvl: s, releaseMs: r }),
+
+  // ═══ E2S ═══
+  e2s: {
+    openFile:     ()              => ipcRenderer.invoke('e2s:open-file'),
+    saveFile:     ()              => ipcRenderer.invoke('e2s:save-file'),
+    importWav:    ()              => ipcRenderer.invoke('e2s:import-wav'),
+    exportWav:    (slot)          => ipcRenderer.invoke('e2s:export-wav', slot),
+    updateSample: (o)             => ipcRenderer.invoke('e2s:update-sample', o),
+    removeSample: (slot)          => ipcRenderer.invoke('e2s:remove-sample', slot),
+    getWaveform:  (slot)          => ipcRenderer.invoke('e2s:get-waveform', slot),
+    getWavPreview:(slot)          => ipcRenderer.invoke('e2s:get-wav-preview', slot),
+  },
+
+  // ═══ E2 Patterns ═══
+  e2pat: {
+    openFile:   ()              => ipcRenderer.invoke('e2pat:open-file'),
+    saveFile:   (patIdx, ext)   => ipcRenderer.invoke('e2pat:save-file', patIdx, ext),
+    splitSave:  ()              => ipcRenderer.invoke('e2pat:split-save'),
+  },
+
+  // ═══ EMX ═══
+  emx: {
+    openFile:   ()              => ipcRenderer.invoke('emx:open-file'),
+  },
+
+  // ═══ Universal ═══
+  file: {
+    openAny:    ()              => ipcRenderer.invoke('file:open-any'),
+  },
 });
