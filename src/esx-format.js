@@ -50,16 +50,16 @@ const ESX_HEADER = Buffer.from([
   0x00, 0x00, 0x00, 0x00,
 ]);
 
-// BPS (sample bank) header signature
+// BPS (sample bank) header signature — must be "BPA " (not "BPX\0") for hardware
 const BPS_HEADER = Buffer.from([
   0x4B, 0x4F, 0x52, 0x47, // "KORG"
   0x00, 0x00, 0x00, 0x71, // version marker
-  0x42, 0x50, 0x58, 0x00, // "BPX\0"
+  0x42, 0x50, 0x41, 0x20, // "BPA " (hardware expects this)
   0x00, 0x00, 0x00, 0x00,
   0x00, 0x00, 0x00, 0x00,
   0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00,
+  0xFF, 0xFF, 0xFF, 0xFF, // padding (hardware expects 0xFF)
+  0xFF, 0xFF, 0xFF, 0xFF,
 ]);
 
 // PCM data block signature
@@ -221,8 +221,8 @@ function convertTo16BitMono(wavInfo) {
 function initDrumPart(buffer, offset) {
   // +0-1: samplepointer = 0x8000 (OFF, uint16BE)
   buffer.writeUInt16BE(0x8000, offset + 0);
-  // +2-3: slicenumber = 0x8000 (ALL, uint16BE)
-  buffer.writeUInt16BE(0x8000, offset + 2);
+  // +2-3: slicenumber = 0xFF00 (ALL/none, hardware default)
+  buffer.writeUInt16BE(0xFF00, offset + 2);
   // +4: filtertype = 0x00 (LPF)
   buffer.writeUInt8(0x00, offset + 4);
   // +5: cutoff = 0x7F (open)
@@ -384,6 +384,8 @@ function createEmptyEsx() {
 
   // Write BPS header at sample section
   BPS_HEADER.copy(buffer, ADDR.BPS_HEADER);
+  // BPS padding byte at +0x2C must be 0xFF for hardware
+  buffer.writeUInt32BE(0xFFFFFFFF, ADDR.BPS_HEADER + 0x2C);
 
   // Initialize all mono sample headers to "empty"
   for (let i = 0; i < NUM.MONO_SAMPLES; i++) {
@@ -548,6 +550,43 @@ function buildEsxFile(samples) {
   headerBuffer.writeUInt32BE(monoCount, ADDR.NUM_MONO_SAMPLES);
   headerBuffer.writeUInt32BE(0, ADDR.NUM_STEREO_SAMPLES);
   headerBuffer.writeUInt32BE(currentOffset, ADDR.CURRENT_OFFSET);
+
+  // Set ESX header flag at offset 0x10 (indicates file has data)
+  if (monoCount > 0) {
+    headerBuffer.writeUInt8(0x01, 0x11);
+  }
+
+  // Auto-assign loaded samples to Pattern 0 drum parts (up to 9 parts)
+  // This ensures samples are playable from patterns on the hardware
+  if (monoCount > 0) {
+    const pat0 = ADDR.PATTERN_DATA; // Pattern 0 offset
+    // Give Pattern 0 a name
+    const patName = Buffer.alloc(8, 0x20); // spaces
+    patName.write('A.001', 0, 'ascii');
+    patName.copy(headerBuffer, pat0);
+
+    // Set reasonable tempo: 120.0 BPM = 0x04B0
+    headerBuffer.writeUInt16BE(0x04B0, pat0 + 8);
+
+    // Assign first N samples (up to 9) to drum parts
+    const partsToAssign = Math.min(monoCount, 9);
+    for (let p = 0; p < partsToAssign; p++) {
+      const partOff = pat0 + 24 + p * 34;
+      // Sample pointer = sample index (instead of 0x8000 = OFF)
+      headerBuffer.writeUInt16BE(p, partOff + 0);
+      // Slice = 0xFF00 (play all, hardware default)
+      headerBuffer.writeUInt16BE(0xFF00, partOff + 2);
+      // Level = 0x64 (reasonable default, not too loud)
+      headerBuffer.writeUInt8(0x64, partOff + 9);
+    }
+  }
+
+  // Compute BPS checksum (sum of all sample data bytes, uint32BE)
+  let checksum = 0;
+  for (const block of dataBlocks) {
+    for (let i = 0; i < block.length; i++) checksum = (checksum + block[i]) >>> 0;
+  }
+  headerBuffer.writeUInt32BE(checksum, ADDR.BPS_HEADER + 0x0C);
 
   // Combine header + sample data
   const sampleDataBuffer = Buffer.concat(dataBlocks);
