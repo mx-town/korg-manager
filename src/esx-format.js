@@ -206,7 +206,136 @@ function convertTo16BitMono(wavInfo) {
 // ── ESX File Builder ───────────────────────────────────────
 
 /**
- * Create an empty ESX file structure.
+ * Initialize a single drum part (34 bytes) with default values.
+ * Offset: offset within the pattern where this drum part starts
+ */
+function initDrumPart(buffer, offset) {
+  // +0-1: samplepointer = 0x8000 (OFF, uint16BE)
+  buffer.writeUInt16BE(0x8000, offset + 0);
+  // +2-3: slicenumber = 0x8000 (ALL, uint16BE)
+  buffer.writeUInt16BE(0x8000, offset + 2);
+  // +4: filtertype = 0x00 (LPF)
+  buffer.writeUInt8(0x00, offset + 4);
+  // +5: cutoff = 0x7F (open)
+  buffer.writeUInt8(0x7F, offset + 5);
+  // +6: resonance = 0x00
+  buffer.writeUInt8(0x00, offset + 6);
+  // +7: egint = 0x40 (center)
+  buffer.writeUInt8(0x40, offset + 7);
+  // +8: pitch = 0x40 (center/equal)
+  buffer.writeUInt8(0x40, offset + 8);
+  // +9: level = 0x7F (maximum)
+  buffer.writeUInt8(0x7F, offset + 9);
+  // +10: pan = 0x40 (center)
+  buffer.writeUInt8(0x40, offset + 10);
+  // +11: egtime = 0x40 (center)
+  buffer.writeUInt8(0x40, offset + 11);
+  // +12: startpoint = 0x00
+  buffer.writeUInt8(0x00, offset + 12);
+  // +13: fxflags = 0x00 (all off)
+  buffer.writeUInt8(0x00, offset + 13);
+  // +14: modflags = 0x00 (all off)
+  buffer.writeUInt8(0x00, offset + 14);
+  // +15: modspeed = 0x00
+  buffer.writeUInt8(0x00, offset + 15);
+  // +16: moddepth = 0x40 (center)
+  buffer.writeUInt8(0x40, offset + 16);
+  // +17: motionseqstatus = 0x00
+  buffer.writeUInt8(0x00, offset + 17);
+  // +18-33: sequencedata = 16x empty steps
+  for (let i = 0; i < 16; i++) {
+    buffer.writeUInt8(0x00, offset + 18 + i);
+  }
+}
+
+/**
+ * Initialize a single pattern (4280 bytes) with default values.
+ */
+function initDefaultPattern(buffer, patternOffset) {
+  // Pattern header (24 bytes)
+
+  // +0-7: name = 8x 0x00 (empty)
+  for (let i = 0; i < 8; i++) {
+    buffer.writeUInt8(0x00, patternOffset + i);
+  }
+
+  // +8-9: tempo = 0x3C00 (120.0 BPM, uint16BE)
+  buffer.writeUInt16BE(0x3C00, patternOffset + 8);
+
+  // +10: swing = 0x00 (50%)
+  buffer.writeUInt8(0x00, patternOffset + 10);
+
+  // +11: flags = 0x00 (length=1×16steps, beat=16th, roll=2)
+  buffer.writeUInt8(0x00, patternOffset + 11);
+
+  // +12: fxchain = 0x00 (None)
+  buffer.writeUInt8(0x00, patternOffset + 12);
+
+  // +13: laststep = 0x0F (Step 16)
+  buffer.writeUInt8(0x0F, patternOffset + 13);
+
+  // +14: arpflags = 0x00 (chromatic)
+  buffer.writeUInt8(0x00, patternOffset + 14);
+
+  // +15: arpcenternote = 0x3C (C4 = Note 60)
+  buffer.writeUInt8(0x3C, patternOffset + 15);
+
+  // +16-17: mutestatus = 0x0000 (uint16LE, none muted)
+  buffer.writeUInt16LE(0x0000, patternOffset + 16);
+
+  // +18-19: swingstatus = 0x0000 (uint16LE)
+  buffer.writeUInt16LE(0x0000, patternOffset + 18);
+
+  // +20-21: outputbusstatus = 0x0000 (uint16LE)
+  buffer.writeUInt16LE(0x0000, patternOffset + 20);
+
+  // +22-23: accentstatus = 0x0000 (uint16LE)
+  buffer.writeUInt16LE(0x0000, patternOffset + 22);
+
+  // 9 Drum Parts (starting at offset 24, each 34 bytes = 306 bytes total)
+  for (let i = 0; i < 9; i++) {
+    initDrumPart(buffer, patternOffset + 24 + i * 34);
+  }
+
+  // Keyboard Part 1 & 2 (not implemented in detail, just zero-filled)
+  // Each is much larger (~274 bytes), for now just ensure they're zero
+
+  // Stretch/Slice Parts, Audio-In Part, FX, Motion - all zero-initialized
+  // (already done by Buffer.alloc(..., 0))
+}
+
+/**
+ * Initialize a single song (528 bytes) with default values.
+ */
+function initDefaultSong(buffer, songOffset) {
+  // +0-7: name = 8x 0x00 (empty)
+  for (let i = 0; i < 8; i++) {
+    buffer.writeUInt8(0x00, songOffset + i);
+  }
+
+  // +8-9: tempo = 0x3C00 (120.0 BPM, uint16BE)
+  buffer.writeUInt16BE(0x3C00, songOffset + 8);
+
+  // +10: tempolock = 0x00 (disabled)
+  buffer.writeUInt8(0x00, songOffset + 10);
+
+  // +11: length = 0x00 (minimum length)
+  buffer.writeUInt8(0x00, songOffset + 11);
+
+  // +12: mutehold = 0x00 (disabled)
+  buffer.writeUInt8(0x00, songOffset + 12);
+
+  // +13: nextsongnumber = 0x00 (OFF)
+  buffer.writeUInt8(0x00, songOffset + 13);
+
+  // +14-15: numsongevents = 0x0000 (uint16BE)
+  buffer.writeUInt16BE(0x0000, songOffset + 14);
+
+  // Rest (offset 16+) stays zero-initialized
+}
+
+/**
+ * Create an empty ESX file structure with proper defaults for patterns and songs.
  */
 function createEmptyEsx() {
   // Start with minimum size
@@ -214,6 +343,35 @@ function createEmptyEsx() {
 
   // Write main header at offset 0
   ESX_HEADER.copy(buffer, ADDR.HEADER);
+
+  // ════ Global Parameters (192 bytes at offset 0x20) ════
+  // Based on factory file analysis at offset 0x24:
+  // 0x00: memoryProtect = 0x00 (disabled)
+  // 0x01: unknown = 0x00
+  // 0x02: arpeggiatorControl = 0x00 (NORMAL)
+  // 0x03: audioInMode = 0x00 (MONO)
+  // 0x04: midiClock = 0x00 (INT) ← THIS WAS THE BUG!
+  // 0x05: bitflags = 0x0F (all MIDI messages enabled)
+  buffer.writeUInt8(0x00, ADDR.GLOBAL_PARAMS + 0x00); // memoryProtect
+  buffer.writeUInt8(0x00, ADDR.GLOBAL_PARAMS + 0x01); // unknown
+  buffer.writeUInt8(0x00, ADDR.GLOBAL_PARAMS + 0x02); // arpeggiatorControl
+  buffer.writeUInt8(0x00, ADDR.GLOBAL_PARAMS + 0x03); // audioInMode
+  buffer.writeUInt8(0x00, ADDR.GLOBAL_PARAMS + 0x04); // midiClock (INT)
+  buffer.writeUInt8(0x0F, ADDR.GLOBAL_PARAMS + 0x05); // bitflags (note, sysex, cc, pc)
+
+  // Remaining global params are zero-initialized
+
+  // ════ Initialize all 256 Patterns ════
+  for (let p = 0; p < NUM.PATTERNS; p++) {
+    const patternOffset = ADDR.PATTERN_DATA + p * 4280;
+    initDefaultPattern(buffer, patternOffset);
+  }
+
+  // ════ Initialize all 64 Songs ════
+  for (let s = 0; s < NUM.SONGS; s++) {
+    const songOffset = ADDR.SONG_DATA + s * 528;
+    initDefaultSong(buffer, songOffset);
+  }
 
   // Write BPS header at sample section
   BPS_HEADER.copy(buffer, ADDR.BPS_HEADER);
@@ -277,10 +435,6 @@ function createEmptyEsx() {
   buffer.writeUInt32BE(0, ADDR.NUM_MONO_SAMPLES);
   buffer.writeUInt32BE(0, ADDR.NUM_STEREO_SAMPLES);
   buffer.writeUInt32BE(0, ADDR.CURRENT_OFFSET);
-
-  // Initialize default global params (120 BPM, etc.)
-  // Tempo is stored at global params offset 0x04 as uint16BE (tempo × 10)
-  buffer.writeUInt16BE(1200, ADDR.GLOBAL_PARAMS + 0x04); // 120.0 BPM
 
   // Write the small header at sample data start
   // First 16 bytes of sample data area are a header
