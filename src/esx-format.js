@@ -265,7 +265,7 @@ function initDrumPart(buffer, offset) {
  */
 function initKeyboardPart(buffer, offset) {
   buffer.writeUInt16BE(0x0000, offset + 0);  // samplepointer (sample 0)
-  buffer.writeUInt8(0x00, offset + 2);       // slice
+  buffer.writeUInt8(0xFF, offset + 2);       // slice = 0xFF (no slice — plays whole sample)
   buffer.writeUInt8(0x00, offset + 3);       // reserved
   buffer.writeUInt8(0x00, offset + 4);       // glide
   buffer.writeUInt8(0x00, offset + 5);       // filtertype (LPF)
