@@ -409,7 +409,7 @@ function createEmptyEsx() {
     buffer.writeUInt8(0xFF, off + 34);
     // unknown bytes
     buffer.writeUInt8(0x00, off + 35);
-    buffer.writeUInt8(0x80, off + 36); // stretchstep off
+    buffer.writeUInt8(0xFF, off + 36); // stretchstep off (hardware uses 0xFF)
     buffer.writeUInt8(0x00, off + 37);
     buffer.writeUInt8(0x00, off + 38);
     buffer.writeUInt8(0x00, off + 39);
@@ -436,7 +436,7 @@ function createEmptyEsx() {
     // playlevel
     buffer.writeUInt8(0xFF, off + 38);
     buffer.writeUInt8(0x00, off + 39);
-    buffer.writeUInt8(0x80, off + 40); // stretchstep off
+    buffer.writeUInt8(0xFF, off + 40); // stretchstep off (hardware uses 0xFF)
     buffer.writeUInt8(0x00, off + 41);
     buffer.writeUInt8(0x00, off + 42);
     buffer.writeUInt8(0x00, off + 43);
@@ -487,7 +487,7 @@ function buildSampleDataBlock(pcmData, sampleIndex, startOffset) {
  * Encode a sample name to 8-byte ESX string format.
  */
 function encodeSampleName(name) {
-  const buf = Buffer.alloc(8, 0x00);
+  const buf = Buffer.alloc(8, 0x20); // pad with spaces (hardware expects 0x20, not 0x00)
   const ascii = name.toUpperCase().replace(/[^A-Z0-9 _\-\.]/g, '').substring(0, 8);
   buf.write(ascii, 0, 'ascii');
   return buf;
@@ -503,7 +503,7 @@ function buildEsxFile(samples) {
   // Start with empty ESX
   const headerBuffer = createEmptyEsx();
 
-  // Collect all sample data blocks
+  // Collect all sample data blocks (with 4-byte alignment padding)
   const dataBlocks = [];
   let currentOffset = 0;
   let monoCount = 0;
@@ -518,7 +518,7 @@ function buildEsxFile(samples) {
     // Update mono sample header
     const hdrOff = ADDR.SAMPLE_HDR_MONO + monoCount * SIZE.SAMPLE_HDR_MONO;
 
-    // Name
+    // Name (space-padded)
     encodeSampleName(sample.name).copy(headerBuffer, hdrOff);
 
     // Channel offsets (include the 16-byte per-sample header)
@@ -529,20 +529,36 @@ function buildEsxFile(samples) {
     headerBuffer.writeUInt32BE(0, hdrOff + 16);  // start frame
     headerBuffer.writeUInt32BE(sample.numFrames - 1, hdrOff + 20); // end frame
 
-    // Loop start (0xFFFFFFFF = no loop)
-    headerBuffer.writeUInt32BE(0xFFFFFFFF, hdrOff + 24);
+    // Loop start — preserve if provided, otherwise no loop
+    const loopVal = (sample.loopStart != null && sample.loopStart !== null)
+      ? sample.loopStart : 0xFFFFFFFF;
+    headerBuffer.writeUInt32BE(loopVal, hdrOff + 24);
 
     // Sample rate
     headerBuffer.writeUInt32BE(sample.sampleRate, hdrOff + 28);
 
-    // Sample tune (0.00)
-    headerBuffer.writeUInt16BE(0x0000, hdrOff + 32);
+    // Sample tune — preserve if provided
+    headerBuffer.writeUInt16BE(sample.sampleTune || 0x0000, hdrOff + 32);
 
-    // Play level: 0dB
-    headerBuffer.writeUInt8(0x00, hdrOff + 34);
+    // Play level — preserve if provided
+    headerBuffer.writeUInt8(sample.playLevel || 0x00, hdrOff + 34);
+
+    // Stretch step = 0xFF (off, hardware default)
+    headerBuffer.writeUInt8(0xFF, hdrOff + 36);
 
     dataBlocks.push(block);
     currentOffset += blockSize;
+
+    // Add 4-byte-aligned padding between blocks (hardware requirement)
+    // Formula: next block starts at ((currentOffset + 3) & ~3) + (currentOffset % 4 === 0 ? 4 : 0)
+    // Simplified: nextStart = (currentOffset + 4) & ~3
+    const nextAligned = (currentOffset + 4) & ~3;
+    const padSize = nextAligned - currentOffset;
+    if (padSize > 0) {
+      dataBlocks.push(Buffer.alloc(padSize, 0));
+      currentOffset = nextAligned;
+    }
+
     monoCount++;
   }
 
@@ -638,6 +654,8 @@ function parseEsxFile(buffer) {
     const endFrame = buffer.readUInt32BE(hdrOff + 20);
     const loopStart = buffer.readUInt32BE(hdrOff + 24);
     const sampleRate = buffer.readUInt32BE(hdrOff + 28);
+    const sampleTune = buffer.readUInt16BE(hdrOff + 32);
+    const playLevel = buffer.readUInt8(hdrOff + 34);
 
     // Extract PCM data
     const dataStart = ADDR.SAMPLE_DATA + ch1Start + 16; // skip 16-byte block header
@@ -658,6 +676,8 @@ function parseEsxFile(buffer) {
       numFrames,
       duration,
       loopStart: loopStart === 0xFFFFFFFF ? null : loopStart,
+      sampleTune,
+      playLevel,
       startFrame,
       endFrame,
       pcmData,
