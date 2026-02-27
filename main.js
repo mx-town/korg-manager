@@ -138,7 +138,15 @@ ipcMain.handle('import-zip', async () => {
   try {
     const zip = new AdmZip(result.filePaths[0]);
     const wavEntries = zip.getEntries()
-      .filter(e => !e.isDirectory && /\.(wav|aif|aiff)$/i.test(e.entryName))
+      .filter(e => {
+        if (e.isDirectory) return false;
+        if (!/\.(wav|aif|aiff)$/i.test(e.entryName)) return false;
+        // Skip macOS resource forks and hidden junk
+        const name = e.entryName.replace(/\\/g, '/');
+        if (name.includes('__MACOSX/')) return false;
+        if (name.split('/').pop().startsWith('._')) return false;
+        return true;
+      })
       .sort((a, b) => a.entryName.localeCompare(b.entryName));
     if (wavEntries.length === 0) return { imported: [{ error: 'No WAV/AIF in ZIP', originalName: path.basename(result.filePaths[0]) }], state: getSamplesInfo() };
     for (const entry of wavEntries) {
@@ -146,7 +154,11 @@ ipcMain.handle('import-zip', async () => {
       const parts = entryPath.split('/');
       const fileName = parts.pop();
       const folder = parts.join('/');
-      const res = importWavBuffer(Buffer.from(entry.getData()), path.basename(fileName, path.extname(fileName)), null);
+      let data;
+      try { data = entry.getData(); } catch (e) { imported.push({ error: `Cannot decompress: ${fileName}`, originalName: fileName }); continue; }
+      if (!data || data.length < 12) { imported.push({ error: `Empty or too small: ${fileName} (${data ? data.length : 0} bytes)`, originalName: fileName }); continue; }
+      const buf = Buffer.from(data);
+      const res = importWavBuffer(buf, path.basename(fileName, path.extname(fileName)), null);
       if (res.ok && folder) currentSamples[res.index].folder = folder;
       res.folder = folder || null;
       imported.push(res);

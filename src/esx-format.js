@@ -70,12 +70,21 @@ const PCM_SIG = Buffer.from([0x80, 0x00, 0x7F, 0xFF]);
 function parseWavFile(buffer) {
   const view = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength);
 
+  if (buffer.length < 12) {
+    throw new Error(`Not a valid WAV file (too small: ${buffer.length} bytes)`);
+  }
+
   // Check RIFF header
   const riff = buffer.toString('ascii', 0, 4);
-  if (riff !== 'RIFF') throw new Error('Not a valid WAV file (missing RIFF header)');
+  if (riff !== 'RIFF') {
+    const hex = buffer.slice(0, Math.min(8, buffer.length)).toString('hex').match(/../g).join(' ');
+    throw new Error(`Not a valid WAV file (expected RIFF header, got bytes: ${hex})`);
+  }
 
   const wave = buffer.toString('ascii', 8, 12);
-  if (wave !== 'WAVE') throw new Error('Not a valid WAV file (missing WAVE format)');
+  if (wave !== 'WAVE') {
+    throw new Error(`Not a valid WAV file (expected WAVE format, got "${wave}")`);
+  }
 
   let offset = 12;
   let fmt = null;
