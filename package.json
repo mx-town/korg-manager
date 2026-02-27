@@ -1,0 +1,34 @@
+{
+  "name": "korg-esx-manager",
+  "version": "1.0.0",
+  "description": "Sample Manager for Korg Electribe ESX-1 – Drag & Drop WAV to .esx",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win",
+    "pack": "electron-builder --dir"
+  },
+  "author": "ESX Manager",
+  "license": "MIT",
+  "dependencies": {
+    "adm-zip": "^0.5.16"
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1"
+  },
+  "build": {
+    "appId": "com.esx-manager.app",
+    "productName": "Korg ESX Manager",
+    "win": {
+      "target": "nsis",
+      "icon": "src/icon.png"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*",
+      "node_modules/**/*"
+    ]
+  }
+}

@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NBG-GESCHRUBBE</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&family=Orbitron:wght@400;500;600;700;800;900&display=swap');
+:root{
+  --void:#04060c;--dark:#0a0e18;--panel:#0c1020;--cell:#080c16;
+  --cell-h:#101628;--cell-a:#1a1020;
+  --hi:#ff2244;--hi-d:#8a1225;--hi-g:rgba(255,34,68,.18);--hi-dk:#1a0810;
+  --blue:#2299ff;--blue-d:#104488;--blue-g:rgba(34,153,255,.15);--blue-dk:#081828;
+  --led:#00ccff;--led-d:#006688;--led-g:rgba(0,204,255,.2);
+  --warn:#ff6600;--warn-d:#663300;
+  --yel:#ffe600;--yel-d:#665c00;
+  --cursor:#ff2244;--cursor-g:rgba(255,34,68,.6);
+  --txt:#c8d0e0;--txt-d:#6678;--txt-x:#2a3040;
+  --brd:#1a2035;--brd-h:#253050;
+  --lcd:'Share Tech Mono',monospace;--head:'Orbitron',sans-serif;--ui:'Rajdhani',sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;background:var(--void);color:var(--txt);font-family:var(--ui);font-size:14px;overflow:hidden;user-select:none}
+body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,4,16,.06) 3px,rgba(0,4,16,.06) 6px);pointer-events:none;z-index:9998}
+.app{display:grid;grid-template-rows:auto auto 1fr auto;height:100vh}
+
+/* ═══ HEADER ═══ */
+.header{display:flex;align-items:center;gap:12px;padding:10px 18px;background:linear-gradient(180deg,#0e1428,var(--dark));border-bottom:3px solid var(--hi-d);position:relative}
+.header::before{content:'';position:absolute;bottom:-3px;left:0;right:0;height:3px;background:repeating-linear-gradient(90deg,var(--hi) 0px,var(--hi) 6px,transparent 6px,transparent 12px);animation:hz 1.5s linear infinite}
+@keyframes hz{from{background-position:0}to{background-position:24px}}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-badge{background:var(--hi);color:#fff;font-family:var(--head);font-weight:900;font-size:9px;letter-spacing:2px;padding:5px 10px;clip-path:polygon(4px 0%,100% 0%,calc(100% - 4px) 100%,0% 100%)}
+.logo-t{font-family:var(--head);font-weight:800;font-size:15px;color:var(--hi);letter-spacing:3px;text-shadow:0 0 14px var(--hi-g)}
+.logo-s{font-family:var(--lcd);font-size:10px;color:var(--blue);letter-spacing:2px;text-shadow:0 0 6px var(--blue-g)}
+.ha{display:flex;gap:5px;margin-left:auto;align-items:center}
+.hsep{width:1px;height:28px;background:var(--brd-h);margin:0 6px}
+
+/* ═══ BUTTONS ═══ */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border:1px solid var(--brd-h);background:var(--panel);color:var(--txt);font-family:var(--lcd);font-size:12px;cursor:pointer;transition:all 60ms;letter-spacing:1px;clip-path:polygon(4px 0%,100% 0%,calc(100% - 4px) 100%,0% 100%);text-transform:uppercase}
+.btn:hover{background:var(--cell-h);border-color:var(--blue-d);color:var(--led)}
+.btn:active{transform:scale(.97)}
+.btn-hi{background:var(--hi-dk);border-color:var(--hi-d);color:var(--hi)}
+.btn-hi:hover{background:var(--hi-d);color:#fff;box-shadow:0 0 14px var(--hi-g)}
+.btn-warn{border-color:var(--warn-d);color:var(--warn)} .btn-warn:hover{background:var(--warn-d);color:#fff}
+.btn-sm{padding:5px 10px;font-size:11px}
+.btn-ghost{background:transparent;border-color:transparent;clip-path:none}
+
+/* ═══ PATH BAR ═══ */
+.pbar{display:flex;align-items:center;gap:10px;padding:6px 18px;background:var(--void);border-bottom:1px solid var(--brd)}
+.pbar-l{font-family:var(--lcd);font-size:11px;color:var(--txt-x);letter-spacing:2px}
+.pbar-v{font-family:var(--lcd);font-size:12px;color:var(--txt-d);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.pbar-v .fld{color:var(--blue-d)} .pbar-v .fil{color:var(--led)}
+.pbar-st{font-family:var(--lcd);font-size:10px;padding:3px 10px;letter-spacing:1px;clip-path:polygon(3px 0%,100% 0%,calc(100% - 3px) 100%,0% 100%)}
+.pbar-st.un{color:#000;background:var(--yel)} .pbar-st.sv{color:#fff;background:var(--blue-d)} .pbar-st.em{color:var(--txt-x);background:var(--brd)}
+
+/* ═══ MAIN ═══ */
+.main{display:grid;grid-template-columns:1fr 340px;overflow:hidden}
+
+/* ═══ SAMPLE LIST ═══ */
+.sl-w{display:flex;flex-direction:column;overflow:hidden;border-right:2px solid var(--brd)}
+.sl-hdr{display:flex;align-items:center;padding:10px 16px;background:var(--dark);border-bottom:1px solid var(--brd);gap:10px}
+.sl-hdr h2{font-family:var(--head);font-size:11px;font-weight:700;color:var(--txt-d);letter-spacing:3px}
+.sc{font-family:var(--lcd);font-size:13px;color:var(--led);background:var(--blue-dk);padding:3px 12px;border:1px solid var(--blue-d);clip-path:polygon(3px 0%,100% 0%,calc(100% - 3px) 100%,0% 100%)}
+.sl{flex:1;overflow-y:auto;overflow-x:hidden}
+.sl::-webkit-scrollbar{width:6px} .sl::-webkit-scrollbar-track{background:var(--void)} .sl::-webkit-scrollbar-thumb{background:var(--blue-d);border-radius:3px}
+.ch{display:grid;grid-template-columns:40px 100px 1fr 60px 65px 65px 30px;gap:6px;padding:6px 12px;font-family:var(--lcd);font-size:10px;color:var(--txt-x);letter-spacing:2px;border-bottom:1px solid var(--brd);background:var(--void)}
+.ss{display:grid;grid-template-columns:40px 100px 1fr 60px 65px 65px 30px;gap:6px;align-items:center;padding:8px 12px;cursor:pointer;transition:all 50ms;border-left:3px solid transparent;border-bottom:1px solid rgba(255,255,255,.02)}
+.ss:hover{background:var(--cell-h);border-left-color:var(--blue-d)}
+.ss.act{background:var(--cell-a);border-left-color:var(--hi);box-shadow:inset 0 0 40px rgba(255,34,68,.03)}
+.si{font-family:var(--lcd);font-size:12px;color:var(--txt-x);text-align:center} .ss.act .si{color:var(--hi)}
+.sn{font-family:var(--lcd);font-size:14px;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .ss.act .sn{color:var(--led)}
+.sf{font-family:var(--lcd);font-size:11px;color:var(--txt-x);overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .sf.has{color:var(--txt-d)}
+.sr,.sd,.sz{font-family:var(--lcd);font-size:12px;color:var(--txt-d);text-align:right}
+.sx{width:26px;height:24px;display:flex;align-items:center;justify-content:center;border:none;background:none;color:var(--txt-x);cursor:pointer;font-size:14px;opacity:0;transition:all 50ms} .ss:hover .sx{opacity:1} .sx:hover{color:var(--hi)}
+
+/* Drop zone */
+.dz{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:50px;border:2px dashed var(--brd-h);margin:24px;min-height:240px;cursor:pointer;transition:all 80ms}
+.dz:hover,.dz.dg{border-color:var(--hi);background:var(--hi-dk)}
+.dz i{font-size:52px;font-style:normal;filter:grayscale(1) brightness(.4);transition:all 150ms} .dz:hover i{filter:none}
+.dz p{font-family:var(--lcd);font-size:13px;color:var(--txt-d);text-align:center;line-height:2;letter-spacing:1px} .dz strong{color:var(--hi)}
+.es{flex:1;display:flex;align-items:center;justify-content:center}
+
+/* ═══ SIDEBAR ═══ */
+.sb{display:flex;flex-direction:column;background:var(--dark);overflow-y:auto}
+.sb::-webkit-scrollbar{width:5px} .sb::-webkit-scrollbar-track{background:var(--void)} .sb::-webkit-scrollbar-thumb{background:var(--blue-d)}
+.sbs{padding:14px 16px;border-bottom:1px solid var(--brd)}
+.sbt{font-family:var(--head);font-size:10px;font-weight:700;color:var(--blue-d);letter-spacing:3px;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.sbt::after{content:'';flex:1;height:1px;background:var(--brd)}
+
+/* Waveform */
+.wf-w{background:var(--void);border:1px solid var(--brd);padding:8px;position:relative;cursor:crosshair}
+.wf-e{display:flex;align-items:center;justify-content:center;height:110px;color:var(--txt-x);font-family:var(--lcd);font-size:12px;letter-spacing:2px}
+#wfC{width:100%;height:110px;display:block}
+.wf-i{display:flex;gap:10px;margin-top:8px;flex-wrap:wrap}
+.wf-ii{font-family:var(--lcd);font-size:11px;color:var(--txt-d)} .wf-ii span{color:var(--led)} .wf-ii.pk span{color:var(--hi)}
+.wf-sel{font-family:var(--lcd);font-size:11px;color:var(--yel);margin-top:6px;display:none}
+
+/* Transport */
+.pb{width:100%;padding:12px;background:var(--void);border:2px solid var(--hi-d);color:var(--hi);font-family:var(--head);font-size:14px;font-weight:700;cursor:pointer;letter-spacing:4px;transition:all 60ms;clip-path:polygon(6px 0%,100% 0%,calc(100% - 6px) 100%,0% 100%)}
+.pb:hover{background:var(--hi-dk);border-color:var(--hi);box-shadow:0 0 20px var(--hi-g)}
+.pb.pl{background:var(--hi-d);border-color:var(--hi);color:#fff;animation:bp .6s ease infinite}
+@keyframes bp{0%,100%{box-shadow:0 0 5px var(--hi-g)}50%{box-shadow:0 0 20px var(--hi-g)}}
+
+/* MODIFY button */
+.mod-btn{width:100%;padding:14px;background:linear-gradient(135deg,var(--blue-dk),#060c1a);border:2px solid var(--blue);color:var(--led);font-family:var(--head);font-size:14px;font-weight:800;cursor:pointer;letter-spacing:5px;transition:all 80ms;clip-path:polygon(7px 0%,100% 0%,calc(100% - 7px) 100%,0% 100%);text-shadow:0 0 12px var(--blue-g)}
+.mod-btn:hover{background:var(--blue-d);color:#fff;box-shadow:0 0 40px var(--blue-g);text-shadow:none}
+
+.ren{background:var(--void);border:1px solid var(--blue-d);color:var(--led);font-family:var(--lcd);font-size:16px;padding:6px 10px;width:100%;text-transform:uppercase;letter-spacing:3px;outline:none}
+.ren:focus{border-color:var(--led);box-shadow:0 0 10px var(--led-g)}
+.dr{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.02)}
+.dl{font-family:var(--lcd);font-size:11px;color:var(--txt-x);letter-spacing:1px} .dv{font-family:var(--lcd);font-size:13px;color:var(--txt)}
+.sa{display:flex;gap:4px;margin-top:8px} .sa .btn{flex:1;justify-content:center}
+.undo-row{display:flex;gap:4px;margin-top:8px}
+.undo-btn{padding:6px 10px;background:var(--void);border:1px solid var(--brd-h);color:var(--txt-x);font-family:var(--lcd);font-size:11px;cursor:pointer;transition:all 60ms;flex:1;text-align:center}
+.undo-btn.on{color:var(--yel);border-color:var(--yel-d)} .undo-btn.on:hover{background:var(--yel-d);color:#000}
+.undo-info{font-family:var(--lcd);font-size:11px;color:var(--txt-x);display:flex;align-items:center;padding:0 6px} .undo-info span{color:var(--yel)}
+
+/* Memory */
+.ms{padding:12px 16px}
+.mo{background:var(--void);border:1px solid var(--brd);height:22px;overflow:hidden;position:relative}
+.mi{height:100%;background:var(--blue-d);transition:width .3s;position:relative}
+.mi::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(-45deg,transparent 0px,transparent 4px,rgba(0,0,0,.3) 4px,rgba(0,0,0,.3) 8px)}
+.mi.w{background:var(--warn-d)} .mi.c{background:var(--hi-d);animation:mf .8s ease infinite}
+@keyframes mf{0%,100%{opacity:1}50%{opacity:.7}}
+.mt{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:var(--lcd);font-size:11px;color:var(--txt);text-shadow:0 1px 3px rgba(0,0,0,.9);z-index:2}
+.mst{display:flex;justify-content:space-between;margin-top:6px}
+.msi{font-family:var(--lcd);font-size:11px;color:var(--txt-d)} .msi span{color:var(--led)}
+
+/* Footer */
+.footer{display:flex;align-items:center;justify-content:space-between;padding:6px 18px;background:var(--void);border-top:1px solid var(--brd)}
+.fs{font-family:var(--lcd);font-size:10px;color:var(--txt-x);letter-spacing:1px} .fs .hl{color:var(--hi)}
+
+/* Toasts */
+.tw{position:fixed;bottom:50px;right:18px;z-index:10001;display:flex;flex-direction:column;gap:6px}
+.toast{background:var(--panel);border:1px solid var(--brd-h);padding:10px 16px;font-family:var(--lcd);font-size:13px;color:var(--txt);box-shadow:0 4px 20px rgba(0,0,0,.6);animation:tin .15s ease;max-width:380px;clip-path:polygon(4px 0%,100% 0%,calc(100% - 4px) 100%,0% 100%)}
+.toast.success{border-color:var(--blue-d);color:var(--led)} .toast.error{border-color:var(--hi-d);color:var(--hi)} .toast.info{border-color:var(--yel-d);color:var(--yel)}
+@keyframes tin{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:translateX(0)}}
+
+/* ═══ MODIFY MODAL ═══ */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(2,4,12,.9);z-index:10000;backdrop-filter:blur(8px)}
+.modal-bg.show{display:flex;align-items:center;justify-content:center;animation:mIn .2s ease}
+@keyframes mIn{from{opacity:0}to{opacity:1}}
+.modal{background:var(--dark);border:2px solid var(--blue-d);width:94%;max-width:1200px;height:90%;display:grid;grid-template-rows:auto 1fr;clip-path:polygon(10px 0%,100% 0%,100% calc(100% - 10px),calc(100% - 10px) 100%,0% 100%,0% 10px);box-shadow:0 0 80px rgba(34,153,255,.06),0 0 40px rgba(255,34,68,.04)}
+.modal-hdr{display:flex;align-items:center;padding:14px 24px;border-bottom:2px solid var(--blue-d);gap:14px;background:linear-gradient(180deg,#0e1830,var(--dark))}
+.modal-title{font-family:var(--head);font-size:14px;font-weight:800;color:var(--hi);letter-spacing:4px;text-shadow:0 0 12px var(--hi-g)}
+.modal-sample{font-family:var(--lcd);font-size:14px;color:var(--led);margin-left:10px}
+.modal-undo{display:flex;gap:4px;margin-left:auto}
+.modal-undo .undo-btn{padding:8px 14px;font-size:12px}
+.modal-close{padding:8px 20px;background:var(--void);border:1px solid var(--hi-d);color:var(--hi);font-family:var(--head);font-size:12px;font-weight:700;cursor:pointer;letter-spacing:2px;clip-path:polygon(4px 0%,100% 0%,calc(100% - 4px) 100%,0% 100%);transition:all 60ms;margin-left:12px}
+.modal-close:hover{background:var(--hi-d);color:#fff}
+.modal-body{display:grid;grid-template-columns:1fr 400px;overflow:hidden}
+
+/* MODAL LEFT: Waveform */
+.modal-left{display:flex;flex-direction:column;padding:20px;border-right:2px solid var(--brd);overflow-y:auto}
+.modal-left::-webkit-scrollbar{width:5px} .modal-left::-webkit-scrollbar-track{background:var(--void)} .modal-left::-webkit-scrollbar-thumb{background:var(--blue-d)}
+.m-wf-wrap{background:var(--void);border:1px solid var(--brd-h);padding:0;flex-shrink:0;position:relative;cursor:pointer}
+#mWfC{width:100%;height:220px;display:block}
+/* Time display overlay */
+.m-time{position:absolute;bottom:8px;left:10px;font-family:var(--lcd);font-size:16px;color:var(--hi);text-shadow:0 0 8px var(--hi-g),0 1px 4px rgba(0,0,0,.8);pointer-events:none;z-index:2}
+.m-time-total{position:absolute;bottom:8px;right:10px;font-family:var(--lcd);font-size:13px;color:var(--led);text-shadow:0 1px 4px rgba(0,0,0,.8);pointer-events:none;z-index:2}
+.m-wf-info{display:flex;flex-wrap:wrap;gap:14px;margin-top:10px;padding:10px 14px;background:var(--void);border:1px solid var(--brd)}
+.m-wf-item{font-family:var(--lcd);font-size:13px;color:var(--txt-d)} .m-wf-item span{color:var(--led);font-size:14px} .m-wf-item.pk span{color:var(--hi)}
+.m-play-row{display:flex;gap:8px;margin-top:12px}
+.m-play{flex:1;padding:14px;background:var(--void);border:2px solid var(--hi-d);color:var(--hi);font-family:var(--head);font-size:14px;font-weight:700;cursor:pointer;letter-spacing:4px;transition:all 60ms;clip-path:polygon(6px 0%,100% 0%,calc(100% - 6px) 100%,0% 100%);text-align:center}
+.m-play:hover{background:var(--hi-dk);border-color:var(--hi);box-shadow:0 0 20px var(--hi-g)}
+.m-play.pl{background:var(--hi-d);border-color:var(--hi);color:#fff}
+.m-stop{padding:14px 24px;background:var(--void);border:2px solid var(--brd-h);color:var(--txt-d);font-family:var(--head);font-size:14px;font-weight:700;cursor:pointer;letter-spacing:2px;transition:all 60ms;clip-path:polygon(6px 0%,100% 0%,calc(100% - 6px) 100%,0% 100%)}
+.m-stop:hover{border-color:var(--txt-d);color:var(--txt)}
+
+/* Quick tools */
+.m-tools{display:flex;gap:6px;margin-top:12px;flex-wrap:wrap}
+.m-tool{padding:10px 14px;background:var(--cell);border:1px solid var(--brd);color:var(--txt-d);font-family:var(--lcd);font-size:12px;cursor:pointer;transition:all 60ms;letter-spacing:1px}
+.m-tool:hover{border-color:var(--blue-d);color:var(--led);background:var(--cell-h)}
+.m-guide-btn{margin-top:12px;padding:10px;background:var(--void);border:1px solid var(--brd-h);color:var(--txt-d);font-family:var(--lcd);font-size:12px;cursor:pointer;text-align:center;letter-spacing:2px;transition:all 60ms;width:100%}
+.m-guide-btn:hover{border-color:var(--hi-d);color:var(--hi)}
+
+/* MODAL RIGHT: Effects */
+.modal-right{display:flex;flex-direction:column;overflow-y:auto;background:var(--void)}
+.modal-right::-webkit-scrollbar{width:5px} .modal-right::-webkit-scrollbar-track{background:var(--void)} .modal-right::-webkit-scrollbar-thumb{background:var(--blue-d)}
+
+.fx-item{border-bottom:1px solid var(--brd)}
+.fx-head{display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;transition:all 60ms}
+.fx-head:hover{background:var(--cell-h)}
+.fx-item.open .fx-head{background:var(--blue-dk);border-left:3px solid var(--blue)}
+.fx-icon{font-size:20px;width:28px;text-align:center;flex-shrink:0}
+.fx-name{font-family:var(--lcd);font-size:14px;color:var(--txt);letter-spacing:1px;flex:1}
+.fx-item.open .fx-name{color:var(--led)}
+.fx-desc{font-family:var(--lcd);font-size:10px;color:var(--txt-x)}
+.fx-arrow{font-family:var(--lcd);font-size:14px;color:var(--txt-x);transition:transform .15s}
+.fx-item.open .fx-arrow{transform:rotate(90deg);color:var(--blue)}
+.fx-body{display:none;padding:16px 20px;background:var(--dark);border-left:3px solid var(--blue-d)}
+.fx-item.open .fx-body{display:block;animation:fxIn .15s ease}
+@keyframes fxIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+
+.fx-row{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.fx-lbl{font-family:var(--lcd);font-size:13px;color:var(--txt-d);min-width:60px;letter-spacing:1px}
+.fx-val{font-family:var(--lcd);font-size:15px;color:var(--led);min-width:70px;text-align:right;font-weight:600}
+input[type="range"]{-webkit-appearance:none;flex:1;height:6px;background:var(--brd-h);outline:none;cursor:pointer;border-radius:3px}
+input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;background:var(--hi);border:2px solid var(--hi-d);cursor:pointer;border-radius:2px;box-shadow:0 0 6px var(--hi-g)}
+input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
+.fx-presets{display:flex;gap:5px;margin-bottom:10px;flex-wrap:wrap}
+.fx-pre{padding:6px 12px;background:var(--panel);border:1px solid var(--brd-h);color:var(--txt-d);font-family:var(--lcd);font-size:11px;cursor:pointer;transition:all 50ms}
+.fx-pre:hover{border-color:var(--blue-d);color:var(--led)}
+.fx-pre.act{border-color:var(--hi);color:var(--hi)}
+.fx-go{width:100%;padding:12px;margin-top:6px;background:var(--hi-dk);border:2px solid var(--hi);color:var(--hi);font-family:var(--head);font-size:13px;font-weight:700;cursor:pointer;letter-spacing:3px;transition:all 60ms;clip-path:polygon(5px 0%,100% 0%,calc(100% - 5px) 100%,0% 100%);text-align:center}
+.fx-go:hover{background:var(--hi);color:#fff;box-shadow:0 0 20px var(--hi-g)}
+.fx-note{font-family:var(--lcd);font-size:10px;color:var(--txt-x);margin-top:6px}
+
+/* ═══ GUIDE MODAL ═══ */
+.guide-modal{background:var(--dark);border:2px solid var(--blue-d);width:85%;max-width:800px;height:85%;display:grid;grid-template-rows:auto 1fr;clip-path:polygon(10px 0%,100% 0%,100% calc(100% - 10px),calc(100% - 10px) 100%,0% 100%,0% 10px);box-shadow:0 0 60px rgba(34,153,255,.06)}
+.guide-body{overflow-y:auto;padding:24px 30px}
+.guide-body::-webkit-scrollbar{width:5px} .guide-body::-webkit-scrollbar-track{background:var(--void)} .guide-body::-webkit-scrollbar-thumb{background:var(--blue-d)}
+.g-sec{margin-bottom:28px}
+.g-h{font-family:var(--head);font-size:14px;font-weight:800;color:var(--hi);letter-spacing:4px;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--hi-d)}
+.g-sub{font-family:var(--head);font-size:11px;font-weight:700;color:var(--led);letter-spacing:2px;margin:14px 0 10px}
+.g-p{font-family:var(--ui);font-size:15px;color:var(--txt);line-height:1.8;margin-bottom:10px} .g-p strong{color:var(--hi)}
+.g-list{list-style:none;margin:10px 0}
+.g-list li{font-family:var(--lcd);font-size:13px;color:var(--txt-d);padding:6px 0 6px 18px;border-left:2px solid var(--blue-d);margin-bottom:5px;line-height:1.6} .g-list li strong{color:var(--led)}
+.g-box{background:var(--void);border:1px solid var(--blue-d);padding:16px;margin:10px 0;font-family:var(--lcd);font-size:13px;line-height:2;color:var(--txt)} .g-box .hl{color:var(--led)} .g-box .wn{color:var(--hi)} .g-box .yl{color:var(--yel)}
+.g-pat{background:var(--void);border:1px solid var(--brd);padding:14px;margin:10px 0;font-family:var(--lcd);font-size:13px;line-height:1.8}
+.g-pat .on{color:var(--hi);font-weight:bold} .g-pat .off{color:var(--txt-x)} .g-pat .lbl{color:var(--led);display:inline-block;width:60px}
+.g-tip{background:var(--blue-dk);border-left:3px solid var(--blue);padding:12px 16px;margin:10px 0;font-family:var(--ui);font-size:14px;color:var(--txt);line-height:1.7} .g-tip::before{content:'⚡ ';color:var(--hi)}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <div class="logo"><span class="logo-badge">KORG</span><div><div class="logo-t">NBG-GESCHRUBBE</div><div class="logo-s">⚠ electribe sample werkstatt ⚠</div></div></div>
+    <div class="ha">
+      <button class="btn" onclick="openEsx()">📂 OPEN</button>
+      <button class="btn" onclick="importWav()">📥 WAV</button>
+      <button class="btn" onclick="importZip()">📦 ZIP</button>
+      <div class="hsep"></div>
+      <button class="btn" onclick="bNorm()">📊 NORM ALL</button>
+      <button class="btn" onclick="bTrim()">✂ TRIM ALL</button>
+      <div class="hsep"></div>
+      <button class="btn btn-hi" onclick="saveEsx()">💾 EXPORT .ESX</button>
+      <button class="btn" onclick="openGuide()">📖 GUIDE</button>
+      <button class="btn btn-warn btn-sm btn-ghost" onclick="clearAll()">🗑</button>
+    </div>
+  </div>
+  <div class="pbar"><span class="pbar-l">LOC&gt;</span><span class="pbar-v" id="pV"><span style="color:var(--txt-x)">// nichts geladen</span></span><span class="pbar-st em" id="pS">LEER</span></div>
+  <div class="main">
+    <div class="sl-w">
+      <div class="sl-hdr"><h2>▸ SAMPLES</h2><span class="sc" id="sC">0/256</span></div>
+      <div class="ch"><span>#</span><span>NAME</span><span>SRC</span><span style="text-align:right">RATE</span><span style="text-align:right">LEN</span><span style="text-align:right">SIZE</span><span></span></div>
+      <div class="sl" id="sL"><div class="es"><div class="dz" id="dZ"><i>⚡</i><p><strong>SAMPLES HIER REIN</strong><br><br>wav / aif / zip → 16bit mono 44.1k</p></div></div></div>
+    </div>
+    <div class="sb">
+      <div class="sbs"><div class="sbt">WAVEFORM</div>
+        <div class="wf-w" id="wfW"><div class="wf-e" id="wfE">// sample wählen</div><canvas id="wfC" style="display:none"></canvas></div>
+        <div class="wf-i" id="wfI" style="display:none">
+          <div class="wf-ii">hz: <span id="iR">-</span></div><div class="wf-ii">frm: <span id="iF">-</span></div>
+          <div class="wf-ii">t: <span id="iD">-</span></div><div class="wf-ii pk">peak: <span id="iP">-</span></div>
+        </div>
+        <div class="wf-sel" id="wfSel">SEL: <span id="wfSR">-</span> <button class="btn btn-sm" onclick="cropSel()" style="margin-left:6px">✂ CROP</button></div>
+      </div>
+      <div class="sbs" id="secPlay" style="display:none"><button class="pb" id="playBtn" onclick="togglePlay()">▶ PLAY</button></div>
+      <div class="sbs" id="secMod" style="display:none">
+        <button class="mod-btn" onclick="openModify()">⚡ MODIFY</button>
+        <div class="undo-row">
+          <button class="undo-btn" id="uBtn" onclick="doUndo()">◀ UNDO</button>
+          <span class="undo-info" id="uInf"><span>0</span></span>
+          <button class="undo-btn" id="rBtn" onclick="doRedo()">REDO ▶</button>
+          <button class="undo-btn" id="rsBtn" onclick="doReset()" style="color:var(--hi);border-color:var(--hi-d);display:none">⟲ RESET</button>
+        </div>
+      </div>
+      <div class="sbs" id="secDet" style="display:none">
+        <div class="sbt">DETAILS</div>
+        <input type="text" class="ren" id="renIn" maxlength="8" placeholder="SAMPLE" onchange="renam()">
+        <div id="detI" style="margin-top:8px"></div>
+        <div class="sa">
+          <button class="btn btn-sm" onclick="dupSample()">⧉ DUP</button>
+          <button class="btn btn-sm" onclick="moveSample(-1)">▲</button>
+          <button class="btn btn-sm" onclick="moveSample(1)">▼</button>
+          <button class="btn btn-sm" onclick="expWav()">💾 WAV</button>
+          <button class="btn btn-sm btn-warn" onclick="remCur()">✕ DEL</button>
+        </div>
+      </div>
+      <div class="ms" style="margin-top:auto">
+        <div class="sbt">SPEICHER</div>
+        <div class="mo"><div class="mi" id="mB" style="width:0%"></div><div class="mt" id="mT">0%</div></div>
+        <div class="mst"><div class="msi"><span id="mU">0</span> / 24.0 MB</div><div class="msi"><span id="mD">0.0</span>s / 285s</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><div class="fs">nbg-geschrubbe v4.0 — <span class="hl">hardtekk abfahrt</span></div><div class="fs">16-bit mono pcm // big endian // 44.1khz</div></div>
+</div>
+
+<!-- ═══ MODIFY MODAL ═══ -->
+<div class="modal-bg" id="modalBg">
+<div class="modal">
+  <div class="modal-hdr">
+    <span class="modal-title">⚡ MODIFY</span>
+    <span class="modal-sample" id="mSample"></span>
+    <div class="modal-undo">
+      <button class="undo-btn" id="muBtn" onclick="doUndo2()">◀ UNDO</button>
+      <span class="undo-info" id="muInf"><span>0</span></span>
+      <button class="undo-btn" id="mrBtn" onclick="doRedo2()">REDO ▶</button>
+      <button class="undo-btn" id="mrsBtn" onclick="doReset2()" style="color:var(--hi);border-color:var(--hi-d);display:none">⟲ RESET</button>
+    </div>
+    <button class="modal-close" onclick="closeModal()">✕ ESC</button>
+  </div>
+  <div class="modal-body">
+    <div class="modal-left">
+      <div class="m-wf-wrap" id="mWfWrap">
+        <canvas id="mWfC"></canvas>
+        <div class="m-time" id="mTime">0:00.000</div>
+        <div class="m-time-total" id="mTimeT">0:00.000</div>
+      </div>
+      <div class="m-wf-info" id="mWfInfo">
+        <div class="m-wf-item">RATE: <span id="mR">-</span></div>
+        <div class="m-wf-item">FRAMES: <span id="mF">-</span></div>
+        <div class="m-wf-item">LENGTH: <span id="mD2">-</span></div>
+        <div class="m-wf-item pk">PEAK: <span id="mP">-</span></div>
+        <div class="m-wf-item pk">RMS: <span id="mM">-</span></div>
+      </div>
+      <div class="m-play-row">
+        <button class="m-play" id="mPlayBtn" onclick="togglePlay2()">▶ PLAY</button>
+        <button class="m-stop" onclick="stopPlay()">⏹ STOP</button>
+      </div>
+      <div class="m-tools">
+        <div class="m-tool" onclick="mTool('norm')">📊 NORMALIZE</div>
+        <div class="m-tool" onclick="mTool('trim')">✂ TRIM</div>
+        <div class="m-tool" onclick="mTool('dc')">〓 DC REMOVE</div>
+        <div class="m-tool" onclick="mTool('loop')">⟲ LOOP XFADE</div>
+        <div class="m-tool" onclick="mTool('dup')">⧉ DUPLICATE</div>
+        <div class="m-tool" onclick="mTool('wav')">💾 EXPORT WAV</div>
+      </div>
+      <button class="m-guide-btn" onclick="closeModal();openGuide()">📖 HARDTEKK GUIDE ÖFFNEN</button>
+    </div>
+    <div class="modal-right" id="fxList"></div>
+  </div>
+</div>
+</div>
+
+<!-- ═══ GUIDE MODAL ═══ -->
+<div class="modal-bg" id="guideBg">
+<div class="guide-modal">
+  <div class="modal-hdr"><span class="modal-title">📖 HARDTEKK GUIDE</span><button class="modal-close" onclick="document.getElementById('guideBg').classList.remove('show')">✕ CLOSE</button></div>
+  <div class="guide-body" id="guideBody"></div>
+</div>
+</div>
+
+<div class="tw" id="tW"></div>
+<audio id="aE"></audio>
+
+<script>
+// ═══ STATE ═══
+let S={samples:[],numSamples:0,usedPercent:'0'},sel=-1,playing=false,fp=null,dirty=false,wfData=null,wfSel=null;
+let cursorAF=null,seekPos=0; // cursor animation
+const audio=document.getElementById('aE');
+async function init(){updateState(await window.api.getState())} init();
+function toast(m,t='info'){const c=document.getElementById('tW'),e=document.createElement('div');e.className=`toast ${t}`;e.textContent=m;c.appendChild(e);setTimeout(()=>e.remove(),3000)}
+function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
+function fmtTime(sec){if(sec<0)sec=0;const m=Math.floor(sec/60),s=sec-m*60;return `${m}:${s<10?'0':''}${s.toFixed(3)}`}
+function updateState(s){if(!s)return;S=s;renderList();updateMem();updatePath();if(sel>=0)updateUndo()}
+
+// ═══ RENDER ═══
+function renderList(){
+  const l=document.getElementById('sL');document.getElementById('sC').textContent=`${S.numSamples}/${S.maxSamples||256}`;
+  if(!S.numSamples){l.innerHTML=`<div class="es"><div class="dz" id="dZ" onclick="importWav()"><i>⚡</i><p><strong>SAMPLES HIER REIN</strong><br><br>wav / aif / zip → 16bit mono 44.1k</p></div></div>`;setupDrop();return}
+  let h='';for(const s of S.samples){const a=s.index===sel,r=s.sampleRate>=1000?`${(s.sampleRate/1000).toFixed(1)}k`:s.sampleRate,d=s.duration<1?`${(s.duration*1000).toFixed(0)}ms`:`${s.duration.toFixed(2)}s`,z=s.sizeBytes>1048576?`${(s.sizeBytes/1048576).toFixed(1)}M`:`${(s.sizeBytes/1024).toFixed(0)}K`,f=s.folder||'—',fc=s.folder?'sf has':'sf';
+    h+=`<div class="ss ${a?'act':''}" onclick="selS(${s.index})" ondblclick="startRen(${s.index})"><div class="si">${String(s.index+1).padStart(3,'0')}</div><div class="sn">${esc(s.name)}</div><div class="${fc}" title="${esc(f)}">${esc(f)}</div><div class="sr">${r}</div><div class="sd">${d}</div><div class="sz">${z}</div><button class="sx" onclick="event.stopPropagation();remS(${s.index})">✕</button></div>`}l.innerHTML=h}
+function updateMem(){const b=document.getElementById('mB'),t=document.getElementById('mT'),p=parseFloat(S.usedPercent||0);b.style.width=`${p}%`;t.textContent=`${p}%`;b.classList.remove('w','c');if(p>90)b.classList.add('c');else if(p>70)b.classList.add('w');document.getElementById('mU').textContent=`${((S.totalSizeBytes||0)/1048576).toFixed(1)} MB`;document.getElementById('mD').textContent=(S.totalDuration||0).toFixed(1)}
+function updatePath(){const v=document.getElementById('pV'),s=document.getElementById('pS');if(!fp&&!S.numSamples){v.innerHTML='<span style="color:var(--txt-x)">// nichts geladen</span>';s.className='pbar-st em';s.textContent='LEER'}else if(!fp){v.innerHTML=`<span style="color:var(--yel)">NICHT GESPEICHERT</span> <span style="color:var(--txt-x)">(${S.numSamples})</span>`;s.className='pbar-st un';s.textContent='NEU'}else{const p=fp.replace(/\\/g,'/').split('/'),fn=p.pop(),fd=p.slice(-3).join('/');v.innerHTML=`<span class="fld">${esc(fd)}/</span><span class="fil">${esc(fn)}</span>`;s.className=dirty?'pbar-st un':'pbar-st sv';s.textContent=dirty?'MODIFIED':'SAVED'}}
+
+// ═══ ACTIONS ═══
+async function openEsx(){const r=await window.api.openEsxFile();if(!r)return;if(r.error){toast(r.error,'error');return}fp=r.filePath;dirty=false;sel=-1;hideDet();updateState(await window.api.getState());toast(`LOADED: ${r.filePath.split(/[\\/]/).pop()}`,'success')}
+async function importWav(){const r=await window.api.importWavFiles();if(!r||!r.imported)return;r.imported.filter(x=>x.error).forEach(x=>toast(`${x.originalName}: ${x.error}`,'error'));const ok=r.imported.filter(x=>x.ok).length;if(ok>0){dirty=true;toast(`${ok} IMPORTIERT`,'success')}updateState(r.state)}
+async function importZip(){const r=await window.api.importZip();if(!r||!r.imported)return;let ok=0,er=0;r.imported.forEach(x=>{if(x.error){er++;if(er<=3)toast(x.error,'error')}else if(x.ok)ok++});if(ok>0){dirty=true;toast(`${ok} AUS ${r.zipName||'ZIP'} EXTRAHIERT`,'success')}updateState(r.state)}
+async function remS(i){const s=await window.api.removeSample(i);dirty=true;if(sel===i){sel=-1;hideDet()}else if(sel>i)sel--;updateState(s)}
+async function remCur(){if(sel>=0){stopPlay();await remS(sel)}}
+async function selS(i){sel=i;wfSel=null;document.getElementById('wfSel').style.display='none';renderList();showDet(i);const wf=await window.api.getWaveform(i);if(wf)drawWf(wf);updateUndo()}
+function showDet(i){const s=S.samples.find(x=>x.index===i);if(!s)return;['secPlay','secMod','secDet'].forEach(id=>document.getElementById(id).style.display='block');document.getElementById('renIn').value=s.name;const d=s.duration<1?`${(s.duration*1000).toFixed(1)}ms`:`${s.duration.toFixed(3)}s`,z=s.sizeBytes>1048576?`${(s.sizeBytes/1048576).toFixed(2)}MB`:`${(s.sizeBytes/1024).toFixed(1)}KB`;
+  document.getElementById('detI').innerHTML=`<div class="dr"><span class="dl">RATE</span><span class="dv">${s.sampleRate.toLocaleString()} Hz</span></div><div class="dr"><span class="dl">FRAMES</span><span class="dv">${s.numFrames.toLocaleString()}</span></div><div class="dr"><span class="dl">LENGTH</span><span class="dv">${d}</span></div><div class="dr"><span class="dl">SIZE</span><span class="dv">${z}</span></div>${s.folder?`<div class="dr"><span class="dl">SRC</span><span class="dv" style="color:var(--led)">${esc(s.folder)}</span></div>`:''}`}
+function hideDet(){['secPlay','secMod','secDet'].forEach(id=>document.getElementById(id).style.display='none');document.getElementById('wfC').style.display='none';document.getElementById('wfE').style.display='flex';document.getElementById('wfI').style.display='none';document.getElementById('wfSel').style.display='none'}
+async function renam(){if(sel<0)return;const s=await window.api.renameSample(sel,document.getElementById('renIn').value);dirty=true;updateState(s)}
+function startRen(i){selS(i);setTimeout(()=>{const e=document.getElementById('renIn');e.focus();e.select()},100)}
+async function saveEsx(){if(!S.numSamples){toast('KEINE SAMPLES','error');return}const r=await window.api.saveEsxFile('geschrubbe.esx');if(!r)return;if(r.error){toast(r.error,'error');return}fp=r.filePath;dirty=false;updatePath();toast(`GESPEICHERT → ${r.filePath.split(/[\\/]/).pop()} [${(r.size/1048576).toFixed(1)}MB]`,'success')}
+async function expWav(){if(sel<0)return;const f=await window.api.exportWav(sel);if(f)toast(`EXPORTED → ${f.split(/[\\/]/).pop()}`,'success')}
+async function clearAll(){if(!S.numSamples)return;if(!confirm('⚠ ALLES ZERSTÖREN?'))return;stopPlay();sel=-1;fp=null;dirty=false;hideDet();updateState(await window.api.clearAll());toast('ZERSTÖRT','info')}
+async function bNorm(){if(!S.numSamples)return;const r=await window.api.normalizeAll(-1);if(r){dirty=true;toast(`${r.normalized}/${r.total} NORMALIZED`,'success');updateState(r.state);if(sel>=0)reWf()}}
+async function bTrim(){if(!S.numSamples)return;const r=await window.api.trimAll(-40);if(r){dirty=true;toast(`${r.trimmed}/${r.total} GETRIMMT`,'success');updateState(r.state);if(sel>=0){showDet(sel);reWf()}}}
+async function dupSample(){if(sel<0)return;const r=await window.api.duplicateSample(sel);if(r){dirty=true;updateState(r);toast('DUPLIZIERT','success')}}
+async function moveSample(dir){if(sel<0)return;const r=await window.api.moveSample(sel,dir);if(r){sel=r.newIndex;dirty=true;updateState(r.state)}}
+
+// ═══ UNDO ═══
+async function doUndo(){if(sel<0)return;const r=await window.api.undo(sel);if(r){dirty=true;updateState(r);showDet(sel);reWf();toast('UNDO','info');updateUndo();updateModalUndo()}}
+async function doRedo(){if(sel<0)return;const r=await window.api.redo(sel);if(r){dirty=true;updateState(r);showDet(sel);reWf();toast('REDO','info');updateUndo();updateModalUndo()}}
+function doUndo2(){doUndo().then(()=>setTimeout(()=>{if(document.getElementById('modalBg').classList.contains('show'))drawModalWf()},80))}
+function doRedo2(){doRedo().then(()=>setTimeout(()=>{if(document.getElementById('modalBg').classList.contains('show'))drawModalWf()},80))}
+async function doReset(){if(sel<0)return;if(!confirm('⟲ ZURÜCK ZUM ORIGINAL?'))return;const r=await window.api.resetSample(sel);if(r){dirty=true;updateState(r);showDet(sel);reWf();toast('⟲ ORIGINAL WIEDERHERGESTELLT','success');updateUndo()}}
+function doReset2(){doReset().then(()=>setTimeout(()=>{if(document.getElementById('modalBg').classList.contains('show')){drawModalWf();updateModalUndo()}},80))}
+function updateUndo(){const s=S.samples.find(x=>x.index===sel);const u=s?s.undoCount:0,r=s?s.redoCount:0,o=s?s.hasOriginal:false;document.getElementById('uBtn').className=`undo-btn${u?' on':''}`;document.getElementById('rBtn').className=`undo-btn${r?' on':''}`;document.getElementById('uInf').innerHTML=`<span>${u}</span>`;document.getElementById('rsBtn').style.display=o?'block':'none'}
+function updateModalUndo(){const s=S.samples.find(x=>x.index===sel);if(!s)return;const u=s.undoCount,r=s.redoCount,o=s.hasOriginal;document.getElementById('muBtn').className=`undo-btn${u?' on':''}`;document.getElementById('mrBtn').className=`undo-btn${r?' on':''}`;document.getElementById('muInf').innerHTML=`<span>${u}</span>`;document.getElementById('mrsBtn').style.display=o?'block':'none'}
+async function reWf(){const wf=await window.api.getWaveform(sel);if(wf)drawWf(wf)}
+
+// ═══ PLAYBACK WITH CURSOR ═══
+async function togglePlay(){if(playing){stopPlay();return}if(sel<0)return;const b=await window.api.getWavPreview(sel);if(!b)return;audio.src=URL.createObjectURL(new Blob([Uint8Array.from(atob(b),c=>c.charCodeAt(0))],{type:'audio/wav'}));audio.currentTime=seekPos*audio.duration||0;audio.play();playing=true;
+  document.getElementById('playBtn').textContent='⏹ STOP';document.getElementById('playBtn').classList.add('pl');
+  try{document.getElementById('mPlayBtn').textContent='⏹ STOP';document.getElementById('mPlayBtn').classList.add('pl')}catch(e){}
+  startCursorAnim();audio.onended=()=>stopPlay()}
+function stopPlay(){audio.pause();audio.currentTime=0;playing=false;seekPos=0;stopCursorAnim();
+  document.getElementById('playBtn').textContent='▶ PLAY';document.getElementById('playBtn').classList.remove('pl');
+  try{document.getElementById('mPlayBtn').textContent='▶ PLAY';document.getElementById('mPlayBtn').classList.remove('pl')}catch(e){}
+  if(document.getElementById('modalBg').classList.contains('show'))drawModalWfStatic()}
+function togglePlay2(){togglePlay()}
+
+// Cursor animation loop
+function startCursorAnim(){stopCursorAnim();function frame(){if(!playing)return;const pos=audio.currentTime/audio.duration;
+  if(document.getElementById('modalBg').classList.contains('show')){drawModalWfWithCursor(pos);document.getElementById('mTime').textContent=fmtTime(audio.currentTime)}
+  cursorAF=requestAnimationFrame(frame)}cursorAF=requestAnimationFrame(frame)}
+function stopCursorAnim(){if(cursorAF){cancelAnimationFrame(cursorAF);cursorAF=null}}
+
+// ═══ WAVEFORM DRAWING ═══
+function drawWf(data){wfData=data;const c=document.getElementById('wfC'),e=document.getElementById('wfE'),inf=document.getElementById('wfI');c.style.display='block';e.style.display='none';inf.style.display='flex';drawWfCanvas(c,data,110,null);
+  document.getElementById('iR').textContent=data.sampleRate;document.getElementById('iF').textContent=data.numFrames.toLocaleString();document.getElementById('iD').textContent=data.duration<1?`${(data.duration*1000).toFixed(1)}ms`:`${data.duration.toFixed(3)}s`;document.getElementById('iP').textContent=data.peakDb+'dB'}
+
+function drawWfCanvas(canvas,data,h,cursorPos){
+  const dpr=window.devicePixelRatio||1,rect=canvas.parentElement.getBoundingClientRect(),pad=canvas.id==='wfC'?16:0,w=rect.width-pad;
+  canvas.width=w*dpr;canvas.height=h*dpr;canvas.style.width=w+'px';canvas.style.height=h+'px';
+  const ctx=canvas.getContext('2d');ctx.scale(dpr,dpr);const mid=h/2;
+  // BG gradient
+  const bg=ctx.createLinearGradient(0,0,0,h);bg.addColorStop(0,'#060a18');bg.addColorStop(.5,'#040812');bg.addColorStop(1,'#060a18');ctx.fillStyle=bg;ctx.fillRect(0,0,w,h);
+  // Grid
+  ctx.strokeStyle='rgba(34,153,255,.04)';ctx.lineWidth=1;for(let y=0;y<=h;y+=h/8){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke()}for(let x=0;x<=w;x+=w/16){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke()}
+  // Center line
+  ctx.strokeStyle='rgba(34,153,255,.12)';ctx.beginPath();ctx.moveTo(0,mid);ctx.lineTo(w,mid);ctx.stroke();
+  // dB markers
+  ctx.strokeStyle='rgba(255,34,68,.06)';for(const db of [.25,.5,.75]){const y1=mid-db*mid,y2=mid+db*mid;ctx.beginPath();ctx.moveTo(0,y1);ctx.lineTo(w,y1);ctx.stroke();ctx.beginPath();ctx.moveTo(0,y2);ctx.lineTo(w,y2);ctx.stroke()}
+  if(!data||!data.waveform||!data.waveform.length)return;const pts=data.waveform,step=w/pts.length;
+  // Selection overlay
+  if(wfSel&&canvas.id==='wfC'){const sx=wfSel.s/100*w,ex=wfSel.e/100*w;ctx.fillStyle='rgba(255,230,0,.05)';ctx.fillRect(sx,0,ex-sx,h);ctx.strokeStyle='rgba(255,230,0,.5)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(sx,0);ctx.lineTo(sx,h);ctx.stroke();ctx.beginPath();ctx.moveTo(ex,0);ctx.lineTo(ex,h);ctx.stroke()}
+  // Played region (blue tint behind cursor)
+  if(cursorPos!==null&&cursorPos>0){const cx=cursorPos*w;ctx.fillStyle='rgba(34,153,255,.04)';ctx.fillRect(0,0,cx,h)}
+  // Waveform fill
+  const wfGrad=ctx.createLinearGradient(0,0,0,h);wfGrad.addColorStop(0,'rgba(34,153,255,.12)');wfGrad.addColorStop(.5,'rgba(0,204,255,.06)');wfGrad.addColorStop(1,'rgba(34,153,255,.12)');
+  ctx.fillStyle=wfGrad;ctx.beginPath();ctx.moveTo(0,mid);for(let i=0;i<pts.length;i++)ctx.lineTo(i*step,mid-pts[i].max*mid*.9);for(let i=pts.length-1;i>=0;i--)ctx.lineTo(i*step,mid-pts[i].min*mid*.9);ctx.closePath();ctx.fill();
+  // Waveform stroke
+  ctx.strokeStyle='rgba(0,204,255,.5)';ctx.lineWidth=1;ctx.beginPath();for(let i=0;i<pts.length;i++){const x=i*step;ctx.moveTo(x,mid-pts[i].max*mid*.9);ctx.lineTo(x,mid-pts[i].min*mid*.9)}ctx.stroke();
+  // Bright center line of waveform
+  ctx.strokeStyle='rgba(0,204,255,.25)';ctx.lineWidth=1;ctx.beginPath();for(let i=0;i<pts.length;i++){const x=i*step,avg=(pts[i].max+pts[i].min)/2;ctx.lineTo(x,mid-avg*mid*.9)}ctx.stroke();
+  // ═══ CURSOR LINE ═══
+  if(cursorPos!==null&&cursorPos>=0&&cursorPos<=1){
+    const cx=cursorPos*w;
+    // Glow
+    const cg=ctx.createLinearGradient(cx-6,0,cx+6,0);cg.addColorStop(0,'transparent');cg.addColorStop(.5,'rgba(255,34,68,.3)');cg.addColorStop(1,'transparent');ctx.fillStyle=cg;ctx.fillRect(cx-6,0,12,h);
+    // Main line
+    ctx.strokeStyle='#ff2244';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(cx,0);ctx.lineTo(cx,h);ctx.stroke();
+    // Top triangle
+    ctx.fillStyle='#ff2244';ctx.beginPath();ctx.moveTo(cx-5,0);ctx.lineTo(cx+5,0);ctx.lineTo(cx,7);ctx.closePath();ctx.fill();
+    // Bottom triangle
+    ctx.beginPath();ctx.moveTo(cx-5,h);ctx.lineTo(cx+5,h);ctx.lineTo(cx,h-7);ctx.closePath();ctx.fill();
+  }
+}
+
+// Modal waveform helpers
+function drawModalWfStatic(){if(!wfData)return;drawWfCanvas(document.getElementById('mWfC'),wfData,220,null)}
+function drawModalWfWithCursor(pos){if(!wfData)return;drawWfCanvas(document.getElementById('mWfC'),wfData,220,pos)}
+async function drawModalWf(){const wf=await window.api.getWaveform(sel);if(wf){wfData=wf;drawWfCanvas(document.getElementById('mWfC'),wf,220,null);
+  document.getElementById('mR').textContent=wf.sampleRate;document.getElementById('mF').textContent=wf.numFrames.toLocaleString();document.getElementById('mD2').textContent=wf.duration<1?`${(wf.duration*1000).toFixed(1)}ms`:`${wf.duration.toFixed(3)}s`;document.getElementById('mP').textContent=wf.peakDb+'dB';document.getElementById('mM').textContent=wf.rmsDb+'dB';document.getElementById('mTimeT').textContent=fmtTime(wf.duration);document.getElementById('mTime').textContent='0:00.000'}}
+
+// ═══ CLICK-TO-SEEK ON MODAL WAVEFORM ═══
+document.getElementById('mWfWrap').addEventListener('click',function(e){
+  const c=document.getElementById('mWfC'),r=c.getBoundingClientRect();const pct=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));
+  seekPos=pct;
+  if(playing){audio.currentTime=pct*audio.duration}else{
+    // Show cursor at clicked position even when not playing
+    if(wfData){drawWfCanvas(document.getElementById('mWfC'),wfData,220,pct);const s=S.samples.find(x=>x.index===sel);if(s)document.getElementById('mTime').textContent=fmtTime(pct*s.duration)}}
+});
+
+// Sidebar waveform click-to-seek
+document.getElementById('wfW').addEventListener('click',function(e){
+  const c=document.getElementById('wfC');if(c.style.display==='none'||sel<0)return;
+  const r=c.getBoundingClientRect(),pct=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));
+  seekPos=pct;if(playing)audio.currentTime=pct*audio.duration;
+});
+
+// Sidebar waveform mouse selection (for crop)
+(function(){const wr=document.getElementById('wfW');let dr=false,sx=0;
+  wr.addEventListener('mousedown',e=>{const c=document.getElementById('wfC');if(c.style.display==='none'||sel<0)return;const r=c.getBoundingClientRect();sx=Math.max(0,Math.min(100,(e.clientX-r.left)/r.width*100));dr=true;wfSel={s:sx,e:sx}});
+  document.addEventListener('mousemove',e=>{if(!dr)return;const c=document.getElementById('wfC'),r=c.getBoundingClientRect();let ex=Math.max(0,Math.min(100,(e.clientX-r.left)/r.width*100));wfSel={s:Math.min(sx,ex),e:Math.max(sx,ex)};if(wfData)drawWf(wfData)});
+  document.addEventListener('mouseup',()=>{if(!dr)return;dr=false;if(!wfSel||wfSel.e-wfSel.s<1){wfSel=null;document.getElementById('wfSel').style.display='none';if(wfData)drawWf(wfData);return}document.getElementById('wfSel').style.display='block';document.getElementById('wfSR').textContent=`${wfSel.s.toFixed(1)}%–${wfSel.e.toFixed(1)}%`})})();
+async function cropSel(){if(sel<0||!wfSel)return;const r=await window.api.fxCrop(sel,wfSel.s,wfSel.e);if(r){if(r.error){toast(r.error,'error');return}dirty=true;wfSel=null;document.getElementById('wfSel').style.display='none';updateState(r);showDet(sel);reWf();toast('✂ GESCHNITTEN','success');updateUndo()}}
+
+// ═══ MODIFY MODAL ═══
+// Smart values: pitch in semitones, freq in log scale
+function semi2factor(semi){return Math.pow(2,semi/12)}
+function factor2semi(f){return 12*Math.log2(f)}
+function logFreq(pct){return Math.round(20*Math.pow(900,pct/100))} // 20..18000
+function freq2pct(f){return 100*Math.log(f/20)/Math.log(900)}
+
+const FX_DEFS=[
+  {id:'reverse',icon:'↔',name:'REVERSE',desc:'Sample umdrehen',instant:true},
+  {id:'bitcrush',icon:'▤',name:'BITCRUSH',desc:'Lo-fi Zerstörung',params:[
+    {id:'bc',lbl:'BITS',min:1,max:16,val:8,fmt:v=>v+' bit'},
+    {id:'bh',lbl:'HOLD',min:1,max:32,val:1,fmt:v=>v+'×'}]},
+  {id:'pitch',icon:'⟳',name:'PITCH',desc:'Semitone-basiert — symmetrisch!',params:[
+    {id:'pt',lbl:'SEMI',min:-24,max:24,val:0,fmt:v=>(v>0?'+':'')+v+' st ('+(semi2factor(v)).toFixed(2)+'×)'}],
+    presets:[['-12 (Oct↓)',-12],['-7 (5th↓)',-7],['+7 (5th↑)',7],['+12 (Oct↑)',12]]},
+  {id:'stretch',icon:'⟷',name:'TIMESTRETCH',desc:'Länge ohne Pitch-Änderung',params:[
+    {id:'ts',lbl:'FACTOR',min:25,max:400,val:100,fmt:v=>(v/100).toFixed(2)+'×'}],
+    presets:[['½×',50],['¾×',75],['1.5×',150],['2×',200]]},
+  {id:'soft',icon:'∿',name:'SOFT CLIP',desc:'Tanh Sättigung',params:[{id:'dv',lbl:'DRIVE',min:10,max:400,val:50,fmt:v=>(v/10).toFixed(1)}]},
+  {id:'hard',icon:'▬',name:'HARD CLIP',desc:'Brutales Clipping',params:[{id:'dv',lbl:'DRIVE',min:10,max:400,val:50,fmt:v=>(v/10).toFixed(1)}]},
+  {id:'fold',icon:'〰',name:'WAVEFOLDER',desc:'Harmonisches Falten',params:[{id:'dv',lbl:'DRIVE',min:10,max:400,val:50,fmt:v=>(v/10).toFixed(1)}]},
+  {id:'fadein',icon:'▷',name:'FADE IN',desc:'Lautstärke-Rampe Anfang',params:[{id:'fi',lbl:'MS',min:1,max:2000,val:50,fmt:v=>v+'ms'}]},
+  {id:'fadeout',icon:'◁',name:'FADE OUT',desc:'Lautstärke-Rampe Ende',params:[{id:'fo',lbl:'MS',min:1,max:2000,val:50,fmt:v=>v+'ms'}]},
+  {id:'chop',icon:'⊞',name:'CHOP',desc:'In Teile schneiden',params:[{id:'ch',lbl:'SLICES',min:2,max:32,val:4,fmt:v=>v}],note:'Erstellt neue Samples nach dem Original'},
+  {id:'stutter',icon:'◌',name:'STUTTER',desc:'Grain Wiederholung',params:[
+    {id:'sm',lbl:'GRAIN',min:5,max:500,val:50,fmt:v=>v+'ms'},
+    {id:'sr2',lbl:'REPS',min:2,max:64,val:8,fmt:v=>v+'×'}],
+    presets:[['1/64@160',23],['1/32@160',47],['1/16@160',94]]},
+  {id:'vinyl',icon:'⏏',name:'TURNTABLE STOP',desc:'Plattenspieler-Bremse',params:[{id:'vn',lbl:'ZEIT',min:50,max:3000,val:1000,fmt:v=>v+'ms'}]},
+  {id:'ring',icon:'◎',name:'RING MOD',desc:'Metallische Töne',params:[{id:'rm',lbl:'FREQ',min:10,max:5000,val:440,fmt:v=>v+'Hz'}],
+    presets:[['100Hz',100],['440Hz',440],['1kHz',1000],['3kHz',3000]]},
+  {id:'gate',icon:'▥',name:'RHYTHMIC GATE',desc:'BPM-synchroner Chop',params:[
+    {id:'gb',lbl:'BPM',min:60,max:300,val:160,fmt:v=>v+' BPM'},
+    {id:'gs',lbl:'STEPS',min:4,max:32,val:16,fmt:v=>v}]},
+  {id:'filter',icon:'◇',name:'FILTER SWEEP',desc:'LP/HP Frequenz-Sweep (log)',params:[
+    {id:'fs',lbl:'START',min:0,max:100,val:15,fmt:v=>logFreq(v)+'Hz',isLog:true},
+    {id:'fe',lbl:'END',min:0,max:100,val:70,fmt:v=>logFreq(v)+'Hz',isLog:true}],
+    presets:[['LP','lp'],['HP','hp']]},
+  {id:'trans',icon:'⚡',name:'TRANSIENT',desc:'Attack/Sustain Formung',params:[
+    {id:'ta',lbl:'ATTACK',min:-100,max:100,val:40,fmt:v=>(v>0?'+':'')+v},
+    {id:'ts2',lbl:'SUSTAIN',min:-100,max:100,val:0,fmt:v=>(v>0?'+':'')+v}]},
+  {id:'env',icon:'⌇',name:'ENVELOPE',desc:'ADSR Hüllkurve',params:[
+    {id:'ea',lbl:'ATK',min:0,max:500,val:5,fmt:v=>v+'ms'},
+    {id:'ed',lbl:'DEC',min:0,max:500,val:50,fmt:v=>v+'ms'},
+    {id:'es',lbl:'SUS',min:0,max:100,val:80,fmt:v=>v+'%'},
+    {id:'er',lbl:'REL',min:0,max:1000,val:100,fmt:v=>v+'ms'}]},
+];
+let filterType='lp';
+
+function buildFxList(){
+  let h='';for(const fx of FX_DEFS){
+    h+=`<div class="fx-item" id="fxi_${fx.id}"><div class="fx-head" onclick="toggleFx('${fx.id}')"><span class="fx-icon">${fx.icon}</span><div><div class="fx-name">${fx.name}</div><div class="fx-desc">${fx.desc}</div></div><span class="fx-arrow">▸</span></div>`;
+    if(fx.instant){h+=`<div class="fx-body"><button class="fx-go" onclick="applyFx('${fx.id}')">⚡ ANWENDEN</button></div>`}
+    else{h+=`<div class="fx-body">`;
+      if(fx.id==='filter'){h+=`<div class="fx-presets"><div class="fx-pre act" id="fpLP" onclick="filterType='lp';document.getElementById('fpLP').classList.add('act');document.getElementById('fpHP').classList.remove('act')">LOWPASS</div><div class="fx-pre" id="fpHP" onclick="filterType='hp';document.getElementById('fpHP').classList.add('act');document.getElementById('fpLP').classList.remove('act')">HIGHPASS</div></div>`}
+      if(fx.presets&&fx.id!=='filter'){h+=`<div class="fx-presets">`;for(const[lbl,val]of fx.presets){const pid=fx.params[0].id;h+=`<div class="fx-pre" onclick="document.getElementById('${pid}').value=${val};upFxVal('${pid}')">${lbl}</div>`}h+=`</div>`}
+      for(const p of fx.params){const fnStr=p.fmt.toString().replace(/</g,'&lt;');h+=`<div class="fx-row"><span class="fx-lbl">${p.lbl}</span><input type="range" id="${p.id}" min="${p.min}" max="${p.max}" value="${p.val}" oninput="upFxVal('${p.id}')"><span class="fx-val" id="v${p.id}">${p.fmt(p.val)}</span></div>`}
+      if(fx.note)h+=`<div class="fx-note">${fx.note}</div>`;
+      h+=`<button class="fx-go" onclick="applyFx('${fx.id}')">⚡ ANWENDEN</button></div>`}
+    h+=`</div>`}
+  document.getElementById('fxList').innerHTML=h}
+
+// Update displayed value for a param
+function upFxVal(pid){
+  for(const fx of FX_DEFS){if(!fx.params)continue;for(const p of fx.params){if(p.id===pid){document.getElementById('v'+pid).textContent=p.fmt(+document.getElementById(pid).value);return}}}}
+
+function toggleFx(id){document.querySelectorAll('.fx-item').forEach(el=>{if(el.id===`fxi_${id}`)el.classList.toggle('open');else el.classList.remove('open')})}
+
+async function openModify(){if(sel<0)return;const s=S.samples.find(x=>x.index===sel);document.getElementById('mSample').textContent=s?`[ ${s.name} ]`:'';buildFxList();document.getElementById('modalBg').classList.add('show');updateModalUndo();drawModalWf()}
+function closeModal(){document.getElementById('modalBg').classList.remove('show')}
+
+async function applyFx(id){
+  if(sel<0)return;let r;const gv=i=>+document.getElementById(i).value;
+  switch(id){
+    case'reverse':r=await window.api.fxReverse(sel);break;
+    case'bitcrush':r=await window.api.fxBitcrush(sel,gv('bc'),gv('bh'));break;
+    case'pitch':r=await window.api.fxPitch(sel,semi2factor(gv('pt')));break;
+    case'stretch':r=await window.api.fxTimestretch(sel,gv('ts')/100);break;
+    case'soft':r=await window.api.fxDistort(sel,gv('dv')/10,'soft');break;
+    case'hard':r=await window.api.fxDistort(sel,gv('dv')/10,'hard');break;
+    case'fold':r=await window.api.fxDistort(sel,gv('dv')/10,'fold');break;
+    case'fadein':r=await window.api.fxFadeIn(sel,gv('fi'));break;
+    case'fadeout':r=await window.api.fxFadeOut(sel,gv('fo'));break;
+    case'chop':r=await window.api.fxChop(sel,gv('ch'));if(r&&r.chopped){dirty=true;updateState(r.state);toast(`⊞ ${r.chopped} SLICES`,'success');drawModalWf();updateUndo();updateModalUndo();return}if(r&&r.error){toast(r.error,'error');return}break;
+    case'stutter':r=await window.api.fxStutter(sel,gv('sm'),gv('sr2'));break;
+    case'vinyl':r=await window.api.fxVinylStop(sel,gv('vn'));break;
+    case'ring':r=await window.api.fxRingmod(sel,gv('rm'));break;
+    case'gate':r=await window.api.fxGate(sel,gv('gb'),gv('gs'),null);break;
+    case'filter':r=await window.api.fxFilterSweep(sel,filterType,logFreq(gv('fs')),logFreq(gv('fe')));break;
+    case'trans':r=await window.api.fxTransient(sel,gv('ta'),gv('ts2'));break;
+    case'env':r=await window.api.fxEnvelope(sel,gv('ea'),gv('ed'),gv('es'),gv('er'));break;
+  }
+  if(r){dirty=true;updateState(r.state||r);showDet(sel);reWf();drawModalWf();updateUndo();updateModalUndo();const fx=FX_DEFS.find(f=>f.id===id);toast(`${fx?fx.icon+' '+fx.name:'FX'} ✓`,'success')}}
+
+// Modal tools
+async function mTool(t){
+  if(sel<0)return;
+  if(t==='norm'){const r=await window.api.normalizeSample(sel,-1);if(r){dirty=true;updateState(r.state);showDet(sel);reWf();drawModalWf();toast(`PEAK: ${r.peakBefore}→${r.peakAfter}dBFS`,'success');updateUndo();updateModalUndo()}}
+  if(t==='trim'){const r=await window.api.trimSample(sel,-40);if(r){dirty=true;updateState(r.state);showDet(sel);reWf();drawModalWf();toast(`${r.removedMs}ms GETRIMMT`,'success');updateUndo();updateModalUndo()}}
+  if(t==='dc'){const r=await window.api.fxDcRemove(sel);if(r){dirty=true;if(r.state)updateState(r.state);reWf();drawModalWf();toast(r.dc?`DC: ${r.dc} entfernt`:'KEIN DC OFFSET','info');updateUndo();updateModalUndo()}}
+  if(t==='loop'){const r=await window.api.fxLoopXfade(sel,20);if(r){dirty=true;updateState(r);reWf();drawModalWf();toast('⟲ LOOP READY','success');updateUndo();updateModalUndo()}}
+  if(t==='dup'){const r=await window.api.duplicateSample(sel);if(r){dirty=true;updateState(r);toast('DUPLIZIERT','success')}}
+  if(t==='wav'){const f=await window.api.exportWav(sel);if(f)toast(`💾 ${f.split(/[\\/]/).pop()}`,'success')}}
+
+// ═══ GUIDE ═══
+function openGuide(){document.getElementById('guideBody').innerHTML=GUIDE_HTML;document.getElementById('guideBg').classList.add('show')}
+const GUIDE_HTML=`
+<div class="g-sec"><div class="g-h">⚠ HARDTEKK / SCHRANZ GUIDE</div><div class="g-p">Dein Cheatsheet für brutalen Sound auf ESX-1 und EMX-1.</div></div>
+<div class="g-sec"><div class="g-h">🎯 BPM RANGES</div><div class="g-box"><span class="yl">Hard Techno:</span> 140–150 BPM<br><span class="yl">Schranz:</span> 148–160 BPM<br><span class="yl">Hardtekk:</span> 155–170 BPM<br><span class="yl">Industrial:</span> 160–180 BPM<br><span class="wn">ESX Sweet Spot: 155-165 BPM</span></div></div>
+<div class="g-sec"><div class="g-h">🥁 KICK DESIGN</div><div class="g-p">Die Kick ist <strong>alles</strong>. 3-Layer:</div><ul class="g-list"><li><strong>TRANSIENT (0-5ms):</strong> Click — 909 Top, Noise Burst</li><li><strong>BODY (5-80ms):</strong> Sine 50-60Hz, Pitch Env 150→50Hz</li><li><strong>TAIL (80-200ms):</strong> Verzerrte Sub, ausfadend</li></ul><div class="g-sub">PROCESSING CHAIN</div><div class="g-box">1. Kick laden → 2. <span class="hl">HARD CLIP</span> Drive 3-5 → 3. <span class="hl">TRANSIENT</span> +40<br>4. <span class="hl">NORMALIZE</span> → 5. <span class="hl">TRIM</span> → 6. <span class="hl">FADE OUT</span> 20ms</div><div class="g-tip">Valve Force 40-60% für Wärme + Dreck.</div></div>
+<div class="g-sec"><div class="g-h">🎹 PART LAYOUT</div><div class="g-box"><span class="yl">1:</span> <span class="hl">KICK MAIN</span> — 4/4<br><span class="yl">2:</span> <span class="hl">KICK VAR</span><br><span class="yl">3:</span> <span class="hl">CLAP/SNARE</span> — 2&4<br><span class="yl">4:</span> <span class="hl">CH HH</span> — 16tel<br><span class="yl">5:</span> <span class="hl">OH HH</span> — Offbeats<br><span class="yl">6:</span> <span class="hl">PERC 1</span><br><span class="yl">7:</span> <span class="hl">PERC 2</span> — Industrial<br><span class="yl">8:</span> <span class="hl">FX/RISER</span><br><span class="yl">9:</span> <span class="hl">STAB</span><br><span class="wn">5A/5B:</span> Stretch Parts!</div></div>
+<div class="g-sec"><div class="g-h">📐 PATTERNS</div><div class="g-sub">BASIC HARDTEKK (160 BPM)</div><div class="g-pat"><span class="lbl">KICK</span> <span class="on">X</span><span class="off">·</span><span class="off">·</span><span class="off">·</span> <span class="on">X</span><span class="off">·</span><span class="off">·</span><span class="off">·</span> <span class="on">X</span><span class="off">·</span><span class="off">·</span><span class="off">·</span> <span class="on">X</span><span class="off">·</span><span class="off">·</span><span class="off">·</span><br><span class="lbl">CLAP</span> <span class="off">·</span><span class="off">·</span><span class="off">·</span><span class="off">·</span> <span class="on">X</span><span class="off">·</span><span class="off">·</span><span class="off">·</span> <span class="off">·</span><span class="off">·</span><span class="off">·</span><span class="off">·</span> <span class="on">X</span><span class="off">·</span><span class="off">·</span><span class="off">·</span><br><span class="lbl">HH</span> <span class="on">X</span><span class="on">X</span><span class="on">X</span><span class="on">X</span> <span class="on">X</span><span class="on">X</span><span class="on">X</span><span class="on">X</span> <span class="on">X</span><span class="on">X</span><span class="on">X</span><span class="on">X</span> <span class="on">X</span><span class="on">X</span><span class="on">X</span><span class="on">X</span><br><span class="lbl">OH</span> <span class="off">·</span><span class="off">·</span><span class="on">X</span><span class="off">·</span> <span class="off">·</span><span class="off">·</span><span class="on">X</span><span class="off">·</span> <span class="off">·</span><span class="off">·</span><span class="on">X</span><span class="off">·</span> <span class="off">·</span><span class="off">·</span><span class="on">X</span><span class="off">·</span></div><div class="g-sub">SCHRANZ (155 BPM)</div><div class="g-pat"><span class="lbl">KICK</span> <span class="on">X</span><span class="off">·</span><span class="off">·</span><span class="on">X</span> <span class="on">X</span><span class="off">·</span><span class="off">·</span><span class="off">·</span> <span class="on">X</span><span class="off">·</span><span class="on">X</span><span class="off">·</span> <span class="on">X</span><span class="off">·</span><span class="off">·</span><span class="off">·</span><br><span class="lbl">CLAP</span> <span class="off">·</span><span class="off">·</span><span class="off">·</span><span class="off">·</span> <span class="on">X</span><span class="off">·</span><span class="off">·</span><span class="off">·</span> <span class="off">·</span><span class="off">·</span><span class="off">·</span><span class="off">·</span> <span class="on">X</span><span class="off">·</span><span class="off">·</span><span class="on">x</span><br><span class="lbl">HH</span> <span class="off">·</span><span class="on">X</span><span class="off">·</span><span class="on">X</span> <span class="off">·</span><span class="on">X</span><span class="off">·</span><span class="on">X</span> <span class="off">·</span><span class="on">X</span><span class="off">·</span><span class="on">X</span> <span class="off">·</span><span class="on">X</span><span class="off">·</span><span class="on">X</span></div></div>
+<div class="g-sec"><div class="g-h">🔊 SAMPLE PREP</div><ul class="g-list"><li><strong>Kicks (50-150ms):</strong> Trim → Normalize → Fade Out 20ms → DC Remove</li><li><strong>HiHats (20-80ms):</strong> Kurz trimmen, Bitcrush 10-12bit</li><li><strong>Claps (80-200ms):</strong> Stutter 10-20ms×4 = maschinenartig</li><li><strong>Riser:</strong> Noise + Filter Sweep HP 200→8000Hz</li><li><strong>Impact:</strong> Kick reverse + Normalize</li></ul></div>
+<div class="g-sec"><div class="g-h">⚙ HARDWARE TRICKS</div><ul class="g-list"><li><strong>VALVE FORCE:</strong> 30-60% warm, 80%+ brutal</li><li><strong>MOTION SEQ:</strong> Filter automatisieren</li><li><strong>ROLL:</strong> Part halten + Tempo = live Stutter</li><li><strong>STRETCH:</strong> Sample Start automaten = Wavetable</li><li><strong>REVERSE:</strong> Part Reverse spart Speicher!</li></ul></div>
+<div class="g-sec"><div class="g-h">💡 NAMING (8 Zeichen)</div><div class="g-box"><span class="hl">KCK_MAIN</span> <span class="hl">KCK_HARD</span> <span class="hl">CLP_909</span> <span class="hl">HH_CL01</span> <span class="hl">HH_OP01</span><br><span class="hl">SNR_DIST</span> <span class="hl">PRC_RIM</span> <span class="hl">FX_RISE</span> <span class="hl">FX_IMPCT</span> <span class="hl">STB_ACID</span></div></div>
+<div class="g-sec"><div class="g-h">📏 TIMING @160BPM</div><div class="g-box"><span class="hl">1 Bar</span> = 1500ms <span class="hl">1 Beat</span> = 375ms <span class="hl">1/8</span> = 187ms <span class="hl">1/16</span> = 94ms <span class="hl">1/32</span> = 47ms</div></div>
+<div class="g-sec"><div class="g-h">🔥 WORKFLOW</div><div class="g-box"><span class="yl">1.</span> ZIP laden → Trim All → Norm All → DC Remove<br><span class="yl">2.</span> Kicks: Hard Clip → Transient +40 → Varianten<br><span class="yl">3.</span> HiHats kürzen + Bitcrush<br><span class="yl">4.</span> FX: Noise+Filter, Kick reverse, Vinyl Stop<br><span class="yl">5.</span> Export .ESX → SD → ESX-1 → LOAD<br><span class="yl">6.</span> Kick+HH → Clap 2&4 → Motion Seq → Valve 40%<br><span class="wn">FERTIG. ABFAHRT. 🔊</span></div></div>`;
+
+// ═══ DRAG & DROP + KEYS ═══
+function setupDrop(){const d=document.getElementById('dZ');if(!d)return;d.addEventListener('dragover',e=>{e.preventDefault();d.classList.add('dg')});d.addEventListener('dragleave',()=>d.classList.remove('dg'));d.addEventListener('drop',e=>{e.preventDefault();d.classList.remove('dg');importWav()})}
+setupDrop();document.addEventListener('dragover',e=>e.preventDefault());document.addEventListener('drop',e=>{e.preventDefault();if(e.dataTransfer?.files?.length)importWav()});
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT')return;
+  if(e.key==='Escape'){closeModal();document.getElementById('guideBg').classList.remove('show');return}
+  if(document.getElementById('modalBg').classList.contains('show')||document.getElementById('guideBg').classList.contains('show')){if(e.key===' '&&sel>=0){e.preventDefault();togglePlay()}return}
+  if(e.key==='Delete'&&sel>=0)remCur();
+  if(e.key===' '&&sel>=0){e.preventDefault();togglePlay()}
+  if(e.key==='ArrowDown'&&sel<S.numSamples-1)selS(sel+1);
+  if(e.key==='ArrowUp'&&sel>0)selS(sel-1);
+  if(e.key==='F2'&&sel>=0)startRen(sel);
+  if(e.ctrlKey&&e.key==='z'){e.preventDefault();doUndo()}
+  if(e.ctrlKey&&(e.key==='y'||e.key==='Z')){e.preventDefault();doRedo()}
+  if(e.key==='m'&&sel>=0)openModify()});
+</script>
+</body>
+</html>

@@ -1,0 +1,571 @@
+/**
+ * ESX Format Builder
+ * Creates and manipulates Korg Electribe ESX-1 .esx binary files.
+ * Based on reverse-engineered format from open-electribe-editor & lammas/electribe.
+ */
+
+'use strict';
+
+// ── Constants ──────────────────────────────────────────────
+const ADDR = {
+  HEADER:               0x00000000,   // "KORG....ESX" signature (32 bytes)
+  GLOBAL_PARAMS:        0x00000020,   // Global parameters (192 bytes)
+  PATTERN_DATA:         0x00000200,   // 256 patterns × 4280 bytes
+  SONG_DATA:            0x00130000,   // 64 songs × 528 bytes
+  SONG_EVENTS:          0x00138400,   // 20000 events × 8 bytes
+  BPS_HEADER:           0x001B0000,   // "KORG....BPX" signature (32 bytes)
+  NUM_MONO_SAMPLES:     0x001B0020,   // uint32BE
+  NUM_STEREO_SAMPLES:   0x001B0024,   // uint32BE
+  CURRENT_OFFSET:       0x001B0028,   // uint32BE
+  SAMPLE_HDR_MONO:      0x001B0100,   // 256 × 40 bytes
+  SAMPLE_HDR_STEREO:    0x001B2900,   // 128 × 44 bytes
+  SLICE_DATA:           0x001B4200,   // 256 × 2048 bytes
+  SAMPLE_DATA:          0x00250000,   // PCM sample data starts here
+};
+
+const SIZE = {
+  HEADER: 32,
+  SAMPLE_HDR_MONO: 40,
+  SAMPLE_HDR_STEREO: 44,
+  FILE_MIN: 0x00250010,              // Minimum .esx file size (no samples)
+  MAX_SAMPLE_BYTES: 0xC00000 * 2,    // ~25MB max sample memory
+};
+
+const NUM = {
+  MONO_SAMPLES: 256,
+  STEREO_SAMPLES: 128,
+  PATTERNS: 256,
+  SONGS: 64,
+};
+
+// ESX file header signature
+const ESX_HEADER = Buffer.from([
+  0x4B, 0x4F, 0x52, 0x47, // "KORG"
+  0x00, 0x00, 0x00, 0x71, // version marker
+  0x45, 0x53, 0x58, 0x00, // "ESX\0"
+  0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00,
+]);
+
+// BPS (sample bank) header signature
+const BPS_HEADER = Buffer.from([
+  0x4B, 0x4F, 0x52, 0x47, // "KORG"
+  0x00, 0x00, 0x00, 0x71, // version marker
+  0x42, 0x50, 0x58, 0x00, // "BPX\0"
+  0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00,
+]);
+
+// PCM data block signature
+const PCM_SIG = Buffer.from([0x80, 0x00, 0x7F, 0xFF]);
+
+// ── WAV Parser ─────────────────────────────────────────────
+
+function parseWavFile(buffer) {
+  const view = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+
+  // Check RIFF header
+  const riff = buffer.toString('ascii', 0, 4);
+  if (riff !== 'RIFF') throw new Error('Not a valid WAV file (missing RIFF header)');
+
+  const wave = buffer.toString('ascii', 8, 12);
+  if (wave !== 'WAVE') throw new Error('Not a valid WAV file (missing WAVE format)');
+
+  let offset = 12;
+  let fmt = null;
+  let dataChunk = null;
+
+  // Parse chunks
+  while (offset < buffer.length - 8) {
+    const chunkId = buffer.toString('ascii', offset, offset + 4);
+    const chunkSize = view.getUint32(offset + 4, true); // little-endian
+    offset += 8;
+
+    if (chunkId === 'fmt ') {
+      fmt = {
+        audioFormat: view.getUint16(offset, true),
+        numChannels: view.getUint16(offset + 2, true),
+        sampleRate: view.getUint32(offset + 4, true),
+        byteRate: view.getUint32(offset + 8, true),
+        blockAlign: view.getUint16(offset + 12, true),
+        bitsPerSample: view.getUint16(offset + 14, true),
+      };
+    } else if (chunkId === 'data') {
+      dataChunk = buffer.slice(offset, offset + chunkSize);
+    }
+
+    offset += chunkSize;
+    // Chunks are word-aligned
+    if (chunkSize % 2 !== 0) offset++;
+  }
+
+  if (!fmt) throw new Error('WAV file missing fmt chunk');
+  if (!dataChunk) throw new Error('WAV file missing data chunk');
+  if (fmt.audioFormat !== 1 && fmt.audioFormat !== 3) {
+    throw new Error(`Unsupported WAV format (audioFormat=${fmt.audioFormat}). Only PCM (1) and IEEE float (3) are supported.`);
+  }
+
+  return { fmt, data: dataChunk };
+}
+
+/**
+ * Convert WAV PCM data to 16-bit signed mono at the desired sample rate.
+ * Simple conversion: just handles common cases.
+ */
+function convertTo16BitMono(wavInfo) {
+  const { fmt, data } = wavInfo;
+  const { numChannels, bitsPerSample, sampleRate, audioFormat } = fmt;
+
+  // Calculate number of frames
+  const bytesPerSample = bitsPerSample / 8;
+  const frameSize = bytesPerSample * numChannels;
+  const numFrames = Math.floor(data.length / frameSize);
+
+  // First: decode to float samples (mono-mixed)
+  const floatSamples = new Float32Array(numFrames);
+  const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+
+  for (let i = 0; i < numFrames; i++) {
+    let sample = 0;
+    for (let ch = 0; ch < numChannels; ch++) {
+      const byteOffset = i * frameSize + ch * bytesPerSample;
+
+      if (audioFormat === 3) {
+        // IEEE float
+        if (bitsPerSample === 32) {
+          sample += view.getFloat32(byteOffset, true);
+        } else if (bitsPerSample === 64) {
+          sample += view.getFloat64(byteOffset, true);
+        }
+      } else {
+        // PCM integer
+        if (bitsPerSample === 8) {
+          sample += (data[byteOffset] - 128) / 128;
+        } else if (bitsPerSample === 16) {
+          sample += view.getInt16(byteOffset, true) / 32768;
+        } else if (bitsPerSample === 24) {
+          const b0 = data[byteOffset];
+          const b1 = data[byteOffset + 1];
+          const b2 = data[byteOffset + 2];
+          let val = (b2 << 16) | (b1 << 8) | b0;
+          if (val >= 0x800000) val -= 0x1000000;
+          sample += val / 8388608;
+        } else if (bitsPerSample === 32) {
+          sample += view.getInt32(byteOffset, true) / 2147483648;
+        }
+      }
+    }
+    floatSamples[i] = sample / numChannels;
+  }
+
+  // Resample to 44100 if needed (simple linear interpolation)
+  let resampledFloat;
+  let outputSampleRate = sampleRate;
+
+  if (sampleRate !== 44100 && sampleRate !== 22050 && sampleRate !== 11025) {
+    // Resample to 44100
+    outputSampleRate = 44100;
+    const ratio = sampleRate / 44100;
+    const newLength = Math.floor(numFrames / ratio);
+    resampledFloat = new Float32Array(newLength);
+    for (let i = 0; i < newLength; i++) {
+      const srcPos = i * ratio;
+      const srcIdx = Math.floor(srcPos);
+      const frac = srcPos - srcIdx;
+      const s0 = floatSamples[Math.min(srcIdx, numFrames - 1)];
+      const s1 = floatSamples[Math.min(srcIdx + 1, numFrames - 1)];
+      resampledFloat[i] = s0 + frac * (s1 - s0);
+    }
+  } else {
+    resampledFloat = floatSamples;
+    outputSampleRate = sampleRate;
+  }
+
+  // Convert to 16-bit signed PCM (big-endian for ESX)
+  const pcmBuffer = Buffer.alloc(resampledFloat.length * 2);
+  for (let i = 0; i < resampledFloat.length; i++) {
+    let val = Math.round(resampledFloat[i] * 32767);
+    val = Math.max(-32768, Math.min(32767, val));
+    pcmBuffer.writeInt16BE(val, i * 2);
+  }
+
+  return {
+    pcmData: pcmBuffer,
+    sampleRate: outputSampleRate,
+    numFrames: resampledFloat.length,
+    durationSeconds: resampledFloat.length / outputSampleRate,
+  };
+}
+
+// ── ESX File Builder ───────────────────────────────────────
+
+/**
+ * Create an empty ESX file structure.
+ */
+function createEmptyEsx() {
+  // Start with minimum size
+  const buffer = Buffer.alloc(SIZE.FILE_MIN, 0);
+
+  // Write main header at offset 0
+  ESX_HEADER.copy(buffer, ADDR.HEADER);
+
+  // Write BPS header at sample section
+  BPS_HEADER.copy(buffer, ADDR.BPS_HEADER);
+
+  // Initialize all mono sample headers to "empty"
+  for (let i = 0; i < NUM.MONO_SAMPLES; i++) {
+    const off = ADDR.SAMPLE_HDR_MONO + i * SIZE.SAMPLE_HDR_MONO;
+    // Name: 8 bytes of 0x00 (empty)
+    // offsetchannel1start: 0xFFFFFFFF (empty marker)
+    buffer.writeUInt32BE(0xFFFFFFFF, off + 8);
+    // offsetchannel1end: 0xFFFFFFFF
+    buffer.writeUInt32BE(0xFFFFFFFF, off + 12);
+    // start: 0x00000000
+    buffer.writeUInt32BE(0x00000000, off + 16);
+    // end: 0x00000000
+    buffer.writeUInt32BE(0x00000000, off + 20);
+    // loopstart: 0xFFFFFFFF
+    buffer.writeUInt32BE(0xFFFFFFFF, off + 24);
+    // samplerate: 44100
+    buffer.writeUInt32BE(44100, off + 28);
+    // sampletune: 0x0000 (0.00)
+    buffer.writeUInt16BE(0x0000, off + 32);
+    // playlevel: 0xFF (uninitialized)
+    buffer.writeUInt8(0xFF, off + 34);
+    // unknown bytes
+    buffer.writeUInt8(0x00, off + 35);
+    buffer.writeUInt8(0x80, off + 36); // stretchstep off
+    buffer.writeUInt8(0x00, off + 37);
+    buffer.writeUInt8(0x00, off + 38);
+    buffer.writeUInt8(0x00, off + 39);
+  }
+
+  // Initialize all stereo sample headers to "empty"
+  for (let i = 0; i < NUM.STEREO_SAMPLES; i++) {
+    const off = ADDR.SAMPLE_HDR_STEREO + i * SIZE.SAMPLE_HDR_STEREO;
+    // Name: 8 bytes of 0x00
+    // ch1 start/end
+    buffer.writeUInt32BE(0xFFFFFFFF, off + 8);
+    buffer.writeUInt32BE(0xFFFFFFFF, off + 12);
+    // ch2 start/end
+    buffer.writeUInt32BE(0xFFFFFFFF, off + 16);
+    buffer.writeUInt32BE(0xFFFFFFFF, off + 20);
+    // start
+    buffer.writeUInt32BE(0x00000000, off + 24);
+    // end
+    buffer.writeUInt32BE(0x00000000, off + 28);
+    // samplerate
+    buffer.writeUInt32BE(44100, off + 32);
+    // sampletune
+    buffer.writeUInt16BE(0x0000, off + 36);
+    // playlevel
+    buffer.writeUInt8(0xFF, off + 38);
+    buffer.writeUInt8(0x00, off + 39);
+    buffer.writeUInt8(0x80, off + 40); // stretchstep off
+    buffer.writeUInt8(0x00, off + 41);
+    buffer.writeUInt8(0x00, off + 42);
+    buffer.writeUInt8(0x00, off + 43);
+  }
+
+  // Initialize counters
+  buffer.writeUInt32BE(0, ADDR.NUM_MONO_SAMPLES);
+  buffer.writeUInt32BE(0, ADDR.NUM_STEREO_SAMPLES);
+  buffer.writeUInt32BE(0, ADDR.CURRENT_OFFSET);
+
+  // Initialize default global params (120 BPM, etc.)
+  // Tempo is stored at global params offset 0x04 as uint16BE (tempo × 10)
+  buffer.writeUInt16BE(1200, ADDR.GLOBAL_PARAMS + 0x04); // 120.0 BPM
+
+  // Write the small header at sample data start
+  // First 16 bytes of sample data area are a header
+  buffer.writeUInt32BE(0x00000000, ADDR.SAMPLE_DATA);
+  buffer.writeUInt32BE(0x00000000, ADDR.SAMPLE_DATA + 4);
+  buffer.writeUInt32BE(0x00000000, ADDR.SAMPLE_DATA + 8);
+  buffer.writeUInt32BE(0x00000000, ADDR.SAMPLE_DATA + 12);
+
+  return buffer;
+}
+
+/**
+ * Build a PCM data block for a mono sample.
+ * Returns: Buffer containing 16-byte header + PCM data
+ */
+function buildSampleDataBlock(pcmData, sampleIndex, startOffset) {
+  const blockSize = 16 + pcmData.length;
+  const block = Buffer.alloc(blockSize);
+
+  // Signature
+  PCM_SIG.copy(block, 0);
+  // Start offset
+  block.writeUInt32BE(startOffset, 4);
+  // End offset
+  block.writeUInt32BE(startOffset + blockSize, 8);
+  // Index
+  block.writeUInt8(sampleIndex, 12);
+  // Zero
+  block.writeUInt8(0x00, 13);
+  // 0xFFFF
+  block.writeUInt16BE(0xFFFF, 14);
+  // PCM data
+  pcmData.copy(block, 16);
+
+  return block;
+}
+
+/**
+ * Encode a sample name to 8-byte ESX string format.
+ */
+function encodeSampleName(name) {
+  const buf = Buffer.alloc(8, 0x00);
+  const ascii = name.toUpperCase().replace(/[^A-Z0-9 _\-\.]/g, '').substring(0, 8);
+  buf.write(ascii, 0, 'ascii');
+  return buf;
+}
+
+/**
+ * Build a complete ESX file from a list of samples.
+ *
+ * @param {Array} samples - Array of { name, pcmData, sampleRate, numFrames }
+ * @returns {Buffer} Complete .esx file
+ */
+function buildEsxFile(samples) {
+  // Start with empty ESX
+  const headerBuffer = createEmptyEsx();
+
+  // Collect all sample data blocks
+  const dataBlocks = [];
+  let currentOffset = 0;
+  let monoCount = 0;
+
+  for (let i = 0; i < samples.length && i < NUM.MONO_SAMPLES; i++) {
+    const sample = samples[i];
+    if (!sample || !sample.pcmData || sample.pcmData.length === 0) continue;
+
+    const blockSize = 16 + sample.pcmData.length;
+    const block = buildSampleDataBlock(sample.pcmData, monoCount, currentOffset);
+
+    // Update mono sample header
+    const hdrOff = ADDR.SAMPLE_HDR_MONO + monoCount * SIZE.SAMPLE_HDR_MONO;
+
+    // Name
+    encodeSampleName(sample.name).copy(headerBuffer, hdrOff);
+
+    // Channel offsets (include the 16-byte per-sample header)
+    headerBuffer.writeUInt32BE(currentOffset, hdrOff + 8);  // offsetchannel1start
+    headerBuffer.writeUInt32BE(currentOffset + blockSize, hdrOff + 12); // offsetchannel1end
+
+    // Sample start/end (in frames, relative to the PCM data within the block)
+    headerBuffer.writeUInt32BE(0, hdrOff + 16);  // start frame
+    headerBuffer.writeUInt32BE(sample.numFrames - 1, hdrOff + 20); // end frame
+
+    // Loop start (0xFFFFFFFF = no loop)
+    headerBuffer.writeUInt32BE(0xFFFFFFFF, hdrOff + 24);
+
+    // Sample rate
+    headerBuffer.writeUInt32BE(sample.sampleRate, hdrOff + 28);
+
+    // Sample tune (0.00)
+    headerBuffer.writeUInt16BE(0x0000, hdrOff + 32);
+
+    // Play level: 0dB
+    headerBuffer.writeUInt8(0x00, hdrOff + 34);
+
+    dataBlocks.push(block);
+    currentOffset += blockSize;
+    monoCount++;
+  }
+
+  // Update counters in header
+  headerBuffer.writeUInt32BE(monoCount, ADDR.NUM_MONO_SAMPLES);
+  headerBuffer.writeUInt32BE(0, ADDR.NUM_STEREO_SAMPLES);
+  headerBuffer.writeUInt32BE(currentOffset, ADDR.CURRENT_OFFSET);
+
+  // Combine header + sample data
+  const sampleDataBuffer = Buffer.concat(dataBlocks);
+  const totalSize = SIZE.FILE_MIN + sampleDataBuffer.length;
+
+  const finalBuffer = Buffer.alloc(totalSize, 0);
+  headerBuffer.copy(finalBuffer, 0);
+  sampleDataBuffer.copy(finalBuffer, ADDR.SAMPLE_DATA);
+
+  return finalBuffer;
+}
+
+/**
+ * Parse an existing ESX file and extract sample info.
+ */
+function parseEsxFile(buffer) {
+  const samples = [];
+
+  // Verify header
+  const sig = buffer.toString('ascii', 0, 4);
+  if (sig !== 'KORG') {
+    throw new Error('Not a valid ESX file (missing KORG signature)');
+  }
+
+  const numMono = buffer.readUInt32BE(ADDR.NUM_MONO_SAMPLES);
+  const numStereo = buffer.readUInt32BE(ADDR.NUM_STEREO_SAMPLES);
+  const currentOffset = buffer.readUInt32BE(ADDR.CURRENT_OFFSET);
+
+  // Read mono samples
+  for (let i = 0; i < NUM.MONO_SAMPLES; i++) {
+    const hdrOff = ADDR.SAMPLE_HDR_MONO + i * SIZE.SAMPLE_HDR_MONO;
+
+    const ch1Start = buffer.readUInt32BE(hdrOff + 8);
+    const ch1End = buffer.readUInt32BE(hdrOff + 12);
+
+    if (ch1Start === 0xFFFFFFFF || ch1End === 0xFFFFFFFF || ch1Start >= ch1End) {
+      samples.push(null);
+      continue;
+    }
+
+    const nameBytes = buffer.slice(hdrOff, hdrOff + 8);
+    let name = '';
+    for (let j = 0; j < 8; j++) {
+      if (nameBytes[j] === 0) break;
+      name += String.fromCharCode(nameBytes[j]);
+    }
+
+    const startFrame = buffer.readUInt32BE(hdrOff + 16);
+    const endFrame = buffer.readUInt32BE(hdrOff + 20);
+    const loopStart = buffer.readUInt32BE(hdrOff + 24);
+    const sampleRate = buffer.readUInt32BE(hdrOff + 28);
+
+    // Extract PCM data
+    const dataStart = ADDR.SAMPLE_DATA + ch1Start + 16; // skip 16-byte block header
+    const dataEnd = ADDR.SAMPLE_DATA + ch1End;
+    let pcmData = null;
+    if (dataEnd <= buffer.length && dataStart < dataEnd) {
+      pcmData = buffer.slice(dataStart, dataEnd);
+    }
+
+    const numFrames = endFrame - startFrame + 1;
+    const duration = numFrames / sampleRate;
+
+    samples.push({
+      index: i,
+      type: 'mono',
+      name: name.trim() || `Sample ${i + 1}`,
+      sampleRate,
+      numFrames,
+      duration,
+      loopStart: loopStart === 0xFFFFFFFF ? null : loopStart,
+      startFrame,
+      endFrame,
+      pcmData,
+      dataSize: ch1End - ch1Start,
+    });
+  }
+
+  // Read stereo sample headers
+  const stereoSamples = [];
+  for (let i = 0; i < NUM.STEREO_SAMPLES; i++) {
+    const hdrOff = ADDR.SAMPLE_HDR_STEREO + i * SIZE.SAMPLE_HDR_STEREO;
+
+    const ch1Start = buffer.readUInt32BE(hdrOff + 8);
+    const ch1End = buffer.readUInt32BE(hdrOff + 12);
+    const ch2Start = buffer.readUInt32BE(hdrOff + 16);
+    const ch2End = buffer.readUInt32BE(hdrOff + 20);
+
+    if (ch1Start === 0xFFFFFFFF || ch1End === 0xFFFFFFFF) {
+      stereoSamples.push(null);
+      continue;
+    }
+
+    const nameBytes = buffer.slice(hdrOff, hdrOff + 8);
+    let name = '';
+    for (let j = 0; j < 8; j++) {
+      if (nameBytes[j] === 0) break;
+      name += String.fromCharCode(nameBytes[j]);
+    }
+
+    const startFrame = buffer.readUInt32BE(hdrOff + 24);
+    const endFrame = buffer.readUInt32BE(hdrOff + 28);
+    const sampleRate = buffer.readUInt32BE(hdrOff + 32);
+
+    const numFrames = endFrame - startFrame + 1;
+    const duration = numFrames / sampleRate;
+
+    stereoSamples.push({
+      index: i,
+      type: 'stereo',
+      name: name.trim() || `Stereo ${i + 1}`,
+      sampleRate,
+      numFrames,
+      duration,
+      startFrame,
+      endFrame,
+      dataSize: (ch1End - ch1Start) + (ch2End - ch2Start),
+    });
+  }
+
+  return {
+    numMono,
+    numStereo,
+    currentOffset,
+    totalSampleBytes: currentOffset,
+    maxSampleBytes: SIZE.MAX_SAMPLE_BYTES,
+    usedPercent: ((currentOffset / SIZE.MAX_SAMPLE_BYTES) * 100).toFixed(1),
+    monoSamples: samples,
+    stereoSamples,
+  };
+}
+
+/**
+ * Convert 16-bit BE PCM buffer to a WAV file buffer (for export/preview).
+ */
+function pcmToWav(pcmDataBE, sampleRate, numChannels = 1) {
+  const numFrames = pcmDataBE.length / 2;
+  const bitsPerSample = 16;
+  const byteRate = sampleRate * numChannels * (bitsPerSample / 8);
+  const blockAlign = numChannels * (bitsPerSample / 8);
+  const dataSize = numFrames * numChannels * (bitsPerSample / 8);
+  const headerSize = 44;
+
+  const wav = Buffer.alloc(headerSize + dataSize);
+
+  // RIFF header
+  wav.write('RIFF', 0);
+  wav.writeUInt32LE(headerSize + dataSize - 8, 4);
+  wav.write('WAVE', 8);
+
+  // fmt chunk
+  wav.write('fmt ', 12);
+  wav.writeUInt32LE(16, 16);        // chunk size
+  wav.writeUInt16LE(1, 20);          // PCM format
+  wav.writeUInt16LE(numChannels, 22);
+  wav.writeUInt32LE(sampleRate, 24);
+  wav.writeUInt32LE(byteRate, 28);
+  wav.writeUInt16LE(blockAlign, 32);
+  wav.writeUInt16LE(bitsPerSample, 34);
+
+  // data chunk
+  wav.write('data', 36);
+  wav.writeUInt32LE(dataSize, 40);
+
+  // Convert BE to LE PCM
+  for (let i = 0; i < numFrames; i++) {
+    const sample = pcmDataBE.readInt16BE(i * 2);
+    wav.writeInt16LE(sample, headerSize + i * 2);
+  }
+
+  return wav;
+}
+
+module.exports = {
+  parseWavFile,
+  convertTo16BitMono,
+  createEmptyEsx,
+  buildEsxFile,
+  parseEsxFile,
+  pcmToWav,
+  ADDR,
+  SIZE,
+  NUM,
+};
