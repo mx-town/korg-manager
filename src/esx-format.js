@@ -38,28 +38,28 @@ const NUM = {
   SONGS: 64,
 };
 
-// ESX file header signature
+// ESX file header — bytes 0x0C-0x11 are format version constants required by hardware
 const ESX_HEADER = Buffer.from([
   0x4B, 0x4F, 0x52, 0x47, // "KORG"
   0x00, 0x00, 0x00, 0x71, // version marker
   0x45, 0x53, 0x58, 0x00, // "ESX\0"
-  0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00,
+  0x05, 0x26, 0x79, 0xA4, // format version (must match for hardware)
+  0x00, 0x01, 0x00, 0x00, // flags (0x0001 = has data)
   0x00, 0x00, 0x00, 0x00,
   0x00, 0x00, 0x00, 0x00,
   0x00, 0x00, 0x00, 0x00,
 ]);
 
-// BPS (sample bank) header signature — must be "BPA " (not "BPX\0") for hardware
+// BPS (sample bank) header — "BPS " matches factory file
 const BPS_HEADER = Buffer.from([
   0x4B, 0x4F, 0x52, 0x47, // "KORG"
   0x00, 0x00, 0x00, 0x71, // version marker
-  0x42, 0x50, 0x41, 0x20, // "BPA " (hardware expects this)
+  0x42, 0x50, 0x53, 0x20, // "BPS " (factory format)
+  0x00, 0x00, 0x00, 0x00, // checksum (filled at build time)
   0x00, 0x00, 0x00, 0x00,
   0x00, 0x00, 0x00, 0x00,
   0x00, 0x00, 0x00, 0x00,
-  0xFF, 0xFF, 0xFF, 0xFF, // padding (hardware expects 0xFF)
-  0xFF, 0xFF, 0xFF, 0xFF,
+  0x00, 0x00, 0x00, 0x00,
 ]);
 
 // PCM data block signature
@@ -218,11 +218,12 @@ function convertTo16BitMono(wavInfo) {
  * Initialize a single drum part (34 bytes) with default values.
  * Offset: offset within the pattern where this drum part starts
  */
+// Init drum part — matches factory "Init" pattern (pattern 200 in ESX1_Fact.ESX)
 function initDrumPart(buffer, offset) {
-  // +0-1: samplepointer = 0x8000 (OFF, uint16BE)
-  buffer.writeUInt16BE(0x8000, offset + 0);
-  // +2-3: slicenumber = 0xFF00 (ALL/none, hardware default)
-  buffer.writeUInt16BE(0xFF00, offset + 2);
+  // +0-1: samplepointer = 0x0000 (sample 0, factory default)
+  buffer.writeUInt16BE(0x0000, offset + 0);
+  // +2-3: slicenumber = 0x8000 (factory default)
+  buffer.writeUInt16BE(0x8000, offset + 2);
   // +4: filtertype = 0x00 (LPF)
   buffer.writeUInt8(0x00, offset + 4);
   // +5: cutoff = 0x7F (open)
@@ -233,48 +234,46 @@ function initDrumPart(buffer, offset) {
   buffer.writeUInt8(0x40, offset + 7);
   // +8: pitch = 0x40 (center/equal)
   buffer.writeUInt8(0x40, offset + 8);
-  // +9: level = 0x7F (maximum)
-  buffer.writeUInt8(0x7F, offset + 9);
+  // +9: level = 0x64 (factory default)
+  buffer.writeUInt8(0x64, offset + 9);
   // +10: pan = 0x40 (center)
   buffer.writeUInt8(0x40, offset + 10);
-  // +11: egtime = 0x40 (center)
-  buffer.writeUInt8(0x40, offset + 11);
+  // +11: egtime = 0x7F (factory default)
+  buffer.writeUInt8(0x7F, offset + 11);
   // +12: startpoint = 0x00
   buffer.writeUInt8(0x00, offset + 12);
   // +13: fxflags = 0x00 (all off)
   buffer.writeUInt8(0x00, offset + 13);
-  // +14: modflags = 0x00 (all off)
-  buffer.writeUInt8(0x00, offset + 14);
-  // +15: modspeed = 0x00
-  buffer.writeUInt8(0x00, offset + 15);
+  // +14: modflags = 0x20 (factory default)
+  buffer.writeUInt8(0x20, offset + 14);
+  // +15: modspeed = 0x40 (factory default)
+  buffer.writeUInt8(0x40, offset + 15);
   // +16: moddepth = 0x40 (center)
   buffer.writeUInt8(0x40, offset + 16);
   // +17: motionseqstatus = 0x00
   buffer.writeUInt8(0x00, offset + 17);
-  // +18-33: sequencedata = 16x empty steps
+  // +18-33: sequencedata = 16x 0x11 (all steps active, factory default)
   for (let i = 0; i < 16; i++) {
-    buffer.writeUInt8(0x00, offset + 18 + i);
+    buffer.writeUInt8(0x11, offset + 18 + i);
   }
 }
 
 /**
  * Initialize a single pattern (4280 bytes) with default values.
  */
+// Init pattern — matches factory "Init" pattern (pat 200 in ESX1_Fact.ESX)
+// Factory hex: 496e6974202020203c000000000f003c00007fff7fff7fff
 function initDefaultPattern(buffer, patternOffset) {
-  // Pattern header (24 bytes)
+  // +0-7: name = "Init    " (space-padded, factory default)
+  buffer.write('Init    ', patternOffset, 'ascii');
 
-  // +0-7: name = 8x 0x00 (empty)
-  for (let i = 0; i < 8; i++) {
-    buffer.writeUInt8(0x00, patternOffset + i);
-  }
-
-  // +8-9: tempo = 0x3C00 (120.0 BPM, uint16BE)
+  // +8-9: tempo = 0x3C00 (120.0 BPM, encoding: BPM × 128)
   buffer.writeUInt16BE(0x3C00, patternOffset + 8);
 
   // +10: swing = 0x00 (50%)
   buffer.writeUInt8(0x00, patternOffset + 10);
 
-  // +11: flags = 0x00 (length=1×16steps, beat=16th, roll=2)
+  // +11: flags = 0x00
   buffer.writeUInt8(0x00, patternOffset + 11);
 
   // +12: fxchain = 0x00 (None)
@@ -283,34 +282,28 @@ function initDefaultPattern(buffer, patternOffset) {
   // +13: laststep = 0x0F (Step 16)
   buffer.writeUInt8(0x0F, patternOffset + 13);
 
-  // +14: arpflags = 0x00 (chromatic)
+  // +14: arpflags = 0x00
   buffer.writeUInt8(0x00, patternOffset + 14);
 
-  // +15: arpcenternote = 0x3C (C4 = Note 60)
+  // +15: arpcenternote = 0x3C (C4)
   buffer.writeUInt8(0x3C, patternOffset + 15);
 
-  // +16-17: mutestatus = 0x0000 (uint16LE, none muted)
-  buffer.writeUInt16LE(0x0000, patternOffset + 16);
+  // +16-17: mutestatus = 0x0000 (none muted)
+  buffer.writeUInt16BE(0x0000, patternOffset + 16);
 
-  // +18-19: swingstatus = 0x0000 (uint16LE)
-  buffer.writeUInt16LE(0x0000, patternOffset + 18);
+  // +18-19: swingstatus = 0x7FFF (factory default — all parts)
+  buffer.writeUInt16BE(0x7FFF, patternOffset + 18);
 
-  // +20-21: outputbusstatus = 0x0000 (uint16LE)
-  buffer.writeUInt16LE(0x0000, patternOffset + 20);
+  // +20-21: outputbusstatus = 0x7FFF (factory default)
+  buffer.writeUInt16BE(0x7FFF, patternOffset + 20);
 
-  // +22-23: accentstatus = 0x0000 (uint16LE)
-  buffer.writeUInt16LE(0x0000, patternOffset + 22);
+  // +22-23: accentstatus = 0x7FFF (factory default)
+  buffer.writeUInt16BE(0x7FFF, patternOffset + 22);
 
-  // 9 Drum Parts (starting at offset 24, each 34 bytes = 306 bytes total)
+  // 9 Drum Parts (starting at offset 24, each 34 bytes)
   for (let i = 0; i < 9; i++) {
     initDrumPart(buffer, patternOffset + 24 + i * 34);
   }
-
-  // Keyboard Part 1 & 2 (not implemented in detail, just zero-filled)
-  // Each is much larger (~274 bytes), for now just ensure they're zero
-
-  // Stretch/Slice Parts, Audio-In Part, FX, Motion - all zero-initialized
-  // (already done by Buffer.alloc(..., 0))
 }
 
 /**
@@ -384,32 +377,32 @@ function createEmptyEsx() {
 
   // Write BPS header at sample section
   BPS_HEADER.copy(buffer, ADDR.BPS_HEADER);
-  // BPS padding byte at +0x2C must be 0xFF for hardware
-  buffer.writeUInt32BE(0xFFFFFFFF, ADDR.BPS_HEADER + 0x2C);
 
-  // Initialize all mono sample headers to "empty"
+  // Initialize all mono sample headers to "empty" — matches factory file exactly
+  // Factory empty slot: name=spaces, ch1Start=0xFFFFFFFF, rest=zeros except rate=44100, byte36=0x80
   for (let i = 0; i < NUM.MONO_SAMPLES; i++) {
     const off = ADDR.SAMPLE_HDR_MONO + i * SIZE.SAMPLE_HDR_MONO;
-    // Name: 8 bytes of 0x00 (empty)
+    // Name: 8 bytes of 0x20 (spaces, factory default for empty)
+    buffer.fill(0x20, off, off + 8);
     // offsetchannel1start: 0xFFFFFFFF (empty marker)
     buffer.writeUInt32BE(0xFFFFFFFF, off + 8);
-    // offsetchannel1end: 0xFFFFFFFF
-    buffer.writeUInt32BE(0xFFFFFFFF, off + 12);
+    // offsetchannel1end: 0x00000000 (factory default)
+    buffer.writeUInt32BE(0x00000000, off + 12);
     // start: 0x00000000
     buffer.writeUInt32BE(0x00000000, off + 16);
     // end: 0x00000000
     buffer.writeUInt32BE(0x00000000, off + 20);
-    // loopstart: 0xFFFFFFFF
-    buffer.writeUInt32BE(0xFFFFFFFF, off + 24);
+    // loopstart: 0x00000000 (factory default for empty)
+    buffer.writeUInt32BE(0x00000000, off + 24);
     // samplerate: 44100
     buffer.writeUInt32BE(44100, off + 28);
-    // sampletune: 0x0000 (0.00)
+    // sampletune: 0x0000
     buffer.writeUInt16BE(0x0000, off + 32);
-    // playlevel: 0xFF (uninitialized)
-    buffer.writeUInt8(0xFF, off + 34);
-    // unknown bytes
+    // playlevel: 0x00
+    buffer.writeUInt8(0x00, off + 34);
+    // stretchstep: 0x80 (factory default for empty slot)
     buffer.writeUInt8(0x00, off + 35);
-    buffer.writeUInt8(0xFF, off + 36); // stretchstep off (hardware uses 0xFF)
+    buffer.writeUInt8(0x80, off + 36);
     buffer.writeUInt8(0x00, off + 37);
     buffer.writeUInt8(0x00, off + 38);
     buffer.writeUInt8(0x00, off + 39);
@@ -418,25 +411,18 @@ function createEmptyEsx() {
   // Initialize all stereo sample headers to "empty"
   for (let i = 0; i < NUM.STEREO_SAMPLES; i++) {
     const off = ADDR.SAMPLE_HDR_STEREO + i * SIZE.SAMPLE_HDR_STEREO;
-    // Name: 8 bytes of 0x00
-    // ch1 start/end
+    buffer.fill(0x20, off, off + 8);
     buffer.writeUInt32BE(0xFFFFFFFF, off + 8);
-    buffer.writeUInt32BE(0xFFFFFFFF, off + 12);
-    // ch2 start/end
+    buffer.writeUInt32BE(0x00000000, off + 12);
     buffer.writeUInt32BE(0xFFFFFFFF, off + 16);
-    buffer.writeUInt32BE(0xFFFFFFFF, off + 20);
-    // start
+    buffer.writeUInt32BE(0x00000000, off + 20);
     buffer.writeUInt32BE(0x00000000, off + 24);
-    // end
     buffer.writeUInt32BE(0x00000000, off + 28);
-    // samplerate
     buffer.writeUInt32BE(44100, off + 32);
-    // sampletune
     buffer.writeUInt16BE(0x0000, off + 36);
-    // playlevel
-    buffer.writeUInt8(0xFF, off + 38);
+    buffer.writeUInt8(0x00, off + 38);
     buffer.writeUInt8(0x00, off + 39);
-    buffer.writeUInt8(0xFF, off + 40); // stretchstep off (hardware uses 0xFF)
+    buffer.writeUInt8(0x80, off + 40);
     buffer.writeUInt8(0x00, off + 41);
     buffer.writeUInt8(0x00, off + 42);
     buffer.writeUInt8(0x00, off + 43);
@@ -567,37 +553,34 @@ function buildEsxFile(samples) {
   headerBuffer.writeUInt32BE(0, ADDR.NUM_STEREO_SAMPLES);
   headerBuffer.writeUInt32BE(currentOffset, ADDR.CURRENT_OFFSET);
 
-  // Set ESX header flag at offset 0x10 (indicates file has data)
+  // Auto-assign loaded samples to Pattern 0 drum parts (up to 9 per pattern)
+  // initDefaultPattern already sets samplePtr=0x0000 and steps=0x11 for all parts.
+  // We just need to update the sample pointers to point to the right samples.
   if (monoCount > 0) {
-    headerBuffer.writeUInt8(0x01, 0x11);
-  }
+    // Fill patterns with sample assignments (9 parts per pattern)
+    const patternsNeeded = Math.ceil(monoCount / 9);
+    for (let pat = 0; pat < Math.min(patternsNeeded, NUM.PATTERNS); pat++) {
+      const patOff = ADDR.PATTERN_DATA + pat * 4280;
 
-  // Auto-assign loaded samples to Pattern 0 drum parts (up to 9 parts)
-  // This ensures samples are playable from patterns on the hardware
-  if (monoCount > 0) {
-    const pat0 = ADDR.PATTERN_DATA; // Pattern 0 offset
-    // Give Pattern 0 a name
-    const patName = Buffer.alloc(8, 0x20); // spaces
-    patName.write('A.001', 0, 'ascii');
-    patName.copy(headerBuffer, pat0);
+      // Name the pattern
+      const patName = 'A.' + String(pat + 1).padStart(3, '0');
+      headerBuffer.fill(0x20, patOff, patOff + 8);
+      headerBuffer.write(patName, patOff, 'ascii');
 
-    // Set reasonable tempo: 120.0 BPM = 0x04B0
-    headerBuffer.writeUInt16BE(0x04B0, pat0 + 8);
-
-    // Assign first N samples (up to 9) to drum parts
-    const partsToAssign = Math.min(monoCount, 9);
-    for (let p = 0; p < partsToAssign; p++) {
-      const partOff = pat0 + 24 + p * 34;
-      // Sample pointer = sample index (instead of 0x8000 = OFF)
-      headerBuffer.writeUInt16BE(p, partOff + 0);
-      // Slice = 0xFF00 (play all, hardware default)
-      headerBuffer.writeUInt16BE(0xFF00, partOff + 2);
-      // Level = 0x64 (reasonable default, not too loud)
-      headerBuffer.writeUInt8(0x64, partOff + 9);
+      // Assign samples to this pattern's 9 drum parts
+      for (let p = 0; p < 9; p++) {
+        const sampleIdx = pat * 9 + p;
+        const partOff = patOff + 24 + p * 34;
+        if (sampleIdx < monoCount) {
+          // Assign sample to part
+          headerBuffer.writeUInt16BE(sampleIdx, partOff + 0);
+        }
+        // Parts beyond loaded samples keep default (samplePtr=0x0000 = first sample)
+      }
     }
   }
 
-  // Compute BPS checksum (sum of all sample data bytes, uint32BE)
+  // Compute BPS checksum (sum of all sample data bytes)
   let checksum = 0;
   for (const block of dataBlocks) {
     for (let i = 0; i < block.length; i++) checksum = (checksum + block[i]) >>> 0;
