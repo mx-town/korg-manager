@@ -491,21 +491,54 @@ function createEmptyEsx() {
   ESX_HEADER.copy(buffer, ADDR.HEADER);
 
   // ════ Global Parameters (192 bytes at offset 0x20) ════
-  // Based on factory file analysis at offset 0x24:
-  // 0x00: memoryProtect = 0x00 (disabled)
-  // 0x01: unknown = 0x00
-  // 0x02: arpeggiatorControl = 0x00 (NORMAL)
-  // 0x03: audioInMode = 0x00 (MONO)
-  // 0x04: midiClock = 0x00 (INT) ← THIS WAS THE BUG!
-  // 0x05: bitflags = 0x0F (all MIDI messages enabled)
-  buffer.writeUInt8(0x00, ADDR.GLOBAL_PARAMS + 0x00); // memoryProtect
-  buffer.writeUInt8(0x00, ADDR.GLOBAL_PARAMS + 0x01); // unknown
-  buffer.writeUInt8(0x00, ADDR.GLOBAL_PARAMS + 0x02); // arpeggiatorControl
-  buffer.writeUInt8(0x00, ADDR.GLOBAL_PARAMS + 0x03); // audioInMode
+  // Layout from open-electribe-editor GlobalParametersImpl.java
+  buffer.writeUInt8(0x00, ADDR.GLOBAL_PARAMS + 0x00); // memoryProtect (disabled)
+  buffer.writeUInt8(0x00, ADDR.GLOBAL_PARAMS + 0x01); // reserved
+  buffer.writeUInt8(0x00, ADDR.GLOBAL_PARAMS + 0x02); // arpeggiatorControl (NORMAL)
+  buffer.writeUInt8(0x00, ADDR.GLOBAL_PARAMS + 0x03); // audioInMode (MONO)
   buffer.writeUInt8(0x00, ADDR.GLOBAL_PARAMS + 0x04); // midiClock (INT)
   buffer.writeUInt8(0x0F, ADDR.GLOBAL_PARAMS + 0x05); // bitflags (note, sysex, cc, pc)
+  buffer.writeUInt8(0x0E, ADDR.GLOBAL_PARAMS + 0x06); // pitchBendRange (+2 semitones)
 
-  // Remaining global params are zero-initialized
+  // MIDI channel assignments (0x00=Ch1 .. 0x0F=Ch16)
+  buffer.writeUInt8(0x00, ADDR.GLOBAL_PARAMS + 0x07); // Keyboard 1 = Channel 1
+  buffer.writeUInt8(0x01, ADDR.GLOBAL_PARAMS + 0x08); // Keyboard 2 = Channel 2
+  buffer.writeUInt8(0x09, ADDR.GLOBAL_PARAMS + 0x09); // Drum/Stretch/Slice/AudioIn = Channel 10
+
+  // Part note numbers (MIDI note that triggers each part on the drum channel)
+  const partNotes = [36, 38, 40, 41, 43, 42, 46, 49, 51, 9, 10, 11, 12];
+  // Drum1=C1, Drum2=D1, Drum3=E1, Drum4=F1, Drum5=G1,
+  // Drum6a=F#1, Drum6b=A#1, Drum7a=C#2, Drum7b=D#2,
+  // Stretch1=A-2, Stretch2=A#-2, Slice=B-2, AudioIn=C-1
+  for (let i = 0; i < partNotes.length; i++) {
+    buffer.writeUInt8(partNotes[i], ADDR.GLOBAL_PARAMS + 0x0A + i);
+  }
+
+  // MIDI CC assignments (33 bytes — factory defaults from ESX1_Fact.ESX)
+  const midiCCs = [
+    89, 90, 87, 88, 82,   // modSpeed, modDepth, modType, modDest, modBpmSync
+    74, 71, 79, 83,        // cutoff, resonance, egInt, filterType
+    5,                      // glide
+    10,                     // pan
+    75,                     // egTime
+    7,                      // level
+    18,                     // startPoint
+    86,                     // ampEg
+    85,                     // roll
+    19,                     // reverse
+    91,                     // effectSend
+    81,                     // effectSelect
+    80,                     // partMotionSeq
+    12, 92, 93, 20,        // fx1: type, edit1, edit2, motionSeq
+    13, 94, 95, 21,        // fx2: type, edit1, edit2, motionSeq
+    24, 25, 26, 22,        // fx3: type, edit1, edit2, motionSeq
+    23,                     // fxChain
+  ];
+  for (let i = 0; i < midiCCs.length; i++) {
+    buffer.writeUInt8(midiCCs[i], ADDR.GLOBAL_PARAMS + 0x17 + i);
+  }
+
+  // Remaining global params (pattern set params etc.) stay zero-initialized
 
   // ════ Initialize all 256 Patterns ════
   for (let p = 0; p < NUM.PATTERNS; p++) {
