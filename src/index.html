@@ -312,12 +312,6 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
 .emx-detail{display:flex;flex-direction:column;background:var(--dark);overflow-y:auto;padding:16px;border-left:2px solid var(--brd)}
 .emx-detail::-webkit-scrollbar{width:5px} .emx-detail::-webkit-scrollbar-track{background:var(--void)} .emx-detail::-webkit-scrollbar-thumb{background:var(--blue-d)}
 
-/* ═══ ESX SUB-TABS ═══ */
-.esx-subtabs{display:flex;gap:2px;padding:6px 16px;background:var(--dark);border-bottom:2px solid var(--brd)}
-.esx-subtab{font-family:var(--lcd);font-size:11px;letter-spacing:2px;padding:5px 18px;background:transparent;color:var(--txt-x);border:1px solid var(--brd);cursor:pointer;transition:all .15s}
-.esx-subtab:hover{color:var(--led);border-color:var(--blue-d)}
-.esx-subtab.active{background:var(--blue-d);color:var(--led);border-color:var(--blue-d)}
-
 /* ═══ CONVERSION MODAL ═══ */
 .conv-bg{display:none;position:fixed;inset:0;background:rgba(2,4,12,.9);z-index:10000;backdrop-filter:blur(8px)}
 .conv-bg.show{display:flex;align-items:center;justify-content:center;animation:mIn .2s ease}
@@ -394,11 +388,6 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
   </div>
   <div class="pbar"><span class="pbar-l">LOC&gt;</span><span class="pbar-v" id="pV"><span style="color:var(--txt-x)">// nichts geladen</span></span><span class="pbar-st em" id="pS">LEER</span></div>
   <div class="export-progress" id="expProg"><div class="export-bar-wrap"><div class="export-bar" id="expBar" style="width:0%"></div></div><span class="export-text" id="expText">BUILDING...</span></div>
-  <div class="esx-subtabs">
-    <button class="esx-subtab active" id="esxTabSamples" onclick="esxSubTab('samples')">SAMPLES</button>
-    <button class="esx-subtab" id="esxTabPatterns" onclick="esxSubTab('patterns')">PATTERNS</button>
-  </div>
-  <div id="esxSamples" style="display:flex;flex-direction:column;flex:1;overflow:hidden">
   <div class="main">
     <div class="sl-w">
       <div class="sl-hdr"><h2>▸ SAMPLES</h2><span class="sc" id="sC">0/256</span><button class="btn btn-sm" id="sortBtn" onclick="toggleSort()">⇅ SORT</button><div class="sel-actions"><button class="btn btn-sm" id="selAllBtn" onclick="toggleSelectAll()">☐ ALL</button><span class="sel-badge" id="selBadge" style="display:none">0</span></div></div>
@@ -443,23 +432,6 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
       </div>
     </div>
   </div>
-  </div><!-- /esxSamples -->
-  <div id="esxPatterns" style="display:none;flex:1;overflow:hidden">
-    <div class="emx-main">
-      <div class="emx-table-wrap">
-        <div class="sl-hdr"><h2>▸ ESX-1 PATTERNS</h2><span class="sc" id="esxPC">0 patterns</span></div>
-        <table class="emx-table" id="esxPatTable">
-          <thead><tr><th>#</th><th>NAME</th><th>BPM</th><th>SWING</th><th>STEPS</th></tr></thead>
-          <tbody id="esxPatTbody"></tbody>
-        </table>
-        <div class="es" id="esxPatEmpty" style="display:flex"><div class="dz"><i>⚡</i><p><strong>ESX-1 DATEI LADEN</strong><br><br>.esx OPEN → PATTERNS sub-tab</p></div></div>
-      </div>
-      <div class="emx-detail" id="esxPatDetail">
-        <div class="sbt">PATTERN DETAIL</div>
-        <div id="esxPatDetContent" style="font-family:var(--lcd);font-size:12px;color:var(--txt-x)">// pattern wählen</div>
-      </div>
-    </div>
-  </div><!-- /esxPatterns -->
   </div><!-- /esx1-view -->
 
   <!-- ═══ E2S VIEW ═══ -->
@@ -671,7 +643,8 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
 // ═══ STATE ═══
 let S={samples:[],numSamples:0,usedPercent:'0'},sel=-1,playing=false,fp=null,dirty=false,wfData=null,wfSel=null;
 let cursorAF=null,seekPos=0; // cursor animation
-let sortByCategory=false;
+const SORT_MODES=['OFF','TYPE','NAME','LENGTH','SIZE'];
+let sortMode=0;
 let checked=new Set();
 const audio=document.getElementById('aE');
 async function init(){updateState(await window.api.getState())} init();
@@ -697,7 +670,7 @@ function detectCategory(name){
   for(const[cat,keys]of Object.entries(CAT_MAP)){for(const k of keys){if(n.includes(k))return cat}}
   return 'OTHER';
 }
-function toggleSort(){sortByCategory=!sortByCategory;document.getElementById('sortBtn').classList.toggle('act',sortByCategory);renderList()}
+function toggleSort(){sortMode=(sortMode+1)%SORT_MODES.length;const btn=document.getElementById('sortBtn');btn.classList.toggle('act',sortMode>0);btn.textContent=sortMode?`⇅ ${SORT_MODES[sortMode]}`:'⇅ SORT';renderList()}
 function toggleCheck(i,ev){ev.stopPropagation();if(checked.has(i))checked.delete(i);else checked.add(i);updateSelBadge();renderList()}
 function toggleSelectAll(){if(checked.size===S.numSamples){checked.clear();document.getElementById('selAllBtn').textContent='☐ ALL'}else{S.samples.forEach(s=>checked.add(s.index));document.getElementById('selAllBtn').textContent='☑ NONE'}updateSelBadge();renderList()}
 function updateSelBadge(){const b=document.getElementById('selBadge');if(checked.size>0){b.style.display='inline';b.textContent=checked.size}else{b.style.display='none'}}
@@ -707,12 +680,20 @@ function renderList(){
   const l=document.getElementById('sL');document.getElementById('sC').textContent=`${S.numSamples}/${S.maxSamples||256}`;
   if(!S.numSamples){checked.clear();updateSelBadge();l.innerHTML=`<div class="es"><div class="dz" id="dZ" onclick="importWav()"><i>⚡</i><p><strong>SAMPLES HIER REIN</strong><br><br>wav / aif / zip → 16bit mono 44.1k</p></div></div>`;setupDrop();return}
   let samples=[...S.samples];
-  if(sortByCategory){
-    samples.sort((a,b)=>{const ca=detectCategory(a.name),cb=detectCategory(b.name);if(ca<cb)return -1;if(ca>cb)return 1;return a.index-b.index});
+  const sm=SORT_MODES[sortMode];
+  if(sm==='TYPE'){
+    const CAT_ORDER=['KICK','SNARE','CLAP','HIHAT','CYMBAL','PERC','FX','SYNTH','VOCAL','OTHER'];
+    samples.sort((a,b)=>{const ca=CAT_ORDER.indexOf(detectCategory(a.name)),cb=CAT_ORDER.indexOf(detectCategory(b.name));return ca!==cb?ca-cb:a.name.localeCompare(b.name)});
+  }else if(sm==='NAME'){
+    samples.sort((a,b)=>a.name.localeCompare(b.name));
+  }else if(sm==='LENGTH'){
+    samples.sort((a,b)=>a.duration-b.duration);
+  }else if(sm==='SIZE'){
+    samples.sort((a,b)=>(a.sizeBytes||0)-(b.sizeBytes||0));
   }
   let h='',lastCat=null;
   for(const s of samples){
-    if(sortByCategory){const cat=detectCategory(s.name);if(cat!==lastCat){const cnt=samples.filter(x=>detectCategory(x.name)===cat).length;h+=`<div class="cat-div">▸ ${cat} (${cnt})</div>`;lastCat=cat}}
+    if(sm==='TYPE'){const cat=detectCategory(s.name);if(cat!==lastCat){const cnt=samples.filter(x=>detectCategory(x.name)===cat).length;h+=`<div class="cat-div">▸ ${cat} (${cnt})</div>`;lastCat=cat}}
     const a=s.index===sel,ck=checked.has(s.index),r=s.sampleRate>=1000?`${(s.sampleRate/1000).toFixed(1)}k`:s.sampleRate,d=s.duration<1?`${(s.duration*1000).toFixed(0)}ms`:`${s.duration.toFixed(2)}s`,z=s.sizeBytes>1048576?`${(s.sizeBytes/1048576).toFixed(1)}M`:`${(s.sizeBytes/1024).toFixed(0)}K`,f=s.folder||'—',fc=s.folder?'sf has':'sf';
     h+=`<div class="ss ${a?'act':''} ${ck?'checked':''}" onclick="selS(${s.index})" ondblclick="startRen(${s.index})"><input type="checkbox" class="ss-chk" ${ck?'checked':''} onclick="toggleCheck(${s.index},event)"><div class="si">${String(s.index+1).padStart(3,'0')}</div><div class="sn">${esc(s.name)}</div><div class="${fc}" title="${esc(f)}">${esc(f)}</div><div class="sr">${r}</div><div class="sd">${d}</div><div class="sz">${z}</div><button class="sx" onclick="event.stopPropagation();remS(${s.index})">✕</button></div>`}
   l.innerHTML=h}
@@ -720,7 +701,7 @@ function updateMem(){const b=document.getElementById('mB'),t=document.getElement
 function updatePath(){const v=document.getElementById('pV'),s=document.getElementById('pS');if(!fp&&!S.numSamples){v.innerHTML='<span style="color:var(--txt-x)">// nichts geladen</span>';s.className='pbar-st em';s.textContent='LEER'}else if(!fp){v.innerHTML=`<span style="color:var(--yel)">NICHT GESPEICHERT</span> <span style="color:var(--txt-x)">(${S.numSamples})</span>`;s.className='pbar-st un';s.textContent='NEU'}else{const p=fp.replace(/\\/g,'/').split('/'),fn=p.pop(),fd=p.slice(-3).join('/');v.innerHTML=`<span class="fld">${esc(fd)}/</span><span class="fil">${esc(fn)}</span>`;s.className=dirty?'pbar-st un':'pbar-st sv';s.textContent=dirty?'MODIFIED':'SAVED'}}
 
 // ═══ ACTIONS ═══
-async function openEsx(){const r=await window.api.openEsxFile();if(!r)return;if(r.error){toast(r.error,'error');return}fp=r.filePath;dirty=false;sel=-1;esxPatterns=[];esxPatSel=-1;hideDet();updateState(await window.api.getState());toast(`LOADED: ${r.filePath.split(/[\\/]/).pop()}`,'success');if(document.getElementById('esxTabPatterns').classList.contains('active'))esxLoadPatterns()}
+async function openEsx(){const r=await window.api.openEsxFile();if(!r)return;if(r.error){toast(r.error,'error');return}fp=r.filePath;dirty=false;sel=-1;hideDet();updateState(await window.api.getState());toast(`LOADED: ${r.filePath.split(/[\\/]/).pop()}`,'success')}
 async function importWav(){const r=await window.api.importWavFiles();if(!r||!r.imported)return;r.imported.filter(x=>x.error).forEach(x=>toast(`${x.originalName}: ${x.error}`,'error'));const ok=r.imported.filter(x=>x.ok).length;if(ok>0){dirty=true;toast(`${ok} IMPORTIERT`,'success')}updateState(r.state)}
 async function importZip(){const r=await window.api.importZip();if(!r||!r.imported)return;let ok=0,er=0;r.imported.forEach(x=>{if(x.error){er++;if(er<=3)toast(x.error,'error')}else if(x.ok)ok++});if(ok>0){dirty=true;toast(`${ok} AUS ${r.zipName||'ZIP'} EXTRAHIERT`,'success')}updateState(r.state)}
 async function remS(i){const s=await window.api.removeSample(i);dirty=true;if(sel===i){sel=-1;hideDet()}else if(sel>i)sel--;updateState(s)}
@@ -1329,58 +1310,6 @@ function emxSelPat(i){
   }
   h+=`<div style="margin-top:16px;font-family:var(--lcd);font-size:11px;color:var(--txt-x);letter-spacing:1px">⚡ Connect via MIDI to transfer patterns</div>`;
   document.getElementById('emxDetContent').innerHTML=h;
-}
-
-// ═══════════════════════════════════════════════════════════
-//  ESX-1 PATTERN BROWSER
-// ═══════════════════════════════════════════════════════════
-let esxPatterns=[],esxPatSel=-1;
-function esxPatLabel(i){const banks='ABCD',bank=banks[Math.floor(i/16)]||'?',num=(i%16)+1;return `${bank}.${String(num).padStart(2,'0')}`}
-
-function esxSubTab(tab){
-  document.getElementById('esxSamples').style.display=tab==='samples'?'flex':'none';
-  document.getElementById('esxPatterns').style.display=tab==='patterns'?'flex':'none';
-  document.getElementById('esxTabSamples').classList.toggle('active',tab==='samples');
-  document.getElementById('esxTabPatterns').classList.toggle('active',tab==='patterns');
-  if(tab==='patterns'&&esxPatterns.length===0)esxLoadPatterns();
-}
-
-async function esxLoadPatterns(){
-  const r=await window.api.getEsxPatterns();
-  if(!r||!r.patterns)return;
-  esxPatterns=r.patterns;
-  esxPatSel=-1;
-  esxPatRenderTable();
-}
-
-function esxPatRenderTable(){
-  document.getElementById('esxPC').textContent=`${esxPatterns.length} patterns`;
-  if(!esxPatterns.length){document.getElementById('esxPatEmpty').style.display='flex';document.getElementById('esxPatTbody').innerHTML='';return}
-  document.getElementById('esxPatEmpty').style.display='none';
-  let h='';
-  for(let i=0;i<esxPatterns.length;i++){
-    const p=esxPatterns[i],a=i===esxPatSel;
-    h+=`<tr class="${a?'act':''}" onclick="esxPatSelPat(${i})"><td style="color:var(--txt-x);text-align:center">${esxPatLabel(i)}</td><td>${esc(p.name||'Init')}</td><td>${(p.bpm||120).toFixed(1)}</td><td>${p.swing||0}%</td><td>${p.steps||16}</td></tr>`;
-  }
-  document.getElementById('esxPatTbody').innerHTML=h;
-}
-
-function esxPatSelPat(i){
-  esxPatSel=i;esxPatRenderTable();
-  const p=esxPatterns[i];if(!p)return;
-  let h=`<div class="sbt">PATTERN ${esxPatLabel(i)}</div>`;
-  h+=`<div class="dr"><span class="dl">NAME</span><span class="dv" style="color:var(--led)">${esc(p.name||'Init')}</span></div>`;
-  h+=`<div class="dr"><span class="dl">BPM</span><span class="dv">${(p.bpm||120).toFixed(1)}</span></div>`;
-  h+=`<div class="dr"><span class="dl">SWING</span><span class="dv">${p.swing||0}%</span></div>`;
-  h+=`<div class="dr"><span class="dl">STEPS</span><span class="dv">${p.steps||16}</span></div>`;
-  if(p.parts&&p.parts.length){
-    h+=`<div style="margin-top:12px"><div class="sbt">PARTS (${p.parts.length})</div>`;
-    for(const part of p.parts){
-      h+=`<div class="dr"><span class="dl" style="color:var(--led)">${esc(part.name||'Part')}</span><span class="dv">${esc(part.info||'—')} Lvl:${part.level||0}</span></div>`;
-    }
-    h+=`</div>`;
-  }
-  document.getElementById('esxPatDetContent').innerHTML=h;
 }
 
 // ═══════════════════════════════════════════════════════════
