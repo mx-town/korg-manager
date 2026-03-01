@@ -47,6 +47,9 @@ contextBridge.exposeInMainWorld('api', {
   fxLoopXfade:      (i, ms)         => ipcRenderer.invoke('fx-loop-xfade', { index: i, ms }),
   fxEnvelope:       (i, a, d, s, r) => ipcRenderer.invoke('fx-envelope', { index: i, attackMs: a, decayMs: d, sustainLvl: s, releaseMs: r }),
 
+  // Export progress
+  onExportProgress: (cb) => ipcRenderer.on('export-progress', (_, data) => cb(data)),
+
   // ═══ E2S ═══
   e2s: {
     openFile:     ()              => ipcRenderer.invoke('e2s:open-file'),

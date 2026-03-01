@@ -178,9 +178,14 @@ ipcMain.handle('save-esx-file', async (ev, defaultName) => {
   });
   if (result.canceled) return null;
   try {
+    mainWindow.webContents.send('export-progress', { phase: 'building', percent: 10 });
     const buf = esx.buildEsxFile(currentSamples);
+    mainWindow.webContents.send('export-progress', { phase: 'writing', percent: 50 });
     fs.writeFileSync(result.filePath, buf);
-    return { filePath: result.filePath, size: buf.length };
+    mainWindow.webContents.send('export-progress', { phase: 'verifying', percent: 90 });
+    const stat = fs.statSync(result.filePath);
+    mainWindow.webContents.send('export-progress', { phase: 'done', percent: 100 });
+    return { filePath: result.filePath, size: stat.size };
   } catch (err) { return { error: err.message }; }
 });
 
