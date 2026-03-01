@@ -16,6 +16,9 @@
   --cursor:#C5305C;--cursor-g:rgba(197,48,92,.6);
   --txt:#e8ecf4;--txt-d:#8898aa;--txt-x:#506070;
   --brd:#1a2035;--brd-h:#253050;
+  --cat-time:#00ff88;--cat-time-d:#006633;--cat-time-g:rgba(0,255,136,.15);
+  --cat-tone:#ff0088;--cat-tone-d:#660033;--cat-tone-g:rgba(255,0,136,.15);
+  --cat-dyn:#00d9ff;--cat-dyn-d:#005566;--cat-dyn-g:rgba(0,217,255,.15);
   --lcd:'Share Tech Mono',monospace;--head:'Orbitron',sans-serif;--ui:'Rajdhani',sans-serif;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -175,7 +178,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 .m-guide-btn:hover{border-color:var(--hi-d);color:var(--hi)}
 
 /* MODAL RIGHT: Effects */
-.modal-right{display:flex;flex-direction:column;overflow-y:auto;background:var(--void)}
+.modal-right{display:flex;flex-direction:column;overflow:hidden;background:var(--void)}
 .modal-right::-webkit-scrollbar{width:5px} .modal-right::-webkit-scrollbar-track{background:var(--void)} .modal-right::-webkit-scrollbar-thumb{background:var(--blue-d)}
 
 .fx-item{border-bottom:1px solid var(--brd)}
@@ -205,6 +208,33 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
 .fx-go{width:100%;padding:12px;margin-top:6px;background:var(--hi-dk);border:2px solid var(--hi);color:var(--hi);font-family:var(--head);font-size:13px;font-weight:700;cursor:pointer;letter-spacing:3px;transition:all 60ms;clip-path:polygon(5px 0%,100% 0%,calc(100% - 5px) 100%,0% 100%);text-align:center}
 .fx-go:hover{background:var(--hi);color:#fff;box-shadow:0 0 20px var(--hi-g)}
 .fx-note{font-family:var(--lcd);font-size:10px;color:var(--txt-x);margin-top:6px}
+
+/* FX Tab bar */
+.fx-tabs{display:flex;border-bottom:2px solid var(--brd);background:var(--dark);flex-shrink:0}
+.fx-tab{flex:1;padding:10px 8px;background:var(--void);border:none;border-bottom:3px solid transparent;color:var(--txt-x);font-family:var(--head);font-size:10px;font-weight:700;cursor:pointer;letter-spacing:2px;transition:all 80ms;text-align:center;text-transform:uppercase}
+.fx-tab:hover{color:var(--txt-d);background:var(--cell-h)}
+.fx-tab.act{color:var(--cat-time);border-bottom-color:var(--cat-time);background:var(--cell)}
+.fx-tab[data-cat="tone"].act{color:var(--cat-tone);border-bottom-color:var(--cat-tone)}
+.fx-tab[data-cat="dyn"].act{color:var(--cat-dyn);border-bottom-color:var(--cat-dyn)}
+.fx-tab-count{display:block;font-family:var(--lcd);font-size:9px;color:var(--txt-x);margin-top:2px;letter-spacing:1px}
+.fx-tab.act .fx-tab-count{color:inherit;opacity:.6}
+.fx-cat-content{display:none;flex-direction:column;flex:1;overflow-y:auto}
+.fx-cat-content.act{display:flex}
+.fx-cat-content::-webkit-scrollbar{width:5px}
+.fx-cat-content::-webkit-scrollbar-track{background:var(--void)}
+.fx-cat-content::-webkit-scrollbar-thumb{background:var(--blue-d)}
+.fx-cat-content[data-cat="time"] .fx-item.open .fx-head{border-left-color:var(--cat-time)}
+.fx-cat-content[data-cat="time"] .fx-item.open .fx-name{color:var(--cat-time)}
+.fx-cat-content[data-cat="time"] .fx-item.open .fx-arrow{color:var(--cat-time)}
+.fx-cat-content[data-cat="time"] .fx-body{border-left-color:var(--cat-time-d)}
+.fx-cat-content[data-cat="tone"] .fx-item.open .fx-head{border-left-color:var(--cat-tone)}
+.fx-cat-content[data-cat="tone"] .fx-item.open .fx-name{color:var(--cat-tone)}
+.fx-cat-content[data-cat="tone"] .fx-item.open .fx-arrow{color:var(--cat-tone)}
+.fx-cat-content[data-cat="tone"] .fx-body{border-left-color:var(--cat-tone-d)}
+.fx-cat-content[data-cat="dyn"] .fx-item.open .fx-head{border-left-color:var(--cat-dyn)}
+.fx-cat-content[data-cat="dyn"] .fx-item.open .fx-name{color:var(--cat-dyn)}
+.fx-cat-content[data-cat="dyn"] .fx-item.open .fx-arrow{color:var(--cat-dyn)}
+.fx-cat-content[data-cat="dyn"] .fx-body{border-left-color:var(--cat-dyn-d)}
 
 /* ═══ GUIDE MODAL ═══ */
 .guide-modal{background:var(--dark);border:2px solid var(--blue-d);width:85%;max-width:800px;height:85%;display:grid;grid-template-rows:auto 1fr;clip-path:polygon(10px 0%,100% 0%,100% calc(100% - 10px),calc(100% - 10px) 100%,0% 100%,0% 10px);box-shadow:0 0 60px rgba(30,80,160,.06)}
@@ -827,58 +857,87 @@ function factor2semi(f){return 12*Math.log2(f)}
 function logFreq(pct){return Math.round(20*Math.pow(900,pct/100))} // 20..18000
 function freq2pct(f){return 100*Math.log(f/20)/Math.log(900)}
 
+const FX_CATS=[
+  {id:'time',name:'TIME'},
+  {id:'tone',name:'TONE'},
+  {id:'dyn',name:'DYNAMICS'},
+];
 const FX_DEFS=[
-  {id:'reverse',icon:'↔',name:'REVERSE',desc:'Sample umdrehen',instant:true},
-  {id:'bitcrush',icon:'▤',name:'BITCRUSH',desc:'Lo-fi Zerstörung',params:[
-    {id:'bc',lbl:'BITS',min:1,max:16,val:8,fmt:v=>v+' bit'},
-    {id:'bh',lbl:'HOLD',min:1,max:32,val:1,fmt:v=>v+'×'}]},
-  {id:'pitch',icon:'⟳',name:'PITCH',desc:'Semitone-basiert — symmetrisch!',params:[
-    {id:'pt',lbl:'SEMI',min:-24,max:24,val:0,fmt:v=>(v>0?'+':'')+v+' st ('+(semi2factor(v)).toFixed(2)+'×)'}],
-    presets:[['-12 (Oct↓)',-12],['-7 (5th↓)',-7],['+7 (5th↑)',7],['+12 (Oct↑)',12]]},
-  {id:'stretch',icon:'⟷',name:'TIMESTRETCH',desc:'Länge ohne Pitch-Änderung',params:[
+  // ── TIME (7) ──
+  {id:'reverse',cat:'time',icon:'↔',name:'REVERSE',desc:'Sample umdrehen',instant:true},
+  {id:'stretch',cat:'time',icon:'⟷',name:'TIMESTRETCH',desc:'Länge ohne Pitch-Änderung',params:[
     {id:'ts',lbl:'FACTOR',min:25,max:400,val:100,fmt:v=>(v/100).toFixed(2)+'×'}],
     presets:[['½×',50],['¾×',75],['1.5×',150],['2×',200]]},
-  {id:'soft',icon:'∿',name:'SOFT CLIP',desc:'Tanh Sättigung',params:[{id:'dv',lbl:'DRIVE',min:10,max:400,val:50,fmt:v=>(v/10).toFixed(1)}]},
-  {id:'hard',icon:'▬',name:'HARD CLIP',desc:'Brutales Clipping',params:[{id:'dv',lbl:'DRIVE',min:10,max:400,val:50,fmt:v=>(v/10).toFixed(1)}]},
-  {id:'fold',icon:'〰',name:'WAVEFOLDER',desc:'Harmonisches Falten',params:[{id:'dv',lbl:'DRIVE',min:10,max:400,val:50,fmt:v=>(v/10).toFixed(1)}]},
-  {id:'fadein',icon:'▷',name:'FADE IN',desc:'Lautstärke-Rampe Anfang',params:[{id:'fi',lbl:'MS',min:1,max:2000,val:50,fmt:v=>v+'ms'}]},
-  {id:'fadeout',icon:'◁',name:'FADE OUT',desc:'Lautstärke-Rampe Ende',params:[{id:'fo',lbl:'MS',min:1,max:2000,val:50,fmt:v=>v+'ms'}]},
-  {id:'chop',icon:'⊞',name:'CHOP',desc:'In Teile schneiden',params:[{id:'ch',lbl:'SLICES',min:2,max:32,val:4,fmt:v=>v}],note:'Erstellt neue Samples nach dem Original'},
-  {id:'stutter',icon:'◌',name:'STUTTER',desc:'Grain Wiederholung',params:[
+  {id:'fadein',cat:'time',icon:'▷',name:'FADE IN',desc:'Lautstärke-Rampe Anfang',params:[{id:'fi',lbl:'MS',min:1,max:2000,val:50,fmt:v=>v+'ms'}]},
+  {id:'fadeout',cat:'time',icon:'◁',name:'FADE OUT',desc:'Lautstärke-Rampe Ende',params:[{id:'fo',lbl:'MS',min:1,max:2000,val:50,fmt:v=>v+'ms'}]},
+  {id:'chop',cat:'time',icon:'⊞',name:'CHOP',desc:'In Teile schneiden',params:[{id:'ch',lbl:'SLICES',min:2,max:32,val:4,fmt:v=>v}],note:'Erstellt neue Samples nach dem Original'},
+  {id:'stutter',cat:'time',icon:'◌',name:'STUTTER',desc:'Grain Wiederholung',params:[
     {id:'sm',lbl:'GRAIN',min:5,max:500,val:50,fmt:v=>v+'ms'},
     {id:'sr2',lbl:'REPS',min:2,max:64,val:8,fmt:v=>v+'×'}],
     presets:[['1/64@160',23],['1/32@160',47],['1/16@160',94]]},
-  {id:'vinyl',icon:'⏏',name:'TURNTABLE STOP',desc:'Plattenspieler-Bremse',params:[{id:'vn',lbl:'ZEIT',min:50,max:3000,val:1000,fmt:v=>v+'ms'}]},
-  {id:'ring',icon:'◎',name:'RING MOD',desc:'Metallische Töne',params:[{id:'rm',lbl:'FREQ',min:10,max:5000,val:440,fmt:v=>v+'Hz'}],
-    presets:[['100Hz',100],['440Hz',440],['1kHz',1000],['3kHz',3000]]},
-  {id:'gate',icon:'▥',name:'RHYTHMIC GATE',desc:'BPM-synchroner Chop',params:[
-    {id:'gb',lbl:'BPM',min:60,max:300,val:160,fmt:v=>v+' BPM'},
-    {id:'gs',lbl:'STEPS',min:4,max:32,val:16,fmt:v=>v}]},
-  {id:'filter',icon:'◇',name:'FILTER SWEEP',desc:'LP/HP Frequenz-Sweep (log)',params:[
+  {id:'vinyl',cat:'time',icon:'⏏',name:'TURNTABLE STOP',desc:'Plattenspieler-Bremse',params:[{id:'vn',lbl:'ZEIT',min:50,max:3000,val:1000,fmt:v=>v+'ms'}]},
+  // ── TONE (5) ──
+  {id:'bitcrush',cat:'tone',icon:'▤',name:'BITCRUSH',desc:'Lo-fi Zerstörung',params:[
+    {id:'bc',lbl:'BITS',min:1,max:16,val:8,fmt:v=>v+' bit'},
+    {id:'bh',lbl:'HOLD',min:1,max:32,val:1,fmt:v=>v+'×'}]},
+  {id:'pitch',cat:'tone',icon:'⟳',name:'PITCH',desc:'Semitone-basiert — symmetrisch!',params:[
+    {id:'pt',lbl:'SEMI',min:-24,max:24,val:0,fmt:v=>(v>0?'+':'')+v+' st ('+(semi2factor(v)).toFixed(2)+'×)'}],
+    presets:[['-12 (Oct↓)',-12],['-7 (5th↓)',-7],['+7 (5th↑)',7],['+12 (Oct↑)',12]]},
+  {id:'distortion',cat:'tone',icon:'≈',name:'DISTORTION',desc:'Soft / Hard / Fold',params:[
+    {id:'dd',lbl:'DRIVE',min:10,max:400,val:50,fmt:v=>(v/10).toFixed(1)}]},
+  {id:'filter',cat:'tone',icon:'◇',name:'FILTER SWEEP',desc:'LP/HP Frequenz-Sweep (log)',params:[
     {id:'fs',lbl:'START',min:0,max:100,val:15,fmt:v=>logFreq(v)+'Hz',isLog:true},
     {id:'fe',lbl:'END',min:0,max:100,val:70,fmt:v=>logFreq(v)+'Hz',isLog:true}],
     presets:[['LP','lp'],['HP','hp']]},
-  {id:'trans',icon:'⚡',name:'TRANSIENT',desc:'Attack/Sustain Formung',params:[
-    {id:'ta',lbl:'ATTACK',min:-100,max:100,val:40,fmt:v=>(v>0?'+':'')+v},
-    {id:'ts2',lbl:'SUSTAIN',min:-100,max:100,val:0,fmt:v=>(v>0?'+':'')+v}]},
-  {id:'env',icon:'⌇',name:'ENVELOPE',desc:'ADSR Hüllkurve',params:[
+  {id:'ring',cat:'tone',icon:'◎',name:'RING MOD',desc:'Metallische Töne',params:[{id:'rm',lbl:'FREQ',min:10,max:5000,val:440,fmt:v=>v+'Hz'}],
+    presets:[['100Hz',100],['440Hz',440],['1kHz',1000],['3kHz',3000]]},
+  // ── DYNAMICS (6) ──
+  {id:'soft',cat:'dyn',icon:'∿',name:'SOFT CLIP',desc:'Tanh Sättigung',params:[{id:'ds',lbl:'DRIVE',min:10,max:400,val:50,fmt:v=>(v/10).toFixed(1)}]},
+  {id:'hard',cat:'dyn',icon:'▬',name:'HARD CLIP',desc:'Brutales Clipping',params:[{id:'dh',lbl:'DRIVE',min:10,max:400,val:50,fmt:v=>(v/10).toFixed(1)}]},
+  {id:'fold',cat:'dyn',icon:'〰',name:'WAVEFOLDER',desc:'Harmonisches Falten',params:[{id:'df',lbl:'DRIVE',min:10,max:400,val:50,fmt:v=>(v/10).toFixed(1)}]},
+  {id:'gate',cat:'dyn',icon:'▥',name:'RHYTHMIC GATE',desc:'BPM-synchroner Chop',params:[
+    {id:'gb',lbl:'BPM',min:60,max:300,val:160,fmt:v=>v+' BPM'},
+    {id:'gs',lbl:'STEPS',min:4,max:32,val:16,fmt:v=>v}]},
+  {id:'env',cat:'dyn',icon:'⌇',name:'ENVELOPE',desc:'ADSR Hüllkurve',params:[
     {id:'ea',lbl:'ATK',min:0,max:500,val:5,fmt:v=>v+'ms'},
     {id:'ed',lbl:'DEC',min:0,max:500,val:50,fmt:v=>v+'ms'},
     {id:'es',lbl:'SUS',min:0,max:100,val:80,fmt:v=>v+'%'},
     {id:'er',lbl:'REL',min:0,max:1000,val:100,fmt:v=>v+'ms'}]},
+  {id:'trans',cat:'dyn',icon:'⚡',name:'TRANSIENT',desc:'Attack/Sustain Formung',params:[
+    {id:'ta',lbl:'ATTACK',min:-100,max:100,val:40,fmt:v=>(v>0?'+':'')+v},
+    {id:'ts2',lbl:'SUSTAIN',min:-100,max:100,val:0,fmt:v=>(v>0?'+':'')+v}]},
 ];
 let filterType='lp';
+let distortType='soft';
+let activeFxTab='time';
+
+function switchFxTab(cat){
+  activeFxTab=cat;
+  document.querySelectorAll('.fx-tab').forEach(t=>t.classList.toggle('act',t.dataset.cat===cat));
+  document.querySelectorAll('.fx-cat-content').forEach(c=>c.classList.toggle('act',c.dataset.cat===cat));
+  document.querySelectorAll('.fx-item').forEach(el=>el.classList.remove('open'));
+}
 
 function buildFxList(){
-  let h='';for(const fx of FX_DEFS){
-    h+=`<div class="fx-item" id="fxi_${fx.id}"><div class="fx-head" onclick="toggleFx('${fx.id}')"><span class="fx-icon">${fx.icon}</span><div><div class="fx-name">${fx.name}</div><div class="fx-desc">${fx.desc}</div></div><span class="fx-arrow">▸</span></div>`;
-    if(fx.instant){h+=`<div class="fx-body"><button class="fx-go" onclick="applyFx('${fx.id}')">⚡ ANWENDEN</button></div>`}
-    else{h+=`<div class="fx-body">`;
-      if(fx.id==='filter'){h+=`<div class="fx-presets"><div class="fx-pre act" id="fpLP" onclick="filterType='lp';document.getElementById('fpLP').classList.add('act');document.getElementById('fpHP').classList.remove('act')">LOWPASS</div><div class="fx-pre" id="fpHP" onclick="filterType='hp';document.getElementById('fpHP').classList.add('act');document.getElementById('fpLP').classList.remove('act')">HIGHPASS</div></div>`}
-      if(fx.presets&&fx.id!=='filter'){h+=`<div class="fx-presets">`;for(const[lbl,val]of fx.presets){const pid=fx.params[0].id;h+=`<div class="fx-pre" onclick="document.getElementById('${pid}').value=${val};upFxVal('${pid}')">${lbl}</div>`}h+=`</div>`}
-      for(const p of fx.params){const fnStr=p.fmt.toString().replace(/</g,'&lt;');h+=`<div class="fx-row"><span class="fx-lbl">${p.lbl}</span><input type="range" id="${p.id}" min="${p.min}" max="${p.max}" value="${p.val}" oninput="upFxVal('${p.id}')"><span class="fx-val" id="v${p.id}">${p.fmt(p.val)}</span></div>`}
-      if(fx.note)h+=`<div class="fx-note">${fx.note}</div>`;
-      h+=`<button class="fx-go" onclick="applyFx('${fx.id}')">⚡ ANWENDEN</button></div>`}
+  let h='<div class="fx-tabs">';
+  for(const c of FX_CATS){
+    const count=FX_DEFS.filter(f=>f.cat===c.id).length;
+    h+=`<div class="fx-tab${c.id===activeFxTab?' act':''}" data-cat="${c.id}" onclick="switchFxTab('${c.id}')">${c.name}<span class="fx-tab-count">${count} FX</span></div>`;
+  }
+  h+='</div>';
+  for(const c of FX_CATS){
+    h+=`<div class="fx-cat-content${c.id===activeFxTab?' act':''}" data-cat="${c.id}">`;
+    for(const fx of FX_DEFS.filter(f=>f.cat===c.id)){
+      h+=`<div class="fx-item" id="fxi_${fx.id}"><div class="fx-head" onclick="toggleFx('${fx.id}')"><span class="fx-icon">${fx.icon}</span><div><div class="fx-name">${fx.name}</div><div class="fx-desc">${fx.desc}</div></div><span class="fx-arrow">▸</span></div>`;
+      if(fx.instant){h+=`<div class="fx-body"><button class="fx-go" onclick="applyFx('${fx.id}')">⚡ ANWENDEN</button></div>`}
+      else{h+=`<div class="fx-body">`;
+        if(fx.id==='filter'){h+=`<div class="fx-presets"><div class="fx-pre act" id="fpLP" onclick="filterType='lp';document.getElementById('fpLP').classList.add('act');document.getElementById('fpHP').classList.remove('act')">LOWPASS</div><div class="fx-pre" id="fpHP" onclick="filterType='hp';document.getElementById('fpHP').classList.add('act');document.getElementById('fpLP').classList.remove('act')">HIGHPASS</div></div>`}
+        if(fx.id==='distortion'){h+=`<div class="fx-presets"><div class="fx-pre act" id="dtSoft" onclick="distortType='soft';document.querySelectorAll('#dtSoft,#dtHard,#dtFold').forEach(e=>e.classList.remove('act'));this.classList.add('act')">SOFT</div><div class="fx-pre" id="dtHard" onclick="distortType='hard';document.querySelectorAll('#dtSoft,#dtHard,#dtFold').forEach(e=>e.classList.remove('act'));this.classList.add('act')">HARD</div><div class="fx-pre" id="dtFold" onclick="distortType='fold';document.querySelectorAll('#dtSoft,#dtHard,#dtFold').forEach(e=>e.classList.remove('act'));this.classList.add('act')">FOLD</div></div>`}
+        if(fx.presets&&fx.id!=='filter'&&fx.id!=='distortion'){h+=`<div class="fx-presets">`;for(const[lbl,val]of fx.presets){const pid=fx.params[0].id;h+=`<div class="fx-pre" onclick="document.getElementById('${pid}').value=${val};upFxVal('${pid}')">${lbl}</div>`}h+=`</div>`}
+        for(const p of fx.params){h+=`<div class="fx-row"><span class="fx-lbl">${p.lbl}</span><input type="range" id="${p.id}" min="${p.min}" max="${p.max}" value="${p.val}" oninput="upFxVal('${p.id}')"><span class="fx-val" id="v${p.id}">${p.fmt(p.val)}</span></div>`}
+        if(fx.note)h+=`<div class="fx-note">${fx.note}</div>`;
+        h+=`<button class="fx-go" onclick="applyFx('${fx.id}')">⚡ ANWENDEN</button></div>`}
+      h+=`</div>`}
     h+=`</div>`}
   document.getElementById('fxList').innerHTML=h}
 
@@ -886,7 +945,7 @@ function buildFxList(){
 function upFxVal(pid){
   for(const fx of FX_DEFS){if(!fx.params)continue;for(const p of fx.params){if(p.id===pid){document.getElementById('v'+pid).textContent=p.fmt(+document.getElementById(pid).value);return}}}}
 
-function toggleFx(id){document.querySelectorAll('.fx-item').forEach(el=>{if(el.id===`fxi_${id}`)el.classList.toggle('open');else el.classList.remove('open')})}
+function toggleFx(id){const ac=document.querySelector('.fx-cat-content.act');if(!ac)return;ac.querySelectorAll('.fx-item').forEach(el=>{if(el.id===`fxi_${id}`)el.classList.toggle('open');else el.classList.remove('open')})}
 
 async function openModify(){
   const batch=checked.size>1;
@@ -913,9 +972,10 @@ async function applyFxSingle(id,idx){
     case'bitcrush':r=await window.api.fxBitcrush(idx,gv('bc'),gv('bh'));break;
     case'pitch':r=await window.api.fxPitch(idx,semi2factor(gv('pt')));break;
     case'stretch':r=await window.api.fxTimestretch(idx,gv('ts')/100);break;
-    case'soft':r=await window.api.fxDistort(idx,gv('dv')/10,'soft');break;
-    case'hard':r=await window.api.fxDistort(idx,gv('dv')/10,'hard');break;
-    case'fold':r=await window.api.fxDistort(idx,gv('dv')/10,'fold');break;
+    case'soft':r=await window.api.fxDistort(idx,gv('ds')/10,'soft');break;
+    case'hard':r=await window.api.fxDistort(idx,gv('dh')/10,'hard');break;
+    case'fold':r=await window.api.fxDistort(idx,gv('df')/10,'fold');break;
+    case'distortion':r=await window.api.fxDistort(idx,gv('dd')/10,distortType);break;
     case'fadein':r=await window.api.fxFadeIn(idx,gv('fi'));break;
     case'fadeout':r=await window.api.fxFadeOut(idx,gv('fo'));break;
     case'chop':r=await window.api.fxChop(idx,gv('ch'));break;
