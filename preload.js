@@ -47,6 +47,9 @@ contextBridge.exposeInMainWorld('api', {
   fxLoopXfade:      (i, ms)         => ipcRenderer.invoke('fx-loop-xfade', { index: i, ms }),
   fxEnvelope:       (i, a, d, s, r) => ipcRenderer.invoke('fx-envelope', { index: i, attackMs: a, decayMs: d, sustainLvl: s, releaseMs: r }),
 
+  // ESX patterns
+  getEsxPatterns: () => ipcRenderer.invoke('get-esx-patterns'),
+
   // Export progress
   onExportProgress: (cb) => ipcRenderer.on('export-progress', (_, data) => cb(data)),
 

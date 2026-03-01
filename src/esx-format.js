@@ -778,6 +778,92 @@ function buildEsxFile(samples) {
 }
 
 /**
+ * Parse all 256 patterns from an ESX file buffer.
+ * Returns array of pattern objects with header info and part data.
+ */
+function parseEsxPatterns(buffer) {
+  const patterns = [];
+  for (let i = 0; i < NUM.PATTERNS; i++) {
+    const off = ADDR.PATTERN_DATA + i * 4280;
+
+    // Header (24 bytes)
+    let name = '';
+    for (let j = 0; j < 8; j++) {
+      const b = buffer.readUInt8(off + j);
+      if (b === 0) break;
+      name += String.fromCharCode(b);
+    }
+    name = name.trim();
+
+    const tempoRaw = buffer.readUInt16BE(off + 8);
+    const tempo = tempoRaw / 128;
+    const swing = buffer.readUInt8(off + 10);
+    const fxChain = buffer.readUInt8(off + 12);
+    const lastStep = buffer.readUInt8(off + 13);
+    const steps = lastStep + 1;
+
+    // 9 drum parts (34 bytes each, starting at offset 24)
+    const drumParts = [];
+    for (let d = 0; d < 9; d++) {
+      const dp = off + 24 + d * 34;
+      drumParts.push({
+        type: 'drum',
+        name: `Drum ${d + 1}`,
+        samplePointer: buffer.readUInt16BE(dp),
+        level: buffer.readUInt8(dp + 9),
+      });
+    }
+
+    // 2 keyboard parts (274 bytes each, starting at offset 330)
+    const kbdParts = [];
+    for (let k = 0; k < 2; k++) {
+      const kp = off + 330 + k * 274;
+      kbdParts.push({
+        type: 'keyboard',
+        name: `Keyboard ${k + 1}`,
+        samplePointer: buffer.readUInt16BE(kp),
+        level: buffer.readUInt8(kp + 9),
+      });
+    }
+
+    // 2 stretch parts (32 bytes each, starting at offset 878)
+    const stretchParts = [];
+    for (let s = 0; s < 2; s++) {
+      const sp = off + 878 + s * 32;
+      stretchParts.push({
+        type: 'stretch',
+        name: `Stretch ${s + 1}`,
+        samplePointer: buffer.readUInt16BE(sp),
+        level: buffer.readUInt8(sp + 7),
+      });
+    }
+
+    // 1 slice part (32 bytes at offset 942)
+    const sliceOff = off + 942;
+    const slicePart = {
+      type: 'slice',
+      name: 'Slice',
+      samplePointer: buffer.readUInt16BE(sliceOff),
+      level: buffer.readUInt8(sliceOff + 7),
+    };
+
+    patterns.push({
+      index: i,
+      name,
+      tempo,
+      swing,
+      steps,
+      fxChain,
+      drumParts,
+      kbdParts,
+      stretchParts,
+      slicePart,
+    });
+  }
+  return patterns;
+}
+
+/**
  * Parse an existing ESX file and extract sample info.
  */
 function parseEsxFile(buffer) {
@@ -948,6 +1034,7 @@ module.exports = {
   createEmptyEsx,
   buildEsxFile,
   parseEsxFile,
+  parseEsxPatterns,
   pcmToWav,
   ADDR,
   SIZE,

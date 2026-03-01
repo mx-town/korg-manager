@@ -23,6 +23,7 @@ app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) creat
 //  SAMPLE STORE + UNDO SYSTEM
 // ═══════════════════════════════════════════════════════════
 let currentSamples = [];
+let lastEsxBuffer = null;
 const MAX_UNDO = 50;
 
 function pushUndo(index) {
@@ -108,6 +109,7 @@ ipcMain.handle('open-esx-file', async () => {
   if (result.canceled) return null;
   try {
     const buffer = fs.readFileSync(result.filePaths[0]);
+    lastEsxBuffer = buffer;
     const parsed = esx.parseEsxFile(buffer);
     currentSamples = [];
     for (const s of parsed.monoSamples) {
@@ -115,6 +117,22 @@ ipcMain.handle('open-esx-file', async () => {
     }
     return { filePath: result.filePaths[0], samples: getSamplesInfo() };
   } catch (err) { return { error: err.message }; }
+});
+
+ipcMain.handle('get-esx-patterns', async () => {
+  if (!lastEsxBuffer) return { patterns: [] };
+  try {
+    const raw = esx.parseEsxPatterns(lastEsxBuffer);
+    const patterns = raw.map((p, i) => {
+      const parts = [];
+      for (const d of p.drumParts) parts.push({ name: d.name, info: `Smp ${d.samplePointer}`, level: d.level });
+      for (const k of p.kbdParts) parts.push({ name: k.name, info: `Smp ${k.samplePointer}`, level: k.level });
+      for (const s of p.stretchParts) parts.push({ name: s.name, info: `Smp ${s.samplePointer}`, level: s.level });
+      parts.push({ name: p.slicePart.name, info: `Smp ${p.slicePart.samplePointer}`, level: p.slicePart.level });
+      return { index: i, name: p.name, bpm: p.tempo, swing: p.swing, steps: p.steps, parts };
+    });
+    return { patterns };
+  } catch (err) { return { patterns: [], error: err.message }; }
 });
 
 ipcMain.handle('import-wav-files', async () => {
