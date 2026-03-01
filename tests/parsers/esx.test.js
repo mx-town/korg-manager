@@ -105,19 +105,13 @@ describe('ESX - Global parameters', () => {
     buf = generateMinimalESX();
   });
 
-  it('should set MIDI channel for Keyboard 1 to Ch 1 (0x00)', () => {
-    expect(buf.readUInt8(ADDR.GLOBAL_PARAMS + 0x07)).toBe(0x00);
+  it('should set all MIDI channels to Ch 1 (0x00) for slave compatibility', () => {
+    expect(buf.readUInt8(ADDR.GLOBAL_PARAMS + 0x07)).toBe(0x00); // Keyboard 1
+    expect(buf.readUInt8(ADDR.GLOBAL_PARAMS + 0x08)).toBe(0x00); // Keyboard 2
+    expect(buf.readUInt8(ADDR.GLOBAL_PARAMS + 0x09)).toBe(0x00); // Drum/Stretch/Slice/AudioIn
   });
 
-  it('should set MIDI channel for Keyboard 2 to Ch 2 (0x01)', () => {
-    expect(buf.readUInt8(ADDR.GLOBAL_PARAMS + 0x08)).toBe(0x01);
-  });
-
-  it('should set MIDI channel for Drum/Stretch/Slice/AudioIn to Ch 10 (0x09)', () => {
-    expect(buf.readUInt8(ADDR.GLOBAL_PARAMS + 0x09)).toBe(0x09);
-  });
-
-  it('should set pitch bend range to factory default 0x0E', () => {
+  it('should set pitch bend range to +2 semitones (0x0E)', () => {
     expect(buf.readUInt8(ADDR.GLOBAL_PARAMS + 0x06)).toBe(0x0E);
   });
 
@@ -125,8 +119,38 @@ describe('ESX - Global parameters', () => {
     expect(buf.readUInt8(ADDR.GLOBAL_PARAMS + 0x05)).toBe(0x0F);
   });
 
-  it('should set drum 1 note number to 36 (C1)', () => {
-    expect(buf.readUInt8(ADDR.GLOBAL_PARAMS + 0x0A)).toBe(36);
+  it('should set correct factory default part note numbers', () => {
+    const expected = [36, 38, 40, 41, 43, 42, 46, 49, 51, 9, 10, 11, 12];
+    for (let i = 0; i < expected.length; i++) {
+      expect(buf.readUInt8(ADDR.GLOBAL_PARAMS + 0x0A + i)).toBe(expected[i]);
+    }
+  });
+
+  it('should set correct MIDI CC assignments (33 bytes)', () => {
+    const expectedCCs = [89,90,87,88,82, 74,71,79,83, 5,10,75,7,18,86,85,19,91,81,80, 12,92,93,20, 13,94,95,21, 24,25,26,22, 23];
+    for (let i = 0; i < expectedCCs.length; i++) {
+      expect(buf.readUInt8(ADDR.GLOBAL_PARAMS + 0x17 + i)).toBe(expectedCCs[i]);
+    }
+  });
+
+  it('should have valid MIDI channels (0x00-0x0F range)', () => {
+    for (let i = 0; i < 3; i++) {
+      const ch = buf.readUInt8(ADDR.GLOBAL_PARAMS + 0x07 + i);
+      expect(ch).toBeGreaterThanOrEqual(0);
+      expect(ch).toBeLessThanOrEqual(0x0F);
+    }
+  });
+
+  it('should preserve MIDI params through buildEsxFile round-trip', () => {
+    const built = buildEsxFile([]);
+    // All 3 MIDI channels should be Ch1
+    expect(built.readUInt8(ADDR.GLOBAL_PARAMS + 0x07)).toBe(0x00);
+    expect(built.readUInt8(ADDR.GLOBAL_PARAMS + 0x08)).toBe(0x00);
+    expect(built.readUInt8(ADDR.GLOBAL_PARAMS + 0x09)).toBe(0x00);
+    // Note numbers preserved
+    expect(built.readUInt8(ADDR.GLOBAL_PARAMS + 0x0A)).toBe(36); // Drum1 = C2
+    // Bitflags preserved
+    expect(built.readUInt8(ADDR.GLOBAL_PARAMS + 0x05)).toBe(0x0F);
   });
 });
 

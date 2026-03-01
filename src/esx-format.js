@@ -491,25 +491,33 @@ function createEmptyEsx() {
   ESX_HEADER.copy(buffer, ADDR.HEADER);
 
   // ════ Global Parameters (192 bytes at offset 0x20) ════
-  // Layout from open-electribe-editor GlobalParametersImpl.java
+  // Layout verified against lammas/electribe & open-electribe-editor
+  // TABLE13: memProtect(1) + reserved(1) + arpCtrl(1) + audioIn(1) + midiClk(1)
+  //          + flags(1) + pitchBend(1) + midiCh(3) + noteNums(13) + ccs(33)
+  //          + reserved(8) + patternSet(128) = 192 bytes
   buffer.writeUInt8(0x00, ADDR.GLOBAL_PARAMS + 0x00); // memoryProtect (disabled)
   buffer.writeUInt8(0x00, ADDR.GLOBAL_PARAMS + 0x01); // reserved
-  buffer.writeUInt8(0x00, ADDR.GLOBAL_PARAMS + 0x02); // arpeggiatorControl (NORMAL)
-  buffer.writeUInt8(0x00, ADDR.GLOBAL_PARAMS + 0x03); // audioInMode (MONO)
-  buffer.writeUInt8(0x00, ADDR.GLOBAL_PARAMS + 0x04); // midiClock (INT)
-  buffer.writeUInt8(0x0F, ADDR.GLOBAL_PARAMS + 0x05); // bitflags (note, sysex, cc, pc)
-  buffer.writeUInt8(0x0E, ADDR.GLOBAL_PARAMS + 0x06); // pitchBendRange (+2 semitones)
+  buffer.writeUInt8(0x00, ADDR.GLOBAL_PARAMS + 0x02); // arpeggiatorControl (0=NORMAL)
+  buffer.writeUInt8(0x00, ADDR.GLOBAL_PARAMS + 0x03); // audioInMode (0=MONO)
+  buffer.writeUInt8(0x00, ADDR.GLOBAL_PARAMS + 0x04); // midiClock (0=INT, 1=EXT, 2=AUTO)
+  buffer.writeUInt8(0x0F, ADDR.GLOBAL_PARAMS + 0x05); // bitflags [bit0=note,1=sysex,2=cc,3=pc]
+  buffer.writeUInt8(0x0E, ADDR.GLOBAL_PARAMS + 0x06); // pitchBendRange (14=+2 semitones)
 
   // MIDI channel assignments (0x00=Ch1 .. 0x0F=Ch16)
+  // All on Ch1 for maximum MIDI slave compatibility (e.g. EMX→ESX setup).
+  // Korg factory splits Kbd1=Ch1, Kbd2=Ch2, Drums=Ch10 — but that breaks
+  // common setups where the master sends everything on one channel.
+  // Users can reassign channels on hardware after loading.
   buffer.writeUInt8(0x00, ADDR.GLOBAL_PARAMS + 0x07); // Keyboard 1 = Channel 1
-  buffer.writeUInt8(0x01, ADDR.GLOBAL_PARAMS + 0x08); // Keyboard 2 = Channel 2
-  buffer.writeUInt8(0x09, ADDR.GLOBAL_PARAMS + 0x09); // Drum/Stretch/Slice/AudioIn = Channel 10
+  buffer.writeUInt8(0x00, ADDR.GLOBAL_PARAMS + 0x08); // Keyboard 2 = Channel 1
+  buffer.writeUInt8(0x00, ADDR.GLOBAL_PARAMS + 0x09); // Drum/Stretch/Slice/AudioIn = Channel 1
 
-  // Part note numbers (MIDI note that triggers each part on the drum channel)
+  // Part note numbers (MIDI note that triggers each part)
+  // Values match GM drum map: Kick=36, Snare=38, etc.
   const partNotes = [36, 38, 40, 41, 43, 42, 46, 49, 51, 9, 10, 11, 12];
-  // Drum1=C1, Drum2=D1, Drum3=E1, Drum4=F1, Drum5=G1,
-  // Drum6a=F#1, Drum6b=A#1, Drum7a=C#2, Drum7b=D#2,
-  // Stretch1=A-2, Stretch2=A#-2, Slice=B-2, AudioIn=C-1
+  // Drum1=C2(36), Drum2=D2(38), Drum3=E2(40), Drum4=F2(41), Drum5=G2(43),
+  // Drum6a=F#2(42), Drum6b=A#2(46), Drum7a=C#3(49), Drum7b=D#3(51),
+  // Stretch1=A-1(9), Stretch2=A#-1(10), Slice=B-1(11), AudioIn=C0(12)
   for (let i = 0; i < partNotes.length; i++) {
     buffer.writeUInt8(partNotes[i], ADDR.GLOBAL_PARAMS + 0x0A + i);
   }
