@@ -20,6 +20,41 @@ app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(
 app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 
 // ═══════════════════════════════════════════════════════════
+//  DEBUG HELPERS
+// ═══════════════════════════════════════════════════════════
+const DEBUG = process.env.NODE_ENV === 'development';
+
+function debugLog(category, message, data) {
+  if (!DEBUG) return;
+  const ts = new Date().toISOString().split('T')[1].slice(0, -1);
+  console.log(`[${ts}] [${category}] ${message}`);
+  if (data !== undefined) console.log(data);
+}
+
+function debugError(category, error) {
+  console.error(`[ERROR] [${category}]`, error.message);
+  if (DEBUG) console.error(error.stack);
+}
+
+/**
+ * Wrap an IPC handler with debug logging and error catching.
+ * Use for new handlers or when converting existing ones.
+ */
+function safeIpcHandle(channel, handler) {
+  ipcMain.handle(channel, async (...args) => {
+    try {
+      debugLog('IPC', `→ ${channel}`);
+      const result = await handler(...args);
+      debugLog('IPC', `← ${channel} OK`);
+      return result;
+    } catch (error) {
+      debugError(channel, error);
+      return { error: error.message };
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
 //  SAMPLE STORE + UNDO SYSTEM
 // ═══════════════════════════════════════════════════════════
 let currentSamples = [];
