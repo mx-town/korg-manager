@@ -1191,6 +1191,7 @@ document.getElementById('e2s-view').addEventListener('drop',e=>{e.preventDefault
 //  EMX-1 PATTERN BROWSER
 // ═══════════════════════════════════════════════════════════
 let emxPatterns=[],emxSel=-1,emxFilePath=null;
+function emxPatLabel(i){const banks='ABCD',bank=banks[Math.floor(i/16)]||'?',num=(i%16)+1;return `${bank}.${String(num).padStart(2,'0')}`}
 
 async function emxOpen(){
   if(!window.api.emx){toast('EMX module not available','error');return}
@@ -1212,7 +1213,7 @@ function emxRenderTable(){
   let h='';
   for(let i=0;i<emxPatterns.length;i++){
     const p=emxPatterns[i],a=i===emxSel;
-    h+=`<tr class="${a?'act':''}" onclick="emxSelPat(${i})"><td style="color:var(--txt-x);text-align:center">${i}</td><td>${esc(p.name||'Init')}</td><td>${(p.bpm||120).toFixed(1)}</td><td>${p.swing||50}%</td><td>${p.steps||16}</td><td>${p.beat||'16th'}</td></tr>`;
+    h+=`<tr class="${a?'act':''}" onclick="emxSelPat(${i})"><td style="color:var(--txt-x);text-align:center">${emxPatLabel(i)}</td><td>Init</td><td>${(p.bpm||120).toFixed(1)}</td><td>${p.swing||50}%</td><td>${p.steps||16}</td><td>${p.beat||'16th'}</td></tr>`;
   }
   document.getElementById('emxTbody').innerHTML=h;
 }
@@ -1220,8 +1221,8 @@ function emxRenderTable(){
 function emxSelPat(i){
   emxSel=i;emxRenderTable();
   const p=emxPatterns[i];if(!p)return;
-  let h=`<div class="sbt">PATTERN ${i}</div>`;
-  h+=`<div class="dr"><span class="dl">NAME</span><span class="dv" style="color:var(--led)">${esc(p.name||'Init')}</span></div>`;
+  let h=`<div class="sbt">PATTERN ${emxPatLabel(i)}</div>`;
+  h+=`<div class="dr"><span class="dl">NAME</span><span class="dv" style="color:var(--led)">Init</span></div>`;
   h+=`<div class="dr"><span class="dl">BPM</span><span class="dv">${(p.bpm||120).toFixed(1)}</span></div>`;
   h+=`<div class="dr"><span class="dl">SWING</span><span class="dv">${p.swing||50}%</span></div>`;
   h+=`<div class="dr"><span class="dl">STEPS</span><span class="dv">${p.steps||16}</span></div>`;
