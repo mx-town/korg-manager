@@ -50,6 +50,11 @@ contextBridge.exposeInMainWorld('api', {
   // Export progress
   onExportProgress: (cb) => ipcRenderer.on('export-progress', (_, data) => cb(data)),
 
+  // ═══ ESX Patterns ═══
+  esx: {
+    openPatterns: ()            => ipcRenderer.invoke('esx:open-patterns'),
+  },
+
   // ═══ E2S ═══
   e2s: {
     openFile:     ()              => ipcRenderer.invoke('e2s:open-file'),

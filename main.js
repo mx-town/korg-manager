@@ -1067,6 +1067,57 @@ function patternToUI(pat) {
   };
 }
 
+/** Convert an ESX pattern (from parseEsxPattern) to unified UI format. */
+function esxPatternToUI(esxPat) {
+  const numSteps = (esxPat.lastStep || 0) + 1;
+  const parts = esxPat.parts.map(part => {
+    let steps, velocities;
+    if (part.type === 'keyboard') {
+      steps = part.notes.slice(0, numSteps).map(n => n.active);
+      velocities = part.gates.slice(0, numSteps);
+    } else if (part.type === 'accent') {
+      steps = part.steps.slice(0, numSteps);
+      velocities = steps.map(active => active ? part.level : 0);
+    } else {
+      steps = part.steps.slice(0, numSteps);
+      velocities = steps.map(active => active ? (part.level || 100) : 0);
+    }
+    return { name: part.name, type: part.type, level: part.level || 100, steps, velocities };
+  });
+
+  return {
+    name: esxPat.name,
+    bpm: esxPat.tempo,
+    swing: esxPat.swing || 50,
+    steps: numSteps,
+    beat: '16th',
+    deviceId: 'esx',
+    format: 'ESX-1',
+    parts,
+  };
+}
+
+ipcMain.handle('esx:open-patterns', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Open ESX File (Patterns)',
+    filters: [
+      { name: 'ESX Files', extensions: ['esx', 'ESX'] },
+      { name: 'All Files', extensions: ['*'] }
+    ],
+    properties: ['openFile']
+  });
+  if (result.canceled) return { canceled: true };
+  try {
+    const buf = fs.readFileSync(result.filePaths[0]);
+    const rawPatterns = esx.parseEsxPatterns(buf);
+    const patterns = rawPatterns.map(p => esxPatternToUI(p));
+    return { canceled: false, filePath: result.filePaths[0], patterns, count: patterns.length };
+  } catch (err) {
+    debugError('esx:open-patterns', err);
+    return { error: err.message, canceled: true };
+  }
+});
+
 ipcMain.handle('e2pat:open-file', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     title: 'Open E2 Pattern',

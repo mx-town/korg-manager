@@ -38,6 +38,32 @@ const NUM = {
   SONGS: 64,
 };
 
+// ── Pattern layout ────────────────────────────────────────
+const PATTERN_SIZE = 4280;
+const PATTERN_COUNT = 256;
+
+const DRUM_PART_SIZE = 34;
+const KB_PART_SIZE = 274;
+const STRETCH_PART_SIZE = 32;
+const AUDIOIN_PART_SIZE = 156;
+const ACCENT_PART_SIZE = 18;
+const FX_PARAMS_SIZE = 12;
+
+// Part offsets relative to pattern start
+const PATTERN_OFFSETS = {
+  HEADER:   0,
+  DRUM_START: 24,
+  KB1:      330,
+  KB2:      604,
+  STRETCH1: 878,
+  STRETCH2: 910,
+  SLICE:    942,
+  AUDIOIN:  974,
+  ACCENT:   1130,
+  FX:       1148,
+  MOTION:   1160,
+};
+
 // ESX file header — bytes 0x0C-0x11 are format version constants required by hardware
 const ESX_HEADER = Buffer.from([
   0x4B, 0x4F, 0x52, 0x47, // "KORG"
@@ -785,6 +811,193 @@ function buildEsxFile(samples) {
   return finalBuffer;
 }
 
+// ── ESX Pattern Parsing ──────────────────────────────────
+
+/**
+ * Parse ESX drum part (34 bytes: 18 params + 16 steps).
+ */
+function parseEsxDrumPart(buf, offset) {
+  const steps = [];
+  for (let i = 0; i < 16; i++) {
+    steps.push(buf.readUInt8(offset + 18 + i) !== 0x00);
+  }
+  return {
+    sampleNum: buf.readUInt16BE(offset + 0),
+    filterType: buf.readUInt8(offset + 4),
+    cutoff: buf.readUInt8(offset + 5),
+    resonance: buf.readUInt8(offset + 6),
+    pitch: buf.readUInt8(offset + 8),
+    level: buf.readUInt8(offset + 9),
+    pan: buf.readUInt8(offset + 10),
+    steps,
+  };
+}
+
+/**
+ * Parse ESX keyboard part (274 bytes: 18 params + 128 notes + 128 gates).
+ * Note byte: bit 7 = gate flag (0 = ON, 1 = OFF), bits 0-6 = MIDI note.
+ */
+function parseEsxKeyboardPart(buf, offset) {
+  const notes = [];
+  const gates = [];
+  for (let i = 0; i < 128; i++) {
+    const noteByte = buf.readUInt8(offset + 18 + i);
+    notes.push({
+      active: (noteByte & 0x80) === 0,
+      note: noteByte & 0x7F,
+    });
+  }
+  for (let i = 0; i < 128; i++) {
+    gates.push(buf.readUInt8(offset + 146 + i));
+  }
+  return {
+    sampleNum: buf.readUInt16BE(offset + 0),
+    filterType: buf.readUInt8(offset + 5),
+    cutoff: buf.readUInt8(offset + 6),
+    resonance: buf.readUInt8(offset + 7),
+    level: buf.readUInt8(offset + 9),
+    pan: buf.readUInt8(offset + 10),
+    notes,
+    gates,
+  };
+}
+
+/**
+ * Parse ESX stretch/slice part (32 bytes: 16 params + 16 steps).
+ */
+function parseEsxStretchPart(buf, offset) {
+  const steps = [];
+  for (let i = 0; i < 16; i++) {
+    steps.push(buf.readUInt8(offset + 16 + i) !== 0x00);
+  }
+  return {
+    sampleNum: buf.readUInt16BE(offset + 0),
+    level: buf.readUInt8(offset + 7),
+    pan: buf.readUInt8(offset + 8),
+    steps,
+  };
+}
+
+/**
+ * Parse ESX audio-in part (156 bytes: 12 params + 16 steps + 128 gates).
+ */
+function parseEsxAudioInPart(buf, offset) {
+  const steps = [];
+  const gates = [];
+  for (let i = 0; i < 16; i++) {
+    steps.push(buf.readUInt8(offset + 12 + i) !== 0x00);
+  }
+  for (let i = 0; i < 128; i++) {
+    gates.push(buf.readUInt8(offset + 28 + i));
+  }
+  return {
+    level: buf.readUInt8(offset + 4),
+    pan: buf.readUInt8(offset + 5),
+    steps,
+    gates,
+  };
+}
+
+/**
+ * Parse ESX accent part (18 bytes: level + reserved + 16 steps).
+ * Steps use INVERTED logic: 0xFF = OFF, 0x00 = ON.
+ */
+function parseEsxAccentPart(buf, offset) {
+  const steps = [];
+  for (let i = 0; i < 16; i++) {
+    steps.push(buf.readUInt8(offset + 2 + i) !== 0xFF);
+  }
+  return {
+    level: buf.readUInt8(offset + 0),
+    steps,
+  };
+}
+
+/**
+ * Parse ESX FX parameters (3 effects × 4 bytes each).
+ */
+function parseEsxFxParams(buf, offset) {
+  const effects = [];
+  for (let i = 0; i < 3; i++) {
+    const fx = offset + i * 4;
+    effects.push({
+      type: buf.readUInt8(fx + 0),
+      param1: buf.readUInt8(fx + 1),
+      param2: buf.readUInt8(fx + 2),
+      param3: buf.readUInt8(fx + 3),
+    });
+  }
+  return effects;
+}
+
+/**
+ * Parse a single ESX pattern (4,280 bytes).
+ */
+function parseEsxPattern(buf, offset) {
+  if (offset + PATTERN_SIZE > buf.length) {
+    throw new Error(`Pattern at offset 0x${offset.toString(16)} exceeds buffer`);
+  }
+
+  // Header
+  const name = buf.toString('ascii', offset, offset + 8).replace(/\0/g, ' ').trim();
+  const tempoRaw = buf.readUInt16BE(offset + 8);
+  const tempo = tempoRaw / 128;
+  const swing = buf.readUInt8(offset + 10);
+  const fxChain = buf.readUInt8(offset + 12);
+  const lastStep = buf.readUInt8(offset + 13);
+
+  // 16 parts
+  const parts = [];
+
+  // 9 drums
+  for (let i = 0; i < 9; i++) {
+    parts.push({
+      type: 'drum',
+      name: `Drum ${i + 1}`,
+      ...parseEsxDrumPart(buf, offset + PATTERN_OFFSETS.DRUM_START + i * DRUM_PART_SIZE),
+    });
+  }
+
+  // 2 keyboards
+  parts.push({ type: 'keyboard', name: 'KB 1', ...parseEsxKeyboardPart(buf, offset + PATTERN_OFFSETS.KB1) });
+  parts.push({ type: 'keyboard', name: 'KB 2', ...parseEsxKeyboardPart(buf, offset + PATTERN_OFFSETS.KB2) });
+
+  // 2 stretch + 1 slice (same layout)
+  parts.push({ type: 'stretch', name: 'Stretch 1', ...parseEsxStretchPart(buf, offset + PATTERN_OFFSETS.STRETCH1) });
+  parts.push({ type: 'stretch', name: 'Stretch 2', ...parseEsxStretchPart(buf, offset + PATTERN_OFFSETS.STRETCH2) });
+  parts.push({ type: 'slice', name: 'Slice', ...parseEsxStretchPart(buf, offset + PATTERN_OFFSETS.SLICE) });
+
+  // Audio In
+  parts.push({ type: 'audioin', name: 'Audio In', ...parseEsxAudioInPart(buf, offset + PATTERN_OFFSETS.AUDIOIN) });
+
+  // Accent
+  parts.push({ type: 'accent', name: 'Accent', ...parseEsxAccentPart(buf, offset + PATTERN_OFFSETS.ACCENT) });
+
+  // FX
+  const effects = parseEsxFxParams(buf, offset + PATTERN_OFFSETS.FX);
+
+  return { name, tempo, swing, fxChain, lastStep, parts, effects };
+}
+
+/**
+ * Parse all 256 ESX patterns from a valid .esx file buffer.
+ */
+function parseEsxPatterns(buf) {
+  if (buf.length < SIZE.FILE_MIN) {
+    throw new Error(`ESX file too small: ${buf.length} bytes (need >= ${SIZE.FILE_MIN})`);
+  }
+  const magic = buf.toString('ascii', 0, 4);
+  if (magic !== 'KORG') {
+    throw new Error(`Not a valid ESX file (missing KORG signature)`);
+  }
+
+  const patterns = [];
+  for (let i = 0; i < PATTERN_COUNT; i++) {
+    patterns.push(parseEsxPattern(buf, ADDR.PATTERN_DATA + i * PATTERN_SIZE));
+  }
+  return patterns;
+}
+
 /**
  * Parse an existing ESX file and extract sample info.
  */
@@ -957,7 +1170,12 @@ module.exports = {
   buildEsxFile,
   parseEsxFile,
   pcmToWav,
+  parseEsxPatterns,
+  parseEsxPattern,
   ADDR,
   SIZE,
   NUM,
+  PATTERN_SIZE,
+  PATTERN_COUNT,
+  PATTERN_OFFSETS,
 };

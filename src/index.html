@@ -366,7 +366,7 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
     <button class="device-tab active" data-device="esx1" onclick="switchDevice('esx1')"><span class="tab-icon">◆</span> ESX-1<span class="tab-badge">Sampler</span></button>
     <button class="device-tab" data-device="e2s" onclick="switchDevice('e2s')"><span class="tab-icon">◆</span> E2S<span class="tab-badge">Sampler</span></button>
     <button class="device-tab" data-device="emx1" onclick="switchDevice('emx1')"><span class="tab-icon">◆</span> EMX-1<span class="tab-badge">Synth</span></button>
-    <button class="device-tab" data-device="e2pat" onclick="switchDevice('e2pat')"><span class="tab-icon">◆</span> E2 Patterns<span class="tab-badge">Editor</span></button>
+    <button class="device-tab" data-device="e2pat" onclick="switchDevice('e2pat')"><span class="tab-icon">◆</span> Patterns<span class="tab-badge">Viewer</span></button>
   </div>
 
   <!-- ═══ ESX-1 VIEW (existing UI) ═══ -->
@@ -524,20 +524,23 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
     </div>
   </div><!-- /emx1-view -->
 
-  <!-- ═══ E2 PATTERNS VIEW ═══ -->
+  <!-- ═══ PATTERN VIEWER ═══ -->
   <div id="e2pat-view" class="device-view">
     <div class="e2s-toolbar">
-      <button class="btn" onclick="patOpen()">📂 OPEN .E2PAT</button>
-      <button class="btn" onclick="patOpenAll()">📂 OPEN .E2ALLPAT</button>
-      <button class="btn btn-hi" onclick="patSave()">💾 SAVE</button>
+      <button class="btn" onclick="patOpenESX()" style="border-color:var(--hi)">◆ ESX-1</button>
+      <button class="btn" onclick="patOpen()">◆ E2 .E2PAT</button>
+      <button class="btn" onclick="patOpenAll()">◆ E2 .E2ALLPAT</button>
       <div class="hsep"></div>
+      <button class="btn btn-hi" onclick="patSave()">💾 SAVE</button>
       <button class="btn" onclick="patSplitAll()">✂ SPLIT ALL</button>
+      <div class="hsep"></div>
+      <span id="patFormatBadge" style="font-family:var(--lcd);font-size:11px;color:var(--txt-d);padding:0 8px">No file loaded</span>
     </div>
     <div class="pat-main">
       <div class="pat-list-panel">
         <div class="sl-hdr"><h2>▸ PATTERNS</h2><span class="sc" id="patPC">0</span></div>
         <div class="pat-list" id="patList">
-          <div class="es"><div class="dz" onclick="patOpen()"><i>⚡</i><p><strong>E2 PATTERN LADEN</strong><br><br>.e2pat / .e2allpat</p></div></div>
+          <div class="es"><div class="dz" onclick="patOpenESX()"><i>⚡</i><p><strong>PATTERN LADEN</strong><br><br>.esx / .e2pat / .e2allpat</p></div></div>
         </div>
       </div>
       <div class="pat-grid-panel">
@@ -1067,9 +1070,10 @@ function updateStatusBar(){
     l.innerHTML=`EMX-1 — <span class="hl">Pattern Browser</span>`;
     r.innerHTML=`EMX-1 | <span class="bl">${emxPatterns.length}</span> patterns | Read-Only`;
   } else if(activeDevice==='e2pat'){
-    l.innerHTML=`E2 Patterns — <span class="hl">Step Editor</span>`;
+    const fmt=patFormat||'—';
+    l.innerHTML=`Patterns — <span class="hl">${fmt}</span>`;
     const p=patData.length;
-    r.innerHTML=`E2 | <span class="bl">${p}</span> pattern${p!==1?'s':''}`;
+    r.innerHTML=`${fmt} | <span class="bl">${p}</span> pattern${p!==1?'s':''} | Read-Only`;
   }
 }
 
@@ -1315,8 +1319,24 @@ function emxSelPat(i){
 // ═══════════════════════════════════════════════════════════
 //  E2 PATTERN VIEWER
 // ═══════════════════════════════════════════════════════════
-let patData=[],patSel=-1,patFilePath=null;
+let patData=[],patSel=-1,patFilePath=null,patFormat=null;
 const PAT_CELL=20,PAT_ROWS=16,PAT_COLS=32;
+
+async function patOpenESX(){
+  if(!window.api.esx){toast('ESX module not available','error');return}
+  const r=await window.api.esx.openPatterns();
+  if(!r||r.canceled)return;
+  if(r.error){toast(r.error,'error');return}
+  patFilePath=r.filePath;
+  patFormat='ESX-1';
+  patData=r.patterns||[];
+  patSel=patData.length?0:-1;
+  document.getElementById('patFormatBadge').textContent='ESX-1';
+  patRenderList();
+  if(patSel>=0)patSelectPat(0);
+  updateStatusBar();
+  toast(`ESX PATTERNS: ${patData.length} loaded from ${r.filePath.split(/[\\/]/).pop()}`,'success');
+}
 
 async function patOpen(){
   if(!window.api.e2pat){toast('E2Pat module not available','error');return}
@@ -1324,8 +1344,10 @@ async function patOpen(){
   if(!r)return;
   if(r.error){toast(r.error,'error');return}
   patFilePath=r.filePath;
+  patFormat='E2';
   patData=r.patterns||[r.pattern].filter(Boolean);
   patSel=patData.length?0:-1;
+  document.getElementById('patFormatBadge').textContent='E2';
   patRenderList();
   if(patSel>=0)patSelectPat(0);
   updateStatusBar();
@@ -1338,8 +1360,10 @@ async function patOpenAll(){
   if(!r)return;
   if(r.error){toast(r.error,'error');return}
   patFilePath=r.filePath;
+  patFormat='E2';
   patData=r.patterns||[];
   patSel=patData.length?0:-1;
+  document.getElementById('patFormatBadge').textContent='E2';
   patRenderList();
   if(patSel>=0)patSelectPat(0);
   updateStatusBar();
@@ -1363,7 +1387,7 @@ async function patSplitAll(){
 
 function patRenderList(){
   document.getElementById('patPC').textContent=patData.length;
-  if(!patData.length){document.getElementById('patList').innerHTML=`<div class="es"><div class="dz" onclick="patOpen()"><i>⚡</i><p><strong>E2 PATTERN LADEN</strong><br><br>.e2pat / .e2allpat</p></div></div>`;return}
+  if(!patData.length){document.getElementById('patList').innerHTML=`<div class="es"><div class="dz" onclick="patOpenESX()"><i>⚡</i><p><strong>PATTERN LADEN</strong><br><br>.esx / .e2pat / .e2allpat</p></div></div>`;return}
   let h='';
   for(let i=0;i<patData.length;i++){
     const p=patData[i],a=i===patSel;
@@ -1376,13 +1400,27 @@ function patSelectPat(i){
   patSel=i;patRenderList();
   const p=patData[i];if(!p)return;
   const steps=p.steps||16;
-  document.getElementById('patInfoBar').innerHTML=`Pattern: <span>${esc(p.name||'Pattern')}</span> | <span>${(p.bpm||120).toFixed(1)} BPM</span> | Swing: <span>${p.swing||50}%</span> | Steps: <span>${steps}</span> | Beat: <span>${p.beat||'16th'}</span>`;
+  const fmtLabel=p.format||patFormat||'';
+  document.getElementById('patInfoBar').innerHTML=`${fmtLabel?`<span style="color:var(--hi)">[${fmtLabel}]</span> | `:''}Pattern: <span>${esc(p.name||'Pattern')}</span> | <span>${(p.bpm||120).toFixed(1)} BPM</span> | Swing: <span>${p.swing||50}%</span> | Steps: <span>${steps}</span> | Beat: <span>${p.beat||'16th'}</span>`;
   patDrawGrid(p);
-  // Detail
+  // Detail (colored by part type)
   let h='';
-  if(p.parts){for(let j=0;j<p.parts.length;j++){const pt=p.parts[j];h+=`<span style="color:var(--led)">Part ${j+1}</span>: ${esc(pt.name||'—')} | `;}}
+  if(p.parts){for(let j=0;j<p.parts.length;j++){const pt=p.parts[j];const lc=PAT_TYPE_LABEL_COLORS[pt.type]||'var(--led)';h+=`<span style="color:${lc}">${esc(pt.name||'Part '+(j+1))}</span> | `;}}
   document.getElementById('patDetail').innerHTML=h||'// no part data';
 }
+
+// Part-type color map for the step grid
+const PAT_TYPE_COLORS={
+  drum:     {r:197,g:48,b:92},   // pink
+  keyboard: {r:0,g:204,b:255},   // cyan
+  stretch:  {r:0,g:230,b:118},   // green
+  slice:    {r:0,g:230,b:118},   // green
+  audioin:  {r:255,g:183,b:77},  // orange
+  accent:   {r:255,g:235,b:59},  // yellow
+};
+const PAT_TYPE_LABEL_COLORS={
+  drum:'#c5305c',keyboard:'#00ccff',stretch:'#00e676',slice:'#00e676',audioin:'#ffb74d',accent:'#ffeb3b',
+};
 
 function patDrawGrid(pat){
   const c=document.getElementById('patGridC'),ctx=c.getContext('2d');
@@ -1404,8 +1442,11 @@ function patDrawGrid(pat){
   for(let r=0;r<nParts;r++){
     const y=20+r*cellH;
     const part=parts[r];
-    // Label
-    ctx.fillStyle='#00ccff';ctx.font='10px "Share Tech Mono"';
+    const pType=part&&part.type||'';
+    const col=PAT_TYPE_COLORS[pType]||{r:197,g:48,b:92};
+    // Label (colored by part type)
+    ctx.fillStyle=PAT_TYPE_LABEL_COLORS[pType]||'#00ccff';
+    ctx.font='10px "Share Tech Mono"';
     ctx.fillText(part?part.name||`Part ${r+1}`:`Part ${r+1}`,4,y+14);
     // Cells
     for(let s=0;s<steps;s++){
@@ -1415,7 +1456,7 @@ function patDrawGrid(pat){
       ctx.strokeStyle='#1a2035';ctx.strokeRect(x,y,cellW,cellH);
       if(active){
         const alpha=Math.max(0.3,vel/127);
-        ctx.fillStyle=`rgba(197,48,92,${alpha})`;
+        ctx.fillStyle=`rgba(${col.r},${col.g},${col.b},${alpha})`;
         ctx.beginPath();ctx.arc(x+cellW/2,y+cellH/2,cellW/2-3,0,Math.PI*2);ctx.fill();
       } else {
         ctx.strokeStyle='#1a2035';
