@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { exec } = require('child_process');
 const AdmZip = require('adm-zip');
 const esx = require('./src/esx-format');
 
@@ -1263,4 +1264,83 @@ ipcMain.handle('file:open-any', async () => {
     if (ext === '.emx') return { format: 'emx', filePath: fp };
     return { format: 'unknown', filePath: fp };
   }
+});
+
+// ═══════════════════════════════════════════════════════════
+//  SD CARD AUTO-DETECTION (pure JS, no native deps)
+// ═══════════════════════════════════════════════════════════
+let lastDrives = [];
+
+function listRemovableDrives() {
+  return new Promise((resolve) => {
+    if (process.platform === 'win32') {
+      exec('wmic logicaldisk where "DriveType=2" get DeviceID,VolumeName,Size /format:csv', (err, stdout) => {
+        if (err) { resolve([]); return; }
+        const drives = [];
+        const lines = stdout.trim().split('\n').slice(1);
+        for (const line of lines) {
+          const cols = line.trim().split(',');
+          if (cols.length >= 4) {
+            const letter = cols[1];
+            if (letter && letter.match(/^[A-Z]:$/)) {
+              drives.push({ path: letter + '\\', description: cols[3] || 'Removable', size: parseInt(cols[2]) || 0 });
+            }
+          }
+        }
+        resolve(drives);
+      });
+    } else {
+      // macOS/Linux: check /Volumes or /media
+      const mountDir = process.platform === 'darwin' ? '/Volumes' : '/media';
+      try {
+        const entries = fs.readdirSync(mountDir);
+        const drives = entries.map(e => ({ path: path.join(mountDir, e), description: e, size: 0 }));
+        resolve(drives);
+      } catch (e) { resolve([]); }
+    }
+  });
+}
+
+function startSdCardDetection() {
+  async function checkDrives() {
+    try {
+      const current = await listRemovableDrives();
+      const currentPaths = current.map(d => d.path);
+      const prevPaths = lastDrives;
+
+      for (const d of current) {
+        if (!prevPaths.includes(d.path)) {
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('sd-card-inserted', d);
+          }
+        }
+      }
+      for (const p of prevPaths) {
+        if (!currentPaths.includes(p)) {
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('sd-card-removed', { path: p });
+          }
+        }
+      }
+      lastDrives = currentPaths;
+    } catch (err) { /* silent */ }
+  }
+
+  checkDrives();
+  setInterval(checkDrives, 3000);
+}
+
+app.whenReady().then(() => { startSdCardDetection(); });
+
+ipcMain.handle('sd:list-drives', async () => {
+  return listRemovableDrives();
+});
+
+ipcMain.handle('sd:open-folder', async (ev, sdPath) => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'SD Card Folder',
+    defaultPath: sdPath,
+    properties: ['openDirectory']
+  });
+  return result.canceled ? null : result.filePaths[0];
 });

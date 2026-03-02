@@ -2297,6 +2297,36 @@ async function convExecute(){
 const origUpdateState=updateState;
 updateState=function(s){origUpdateState(s);updateStatusBar()};
 updateStatusBar();
+
+// ═══ SD CARD EVENTS ═══
+let sdCurrentPath=null;
+function updateSdCardStatus(sdPath,inserted){
+  sdCurrentPath=inserted?sdPath:null;
+  let badge=document.getElementById('sdBadge');
+  if(inserted&&sdPath){
+    if(!badge){
+      badge=document.createElement('span');
+      badge.id='sdBadge';
+      badge.style.cssText='margin-left:12px;cursor:pointer;font-family:var(--lcd);font-size:10px';
+      badge.title='Click to open SD card folder';
+      badge.onclick=()=>{if(sdCurrentPath&&window.api.sdOpenFolder)window.api.sdOpenFolder(sdCurrentPath).then(p=>{if(p)toast('SD: '+p,'info')})};
+      document.getElementById('statusRight').parentElement.appendChild(badge);
+    }
+    badge.innerHTML=`<span style="color:var(--yel)">SD: ${sdPath}</span>`;
+  } else {
+    if(badge)badge.remove();
+  }
+}
+if(window.api&&window.api.onSdCardInserted){
+  window.api.onSdCardInserted(data=>{
+    toast(`SD Card inserted: ${data.description} at ${data.path}`,'success');
+    updateSdCardStatus(data.path,true);
+  });
+  window.api.onSdCardRemoved(data=>{
+    toast(`SD Card removed: ${data.path}`,'info');
+    updateSdCardStatus(null,false);
+  });
+}
 </script>
 </body>
 </html>

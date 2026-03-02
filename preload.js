@@ -84,4 +84,10 @@ contextBridge.exposeInMainWorld('api', {
   file: {
     openAny:    ()              => ipcRenderer.invoke('file:open-any'),
   },
+
+  // ═══ SD Card ═══
+  sdListDrives:     ()              => ipcRenderer.invoke('sd:list-drives'),
+  sdOpenFolder:     (p)             => ipcRenderer.invoke('sd:open-folder', p),
+  onSdCardInserted: (cb) => ipcRenderer.on('sd-card-inserted', (ev, data) => cb(data)),
+  onSdCardRemoved:  (cb) => ipcRenderer.on('sd-card-removed', (ev, data) => cb(data)),
 });

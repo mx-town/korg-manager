@@ -15,7 +15,8 @@
   "author": "ESX Manager",
   "license": "MIT",
   "dependencies": {
-    "adm-zip": "^0.5.16"
+    "adm-zip": "^0.5.16",
+    "chokidar": "^5.0.0"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^4.0.18",
