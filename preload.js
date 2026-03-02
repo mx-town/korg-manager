@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('api', {
   // Preview
   getWaveform:      (i)             => ipcRenderer.invoke('get-waveform', i),
   getWavPreview:    (i)             => ipcRenderer.invoke('get-wav-preview', i),
+  getFloatSamples:  (i)             => ipcRenderer.invoke('get-float-samples', i),
   // Undo/Redo
   undo:             (i)             => ipcRenderer.invoke('undo', i),
   redo:             (i)             => ipcRenderer.invoke('redo', i),

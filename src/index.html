@@ -482,8 +482,14 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
 #patBpmIn:focus{border-color:var(--led)}
 .pat-step-disp{font-family:var(--lcd);font-size:12px;color:var(--txt-x);margin-left:auto}
 .pat-step-disp span{color:var(--hi);font-size:14px}
+.auto-tag-badge{
+  display:inline-block;padding:1px 5px;font-family:var(--head);font-size:8px;
+  font-weight:700;letter-spacing:1px;color:#000;border-radius:2px;
+  vertical-align:middle;margin-left:4px;
+}
 </style>
 <script src="https://unpkg.com/tone@14/build/Tone.js"></script>
+<script src="https://unpkg.com/meyda/dist/web/meyda.min.js"></script>
 </head>
 <body>
 <div class="app">
@@ -530,6 +536,7 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
       <div class="hsep"></div>
       <button class="btn btn-hi" onclick="saveEsx()">💾 EXPORT .ESX</button>
       <button class="btn" onclick="openGuide()">📖 GUIDE</button>
+      <button class="btn btn-sm" onclick="bAutoTagAll()" title="Auto-tag all samples (Kick/Snare/HiHat/Melodic)">🏷 AUTO-TAG</button>
       <button class="btn btn-warn btn-sm btn-ghost" onclick="clearAll()">🗑</button>
     </div>
   </div>
@@ -887,10 +894,83 @@ function renderList(){
   for(const s of samples){
     if(sm==='TYPE'){const cat=detectCategory(s.name);if(cat!==lastCat){const cnt=samples.filter(x=>detectCategory(x.name)===cat).length;h+=`<div class="cat-div">▸ ${cat} (${cnt})</div>`;lastCat=cat}}
     const a=s.index===sel,ck=checked.has(s.index),r=s.sampleRate>=1000?`${(s.sampleRate/1000).toFixed(1)}k`:s.sampleRate,d=s.duration<1?`${(s.duration*1000).toFixed(0)}ms`:`${s.duration.toFixed(2)}s`,z=s.sizeBytes>1048576?`${(s.sizeBytes/1048576).toFixed(1)}M`:`${(s.sizeBytes/1024).toFixed(0)}K`,f=s.folder||'—',fc=s.folder?'sf has':'sf';
-    h+=`<div class="ss ${a?'act':''} ${ck?'checked':''}" onclick="selS(${s.index})" ondblclick="startRen(${s.index})"><input type="checkbox" class="ss-chk" ${ck?'checked':''} onclick="toggleCheck(${s.index},event)"><div class="si">${String(s.index+1).padStart(3,'0')}</div><div class="sn">${esc(s.name)}</div><div class="${fc}" title="${esc(f)}">${esc(f)}</div><div class="sr">${r}</div><div class="sd">${d}</div><div class="sz">${z}</div><button class="sx" onclick="event.stopPropagation();remS(${s.index})">✕</button></div>`}
+    const tag=window._sampleTags&&window._sampleTags[s.index];
+    const tagBadge=tag?`<span class="auto-tag-badge" style="background:${TAG_COLORS[tag]||'#444'}">${tag}</span>`:'';
+    h+=`<div class="ss ${a?'act':''} ${ck?'checked':''}" onclick="selS(${s.index})" ondblclick="startRen(${s.index})"><input type="checkbox" class="ss-chk" ${ck?'checked':''} onclick="toggleCheck(${s.index},event)"><div class="si">${String(s.index+1).padStart(3,'0')}</div><div class="sn">${esc(s.name)}${tagBadge}</div><div class="${fc}" title="${esc(f)}">${esc(f)}</div><div class="sr">${r}</div><div class="sd">${d}</div><div class="sz">${z}</div><button class="sx" onclick="event.stopPropagation();remS(${s.index})">✕</button></div>`}
   l.innerHTML=h}
 function updateMem(){const b=document.getElementById('mB'),t=document.getElementById('mT'),p=parseFloat(S.usedPercent||0);b.style.width=`${p}%`;t.textContent=`${p}%`;b.classList.remove('w','c');if(p>90)b.classList.add('c');else if(p>70)b.classList.add('w');document.getElementById('mU').textContent=`${((S.totalSizeBytes||0)/1048576).toFixed(1)} MB`;document.getElementById('mD').textContent=(S.totalDuration||0).toFixed(1)}
 function updatePath(){const v=document.getElementById('pV'),s=document.getElementById('pS');if(!fp&&!S.numSamples){v.innerHTML='<span style="color:var(--txt-x)">// nichts geladen</span>';s.className='pbar-st em';s.textContent='LEER'}else if(!fp){v.innerHTML=`<span style="color:var(--yel)">NICHT GESPEICHERT</span> <span style="color:var(--txt-x)">(${S.numSamples})</span>`;s.className='pbar-st un';s.textContent='NEU'}else{const p=fp.replace(/\\/g,'/').split('/'),fn=p.pop(),fd=p.slice(-3).join('/');v.innerHTML=`<span class="fld">${esc(fd)}/</span><span class="fil">${esc(fn)}</span>`;s.className=dirty?'pbar-st un':'pbar-st sv';s.textContent=dirty?'MODIFIED':'SAVED'}}
+
+// ═══════════════════════════════════════════════════════════
+//  AUTO-TAGGING (meyda.js heuristics)
+// ═══════════════════════════════════════════════════════════
+const TAG_COLORS={
+  KICK:'#ff4444',SNARE:'#ff8844',HIHAT:'#ffdd44',
+  MELODIC:'#44ddff',NOISE:'#aaaaaa',LOOP:'#44ff88',OTHER:'#666666'
+};
+
+async function autoTagSample(index){
+  if(typeof Meyda==='undefined')return null;
+  try{
+    const data=await window.api.getFloatSamples(index);
+    if(!data||!data.floats||data.floats.length<512)return null;
+
+    const floats=new Float32Array(data.floats);
+    const bufSize=512;
+    const numFrames=Math.floor(floats.length/bufSize);
+    const frameCount=Math.min(numFrames,8);
+
+    let centroidSum=0,zcSum=0,energySum=0,flatSum=0,frames=0;
+    for(let f=0;f<frameCount;f++){
+      const slice=floats.slice(f*bufSize,(f+1)*bufSize);
+      try{
+        const features=Meyda.extract(['spectralCentroid','zcr','energy','spectralFlatness'],slice);
+        if(features&&features.energy>0.00001){
+          centroidSum+=features.spectralCentroid||0;
+          zcSum+=features.zcr||0;
+          energySum+=features.energy||0;
+          flatSum+=features.spectralFlatness||0;
+          frames++;
+        }
+      }catch(e){/* skip bad frame */}
+    }
+    if(frames===0)return 'OTHER';
+
+    const centroid=centroidSum/frames;
+    const zcr=zcSum/frames;
+    const flatness=flatSum/frames;
+    const normCentroid=centroid/(data.sampleRate/2);
+
+    let tag='OTHER';
+    if(normCentroid<0.08&&zcr<0.15)         tag='KICK';
+    else if(normCentroid<0.25&&zcr>0.15)    tag='SNARE';
+    else if(normCentroid>0.35&&flatness>0.3) tag='HIHAT';
+    else if(normCentroid>0.35&&flatness<0.3) tag='MELODIC';
+    else if(flatness>0.5)                    tag='NOISE';
+    else                                     tag='OTHER';
+
+    return tag;
+  }catch(err){
+    console.warn('autoTag error:',err);
+    return null;
+  }
+}
+
+async function bAutoTagAll(){
+  if(!S.numSamples||S.numSamples===0){toast('No samples loaded','error');return}
+  toast('Analysing samples...','info');
+  let tagged=0;
+  if(!window._sampleTags)window._sampleTags={};
+  for(let i=0;i<S.numSamples;i++){
+    const tag=await autoTagSample(i);
+    if(tag&&tag!=='OTHER'){
+      window._sampleTags[i]=tag;
+      tagged++;
+    }
+  }
+  renderList();
+  toast(`Tagged ${tagged}/${S.numSamples} samples`,'success');
+}
 
 // ═══ ACTIONS ═══
 async function openEsx(){const r=await window.api.openEsxFile();if(!r)return;if(r.error){toast(r.error,'error');return}fp=r.filePath;dirty=false;sel=-1;hideDet();updateState(await window.api.getState());toast(`LOADED: ${r.filePath.split(/[\\/]/).pop()}`,'success')}

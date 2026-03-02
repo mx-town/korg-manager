@@ -286,6 +286,18 @@ ipcMain.handle('get-wav-preview', async (ev, index) => {
   return esx.pcmToWav(s.pcmData, s.sampleRate).toString('base64');
 });
 
+ipcMain.handle('get-float-samples', async (ev, index) => {
+  if (index < 0 || index >= currentSamples.length) return null;
+  const s = currentSamples[index];
+  if (!s.pcmData) return null;
+  const frames = s.pcmData.length / 2;
+  const floats = new Float32Array(frames);
+  for (let i = 0; i < frames; i++) {
+    floats[i] = s.pcmData.readInt16BE(i * 2) / 32768;
+  }
+  return { floats: Array.from(floats), sampleRate: s.sampleRate || 44100 };
+});
+
 // ═══════════════════════════════════════════════════════════
 //  BATCH PROCESSING (with undo)
 // ═══════════════════════════════════════════════════════════
