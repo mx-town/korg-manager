@@ -352,6 +352,28 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
 .pat-search input::placeholder{color:#444}
 .pat-search-x{position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;color:#666;font-size:16px;cursor:pointer;padding:0;line-height:1;display:none}
 .pat-search-x:hover{color:var(--hi)}
+.pat-filter-bar{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  padding:4px 10px 6px;border-bottom:1px solid var(--brd);
+  background:var(--void);
+}
+.pat-filter-chk{
+  display:flex;align-items:center;gap:4px;cursor:pointer;
+  font-family:var(--lcd);font-size:10px;color:var(--txt-x);
+  letter-spacing:1px;
+}
+.pat-filter-chk input{accent-color:var(--hi)}
+.pat-filter-chk:hover{color:var(--txt-d)}
+.pat-bpm-range{
+  display:flex;align-items:center;gap:4px;margin-left:auto;
+  font-family:var(--lcd);font-size:10px;color:var(--txt-x);
+}
+.pat-bpm-range input{
+  background:var(--void);border:1px solid var(--brd);
+  color:var(--led);font-family:var(--lcd);font-size:10px;
+  padding:2px 4px;outline:none;text-align:center;
+}
+.pat-bpm-range input:focus{border-color:var(--led)}
 .pat-list{flex:1;overflow-y:auto}
 .pat-list::-webkit-scrollbar{width:6px} .pat-list::-webkit-scrollbar-track{background:var(--void)} .pat-list::-webkit-scrollbar-thumb{background:var(--blue-d);border-radius:3px}
 .pat-item{display:grid;grid-template-columns:40px 1fr 60px;gap:6px;align-items:center;padding:8px 12px;cursor:pointer;transition:all 50ms;border-left:3px solid transparent;border-bottom:1px solid rgba(255,255,255,.02);font-family:var(--lcd);font-size:12px}
@@ -674,6 +696,20 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
         <div class="pat-search">
           <input type="text" id="patSearchIn" placeholder="Search name / BPM / index..." />
           <button class="pat-search-x" id="patSearchX" onclick="patSearchClear()">×</button>
+        </div>
+        <div class="pat-filter-bar" id="patFilterBar">
+          <label class="pat-filter-chk" title="Show only patterns with custom names">
+            <input type="checkbox" id="patFilterOccupied" onchange="patRenderList()">
+            <span>Named only</span>
+          </label>
+          <div class="pat-bpm-range">
+            <span>BPM</span>
+            <input type="number" id="patBpmMin" placeholder="min" min="40" max="300"
+                   onchange="patRenderList()" style="width:44px">
+            <span>–</span>
+            <input type="number" id="patBpmMax" placeholder="max" min="40" max="300"
+                   onchange="patRenderList()" style="width:44px">
+          </div>
         </div>
         <div class="pat-list" id="patList">
           <div class="es"><div class="dz" onclick="patOpenESX()"><i>⚡</i><p><strong>PATTERN LADEN</strong><br><br>.esx / .e2pat / .e2allpat</p></div></div>
@@ -1553,16 +1589,34 @@ async function patSplitAll(){
 function patRenderList(){
   document.getElementById('patPC').textContent=patData.length;
   if(!patData.length){document.getElementById('patList').innerHTML=`<div class="es"><div class="dz" onclick="patOpenESX()"><i>⚡</i><p><strong>PATTERN LADEN</strong><br><br>.esx / .e2pat / .e2allpat</p></div></div>`;return}
-  const q=patSearchQ.toLowerCase();
+  const q=patSearchQ.toLowerCase().trim();
+  const occupiedOnly=document.getElementById('patFilterOccupied')?.checked||false;
+  const bpmMin=parseFloat(document.getElementById('patBpmMin')?.value)||0;
+  const bpmMax=parseFloat(document.getElementById('patBpmMax')?.value)||9999;
   let h='',shown=0;
   for(let i=0;i<patData.length;i++){
     const p=patData[i],idx=String(i).padStart(3,'0');
-    if(q&&!p.name.toLowerCase().includes(q)&&!String(p.bpm).includes(q)&&!idx.includes(q))continue;
+    const name=p.name||'Pattern';
+    let show=true;
+    if(q){
+      const num=parseFloat(q);
+      const matchName=name.toLowerCase().includes(q);
+      const matchBpm=!isNaN(num)&&Math.abs((p.bpm||120)-num)<5;
+      const matchIdx=!isNaN(num)&&i===Math.floor(num);
+      show=matchName||matchBpm||matchIdx;
+    }
+    if(show&&occupiedOnly){
+      const isDefault=/^pattern\s*\d*$/i.test(name.trim())||name.trim()==='';
+      show=!isDefault;
+    }
+    if(show&&bpmMin>0&&(p.bpm||120)<bpmMin)show=false;
+    if(show&&bpmMax<9999&&(p.bpm||120)>bpmMax)show=false;
+    if(!show)continue;
     const a=i===patSel;
-    h+=`<div class="pat-item ${a?'act':''}" onclick="patSelectPat(${i})"><div class="pi">${i}</div><div class="pn">${esc(p.name||'Pattern')}</div><div class="pb2">${(p.bpm||120).toFixed(0)}</div></div>`;
+    h+=`<div class="pat-item ${a?'act':''}" onclick="patSelectPat(${i})"><div class="pi">${i}</div><div class="pn">${esc(name)}</div><div class="pb2">${(p.bpm||120).toFixed(0)}</div></div>`;
     shown++;
   }
-  if(q&&!shown)h=`<div style="padding:16px;color:#555;font-family:var(--lcd);font-size:11px;text-align:center">No patterns match "${esc(q)}"</div>`;
+  if(!shown&&(q||occupiedOnly||bpmMin>0||bpmMax<9999))h=`<div style="padding:16px;color:#555;font-family:var(--lcd);font-size:11px;text-align:center">No patterns match filters</div>`;
   document.getElementById('patList').innerHTML=h;
 }
 
@@ -1825,12 +1879,23 @@ function patZoom(dir){
 
 // ── Keyboard Navigation ──
 function patGetVisibleIndices(){
-  const q=patSearchQ.toLowerCase();
+  const q=patSearchQ.toLowerCase().trim();
+  const occupiedOnly=document.getElementById('patFilterOccupied')?.checked||false;
+  const bpmMin=parseFloat(document.getElementById('patBpmMin')?.value)||0;
+  const bpmMax=parseFloat(document.getElementById('patBpmMax')?.value)||9999;
   const vis=[];
   for(let i=0;i<patData.length;i++){
-    const p=patData[i],idx=String(i).padStart(3,'0');
-    if(q&&!p.name.toLowerCase().includes(q)&&!String(p.bpm).includes(q)&&!idx.includes(q))continue;
-    vis.push(i);
+    const p=patData[i];
+    const name=p.name||'Pattern';
+    let show=true;
+    if(q){
+      const num=parseFloat(q);
+      show=name.toLowerCase().includes(q)||(!isNaN(num)&&Math.abs((p.bpm||120)-num)<5)||(!isNaN(num)&&i===Math.floor(num));
+    }
+    if(show&&occupiedOnly){show=!/^pattern\s*\d*$/i.test(name.trim())&&name.trim()!==''}
+    if(show&&bpmMin>0&&(p.bpm||120)<bpmMin)show=false;
+    if(show&&bpmMax<9999&&(p.bpm||120)>bpmMax)show=false;
+    if(show)vis.push(i);
   }
   return vis;
 }
