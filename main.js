@@ -15,8 +15,17 @@ function createWindow() {
   });
   mainWindow.loadFile(path.join(__dirname, 'src', 'index.html'));
   mainWindow.setMenuBarVisibility(false);
+  mainWindow.webContents.openDevTools({ mode: 'bottom' });
 }
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  createWindow();
+  mainWindow.webContents.on('render-process-gone', (event, details) => {
+    console.error('Renderer crashed:', details.reason, details.exitCode);
+  });
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+    console.error('Page failed to load:', errorCode, errorDescription);
+  });
+});
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 
@@ -59,6 +68,7 @@ function safeIpcHandle(channel, handler) {
 //  SAMPLE STORE + UNDO SYSTEM
 // ═══════════════════════════════════════════════════════════
 let currentSamples = [];
+let esxPatternSamples = null; // Parsed mono samples from pattern-loaded ESX (for playback)
 const MAX_UNDO = 50;
 
 function pushUndo(index) {
@@ -1095,7 +1105,7 @@ function esxPatternToUI(esxPat) {
       steps = part.steps.slice(0, numSteps);
       velocities = steps.map(active => active ? (part.level || 100) : 0);
     }
-    return { name: part.name, type: part.type, level: part.level || 100, sampleNum: part.sampleNum, steps, velocities };
+    return { name: part.name, type: part.type, level: part.level || 100, sampleNum: part.sampleNum, pan: part.pan, steps, velocities };
   });
 
   return {
@@ -1106,6 +1116,7 @@ function esxPatternToUI(esxPat) {
     beat: '16th',
     deviceId: 'esx',
     format: 'ESX-1',
+    muteStatus: esxPat.muteStatus || 0,
     parts,
   };
 }
@@ -1124,11 +1135,50 @@ ipcMain.handle('esx:open-patterns', async () => {
     const buf = fs.readFileSync(result.filePaths[0]);
     const rawPatterns = esx.parseEsxPatterns(buf);
     const patterns = rawPatterns.map(p => esxPatternToUI(p));
+    // Cache parsed samples for pattern playback (separate try/catch so pattern loading still works)
+    try {
+      const parsed = esx.parseEsxFile(buf);
+      esxPatternSamples = parsed.monoSamples;
+    } catch (sampleErr) {
+      debugError('esx:open-patterns (sample cache)', sampleErr);
+      esxPatternSamples = null;
+    }
     return { canceled: false, filePath: result.filePaths[0], patterns, count: patterns.length };
   } catch (err) {
     debugError('esx:open-patterns', err);
     return { error: err.message, canceled: true };
   }
+});
+
+// Return WAV data (base64) for all samples used by a pattern
+safeIpcHandle('esx:get-pattern-samples', async (ev, patternIndex) => {
+  if (!esxPatternSamples) return null;
+  // Use patternIndex to look up from the UI data sent to renderer — but we need
+  // the raw parsed patterns. Re-parse is expensive, so accept sample numbers directly.
+  // The renderer passes an array of unique sample numbers it needs.
+  if (Array.isArray(patternIndex)) {
+    const sampleNums = patternIndex;
+    const result = {};
+    for (const num of sampleNums) {
+      if (typeof num !== 'number' || num < 0 || num >= esxPatternSamples.length) continue;
+      const s = esxPatternSamples[num];
+      if (!s || !s.pcmData || !s.pcmData.length) continue;
+      try {
+        result[num] = esx.pcmToWav(s.pcmData, s.sampleRate).toString('base64');
+      } catch (e) {
+        debugError('esx:get-pattern-samples', e);
+      }
+    }
+    return result;
+  }
+  return null;
+});
+
+// Return list of all 256 pattern names + BPMs (lightweight)
+safeIpcHandle('esx:get-pattern-list', async () => {
+  if (!esxPatternSamples) return null;
+  // Pattern list is already sent via open-patterns; this is for refresh
+  return { available: true };
 });
 
 ipcMain.handle('e2pat:open-file', async () => {

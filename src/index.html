@@ -883,6 +883,17 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
 <audio id="aE"></audio>
 
 <script>
+window.onerror = function(msg, url, line, col, err) {
+  document.body.style.background = '#1a1a2e';
+  document.body.innerHTML = '<pre style="color:#ff6b6b;padding:20px;font-size:14px;white-space:pre-wrap;">' +
+    'CRASH: ' + msg + '\nLine: ' + line + ':' + col + '\n\n' + (err && err.stack || '') + '</pre>';
+  return true;
+};
+window.onunhandledrejection = function(e) {
+  document.body.style.background = '#1a1a2e';
+  document.body.innerHTML = '<pre style="color:#ff6b6b;padding:20px;font-size:14px;white-space:pre-wrap;">' +
+    'UNHANDLED REJECTION:\n' + (e.reason && e.reason.stack || e.reason || e) + '</pre>';
+};
 // ═══ STATE ═══
 let S={samples:[],numSamples:0,usedPercent:'0'},sel=-1,playing=false,fp=null,dirty=false,wfData=null,wfSel=null;
 let cursorAF=null,seekPos=0; // cursor animation
@@ -1880,13 +1891,9 @@ function patSelectPat(i){
   let h='';
   if(p.parts){for(let j=0;j<p.parts.length;j++){const pt=p.parts[j];const lc=PAT_TYPE_LABEL_COLORS[pt.type]||'var(--led)';h+=`<span style="color:${lc}">${esc(pt.name||'Part '+(j+1))}</span> | `;}}
   document.getElementById('patDetail').innerHTML=h||'// no part data';
-  // Preload samples for playback
+  // Preload samples for playback (async, don't block UI)
   if(p&&p.parts){
-    p.parts.forEach(part=>{
-      if(part&&typeof part.sampleNum==='number'&&part.sampleNum>=0){
-        patLoadSample(part.sampleNum);
-      }
-    });
+    patLoadSamples(p.parts).catch(e=>console.warn('patLoadSamples error',e));
   }
   // Auto-fit zoom on first load
   patZoom(0);
@@ -2132,37 +2139,87 @@ function patScrollToSel(){
 document.addEventListener('keydown',patHandleKeyboard);
 
 // ═══════════════════════════════════════════════════════════
-//  PATTERN PLAYBACK — Web Audio only (no Tone.js)
+//  PATTERN PLAYBACK — Web Audio lookahead scheduler
 // ═══════════════════════════════════════════════════════════
 let patPlaying=false;
-let patCurrentStep=0;
-let patScheduleTimer=null;
 let patAudioCtx=null;
-const patSampleCache={};
+const patSampleCache={};  // Map<sampleNum, AudioBuffer>
 
+// Sequencer state
+let seqPattern=null;
+let seqCurrentStep=0;
+let seqNextStepTime=0;
+let seqStepDuration=0;
+let seqTimer=null;
+const SEQ_LOOKAHEAD=0.1;   // Schedule 100ms ahead
+const SEQ_INTERVAL=25;     // Check every 25ms
+
+// ──── STAGE 1: ALL AUDIO DISABLED — testing crash isolation ────
 function getPatAudioCtx(){
-  if(!patAudioCtx||patAudioCtx.state==='closed'){
-    patAudioCtx=new(window.AudioContext||window.webkitAudioContext)();
-  }
-  if(patAudioCtx.state==='suspended')patAudioCtx.resume();
-  return patAudioCtx;
+  // DISABLED: was creating new AudioContext — suspected crash cause
+  // if(!patAudioCtx||patAudioCtx.state==='closed'){
+  //   patAudioCtx=new(window.AudioContext||window.webkitAudioContext)();
+  // }
+  // if(patAudioCtx.state==='suspended')patAudioCtx.resume();
+  // return patAudioCtx;
+  return null;
 }
 
-async function patLoadSample(sampleNum){
-  if(patSampleCache[sampleNum])return patSampleCache[sampleNum];
+function b64ToAudioBuffer(b64,ctx){
+  // DISABLED: was calling decodeAudioData — suspected crash cause
+  return Promise.resolve(null);
+}
+
+async function patLoadSamples(parts){
+  // DISABLED: was loading + decoding samples via IPC — suspected crash cause
+  if(!parts||!parts.length)return;
+  const needed=[];
+  for(const part of parts){
+    const n=part.sampleNum;
+    if(typeof n==='number'&&n>=0&&n<256)needed.push(n);
+  }
+  console.log('[STAGE1] patLoadSamples SKIPPED — would load samples:',
+    [...new Set(needed)].join(', '), '(count:', new Set(needed).size, ')');
+}
+
+function seqScheduleStep(step,time){
+  // STAGE 1: NO AUDIO — just log which parts would trigger
+  const parts=seqPattern.parts||[];
+  const muteStatus=seqPattern.muteStatus||0;
+  const activePartsList=[];
+
+  for(let i=0;i<parts.length;i++){
+    const part=parts[i];
+    if(!part||!part.steps||!part.steps[step])continue;
+    if(muteStatus&(1<<i))continue;
+    const sn=part.sampleNum;
+    if(typeof sn!=='number'||sn<0||sn>=256)continue;
+    activePartsList.push('S'+sn);
+  }
+
+  console.log('Step',step,'would trigger parts:',activePartsList.join(', ')||'(none)');
+
+  // UI highlight still works — use performance.now()-based delay
+  const delay=Math.max(0,(time-performance.now()/1000)*1000);
+  setTimeout(()=>patHighlightStep(step),delay);
+}
+
+function seqScheduler(){
+  // STAGE 1: uses performance.now() instead of AudioContext.currentTime
+  if(!patPlaying||!seqPattern)return;
   try{
-    const b64=await window.api.getWavPreview(sampleNum);
-    if(!b64)return null;
-    const binary=atob(b64);
-    const bytes=new Uint8Array(binary.length);
-    for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
-    const ctx=getPatAudioCtx();
-    const buf=await ctx.decodeAudioData(bytes.buffer.slice(0));
-    patSampleCache[sampleNum]=buf;
-    return buf;
+    const now=performance.now()/1000; // seconds
+    const totalSteps=seqPattern.steps||16;
+
+    while(seqNextStepTime<now+SEQ_LOOKAHEAD){
+      seqScheduleStep(seqCurrentStep,seqNextStepTime);
+      seqCurrentStep=(seqCurrentStep+1)%totalSteps;
+      seqNextStepTime+=seqStepDuration;
+    }
+    seqTimer=setTimeout(seqScheduler,SEQ_INTERVAL);
   }catch(e){
-    console.warn('patLoadSample error sampleNum='+sampleNum,e);
-    return null;
+    console.error('seqScheduler error',e);
+    patStop();
   }
 }
 
@@ -2170,71 +2227,42 @@ async function patTogglePlay(){
   if(patPlaying){patStop();return;}
   if(patSel<0||!patData[patSel])return;
 
-  const ctx=getPatAudioCtx();
-  const pat=patData[patSel];
-  const steps=pat.steps||16;
-  const bpm=parseFloat(document.getElementById('patBpmIn')?.value)||pat.bpm||120;
-  const stepMs=(60000/bpm)/4; // 16th note duration in ms
+  try{
+    const pat=patData[patSel];
+    const bpm=parseFloat(document.getElementById('patBpmIn')?.value)||pat.bpm||120;
 
-  // Preload all samples
-  toast('⏳ Loading samples...','info');
-  const loads=[];
-  (pat.parts||[]).forEach(part=>{
-    if(part&&typeof part.sampleNum==='number'&&part.sampleNum>=0){
-      loads.push(patLoadSample(part.sampleNum));
-    }
-  });
-  await Promise.all(loads);
-  toast('▶ Playing','success');
+    // STAGE 1: skip sample loading entirely (no IPC, no AudioContext)
+    console.log('[STAGE1] patTogglePlay — NO AUDIO, bpm:', bpm,
+      'parts:', (pat.parts||[]).length, 'steps:', pat.steps||16);
+    await patLoadSamples(pat.parts||[]); // just logs, doesn't load
 
-  patPlaying=true;
-  patCurrentStep=0;
-  document.getElementById('patPlayBtn').classList.add('playing');
-  document.getElementById('patPlayBtn').textContent='■ STOP';
+    // Start sequencer — using performance.now() instead of AudioContext
+    seqPattern=pat;
+    seqStepDuration=60/bpm/4; // 16th note in seconds
+    seqCurrentStep=0;
+    seqNextStepTime=performance.now()/1000+0.05; // Small initial delay
+    patPlaying=true;
 
-  function tick(){
-    if(!patPlaying)return;
-    const step=patCurrentStep;
+    document.getElementById('patPlayBtn').classList.add('playing');
+    document.getElementById('patPlayBtn').textContent='STOP';
+    toast('Playing (AUDIO DISABLED — Stage 1 test)','success');
 
-    // Trigger sounds
-    (pat.parts||[]).forEach(part=>{
-      if(!part||!part.steps||!part.steps[step])return;
-      const sampleNum=part.sampleNum;
-      if(typeof sampleNum!=='number'||sampleNum<0)return;
-      const buf=patSampleCache[sampleNum];
-      if(!buf)return;
-      const vel=(part.velocities?part.velocities[step]:100)||100;
-      try{
-        const src=ctx.createBufferSource();
-        src.buffer=buf;
-        const gain=ctx.createGain();
-        gain.gain.value=Math.max(0.05,vel/127);
-        src.connect(gain);
-        gain.connect(ctx.destination);
-        src.start();
-      }catch(e){}
-    });
-
-    // UI highlight
-    patHighlightStep(step);
-    if(document.getElementById('patStepDisp'))
-      document.getElementById('patStepDisp').textContent=step+1;
-
-    patCurrentStep=(step+1)%steps;
-    patScheduleTimer=setTimeout(tick,stepMs);
+    seqScheduler();
+  }catch(e){
+    console.error('patTogglePlay error',e);
+    toast('Playback error: '+e.message,'error');
+    patStop();
   }
-
-  tick();
 }
 
 function patStop(){
   patPlaying=false;
-  if(patScheduleTimer){clearTimeout(patScheduleTimer);patScheduleTimer=null;}
-  patCurrentStep=0;
+  if(seqTimer){clearTimeout(seqTimer);seqTimer=null;}
+  seqCurrentStep=0;
   patPlayStep=-1;
   document.querySelectorAll('.px-playing').forEach(c=>c.classList.remove('px-playing'));
   const btn=document.getElementById('patPlayBtn');
-  if(btn){btn.classList.remove('playing');btn.textContent='▶ PLAY';}
+  if(btn){btn.classList.remove('playing');btn.textContent='PLAY';}
   const disp=document.getElementById('patStepDisp');
   if(disp)disp.textContent='—';
   if(patSel>=0&&patData[patSel])patDrawGrid(patData[patSel]);
@@ -2244,7 +2272,6 @@ function patSetBpm(bpm){
   const v=Math.max(40,Math.min(300,parseFloat(bpm)||120));
   const inp=document.getElementById('patBpmIn');
   if(inp)inp.value=v;
-  // If playing, restart with new BPM
   if(patPlaying){patStop();patTogglePlay();}
 }
 

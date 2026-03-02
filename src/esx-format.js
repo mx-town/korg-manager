@@ -13,7 +13,7 @@ const ADDR = {
   PATTERN_DATA:         0x00000200,   // 256 patterns × 4280 bytes
   SONG_DATA:            0x00130000,   // 64 songs × 528 bytes
   SONG_EVENTS:          0x00138400,   // 20000 events × 8 bytes
-  BPS_HEADER:           0x001B0000,   // "KORG....BPX" signature (32 bytes)
+  BPS_HEADER:           0x001B0000,   // "KORG....BPS " signature (32 bytes)
   NUM_MONO_SAMPLES:     0x001B0020,   // uint32BE
   NUM_STEREO_SAMPLES:   0x001B0024,   // uint32BE
   CURRENT_OFFSET:       0x001B0028,   // uint32BE
@@ -741,7 +741,7 @@ function buildEsxFile(samples) {
     headerBuffer.writeUInt8(sample.playLevel || 0x00, hdrOff + 34);
 
     // Stretch step = 0xFF (off, hardware default)
-    headerBuffer.writeUInt8(0xFF, hdrOff + 36);
+    headerBuffer.writeUInt8(0xFF, hdrOff + 35);
 
     dataBlocks.push(block);
     currentOffset += blockSize;
@@ -945,6 +945,7 @@ function parseEsxPattern(buf, offset) {
   const swing = buf.readUInt8(offset + 10);
   const fxChain = buf.readUInt8(offset + 12);
   const lastStep = buf.readUInt8(offset + 13);
+  const muteStatus = buf.readUInt16BE(offset + 16);
 
   // 16 parts
   const parts = [];
@@ -976,7 +977,70 @@ function parseEsxPattern(buf, offset) {
   // FX
   const effects = parseEsxFxParams(buf, offset + PATTERN_OFFSETS.FX);
 
-  return { name, tempo, swing, fxChain, lastStep, parts, effects };
+  return { name, tempo, swing, fxChain, lastStep, muteStatus, parts, effects };
+}
+
+/**
+ * Parse a single ESX pattern block (4,280 bytes) — comprehensive version.
+ * Returns all header fields, 16 parts, 3 FX blocks, and 24 motion sequences.
+ */
+function parsePatternBlock(buf, offset) {
+  if (offset + PATTERN_SIZE > buf.length) {
+    throw new Error(`Pattern at offset 0x${offset.toString(16)} exceeds buffer`);
+  }
+
+  // Header (24 bytes)
+  const name = buf.toString('ascii', offset, offset + 8).replace(/\0/g, ' ').trim();
+  const tempoRaw = buf.readUInt16BE(offset + 8);
+  const tempo = tempoRaw / 128;
+  const swing = buf.readUInt8(offset + 10);
+  const flags = buf.readUInt8(offset + 11);
+  const fxChain = buf.readUInt8(offset + 12);
+  const lastStep = buf.readUInt8(offset + 13);
+  const arpFlags = buf.readUInt8(offset + 14);
+  const arpCenterNote = buf.readUInt8(offset + 15);
+  const muteStatus = buf.readUInt16BE(offset + 16);
+  const swingStatus = buf.readUInt16BE(offset + 18);
+  const outputBusStatus = buf.readUInt16BE(offset + 20);
+  const accentStatus = buf.readUInt16BE(offset + 22);
+
+  // 16 parts (identical to parseEsxPattern)
+  const parts = [];
+  for (let i = 0; i < 9; i++) {
+    parts.push({ type: 'drum', name: `Drum ${i + 1}`,
+      ...parseEsxDrumPart(buf, offset + PATTERN_OFFSETS.DRUM_START + i * DRUM_PART_SIZE) });
+  }
+  parts.push({ type: 'keyboard', name: 'KB 1', ...parseEsxKeyboardPart(buf, offset + PATTERN_OFFSETS.KB1) });
+  parts.push({ type: 'keyboard', name: 'KB 2', ...parseEsxKeyboardPart(buf, offset + PATTERN_OFFSETS.KB2) });
+  parts.push({ type: 'stretch', name: 'Stretch 1', ...parseEsxStretchPart(buf, offset + PATTERN_OFFSETS.STRETCH1) });
+  parts.push({ type: 'stretch', name: 'Stretch 2', ...parseEsxStretchPart(buf, offset + PATTERN_OFFSETS.STRETCH2) });
+  parts.push({ type: 'slice', name: 'Slice', ...parseEsxStretchPart(buf, offset + PATTERN_OFFSETS.SLICE) });
+  parts.push({ type: 'audioin', name: 'Audio In', ...parseEsxAudioInPart(buf, offset + PATTERN_OFFSETS.AUDIOIN) });
+  parts.push({ type: 'accent', name: 'Accent', ...parseEsxAccentPart(buf, offset + PATTERN_OFFSETS.ACCENT) });
+
+  // FX (3 × 4 bytes)
+  const effects = parseEsxFxParams(buf, offset + PATTERN_OFFSETS.FX);
+
+  // Motion Sequences (24 × 130 bytes)
+  const motionSequences = [];
+  for (let i = 0; i < 24; i++) {
+    const msOff = offset + PATTERN_OFFSETS.MOTION + i * 130;
+    const opNum = buf.readUInt16BE(msOff);
+    if (opNum === 0xFFFF) {
+      motionSequences.push({ opNum: -1, enabled: false, data: null });
+    } else {
+      const data = [];
+      for (let j = 0; j < 128; j++) data.push(buf.readUInt8(msOff + 2 + j));
+      motionSequences.push({ opNum, enabled: true, data });
+    }
+  }
+
+  return {
+    name, tempo, swing, flags, fxChain, lastStep,
+    arpFlags, arpCenterNote,
+    muteStatus, swingStatus, outputBusStatus, accentStatus,
+    parts, effects, motionSequences,
+  };
 }
 
 /**
@@ -1172,6 +1236,7 @@ module.exports = {
   pcmToWav,
   parseEsxPatterns,
   parseEsxPattern,
+  parsePatternBlock,
   ADDR,
   SIZE,
   NUM,

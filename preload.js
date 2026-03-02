@@ -54,6 +54,8 @@ contextBridge.exposeInMainWorld('api', {
   // ═══ ESX Patterns ═══
   esx: {
     openPatterns: ()            => ipcRenderer.invoke('esx:open-patterns'),
+    getPatternSamples: (nums)   => ipcRenderer.invoke('esx:get-pattern-samples', nums),
+    getPatternList: ()          => ipcRenderer.invoke('esx:get-pattern-list'),
   },
 
   // ═══ E2S ═══
