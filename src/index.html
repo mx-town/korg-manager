@@ -391,137 +391,12 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
 .pat-grid-panel{display:flex;flex-direction:column;overflow:hidden;background:var(--void)}
 .pat-info-bar{display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--dark);border-bottom:1px solid var(--brd);font-family:var(--lcd);font-size:12px;flex-wrap:wrap}
 .pat-info-bar span{color:var(--led)}
-.pat-grid-wrap{flex:1;padding:0;overflow:auto;display:flex;align-items:flex-start}
+.pat-grid-wrap{flex:1;padding:16px;overflow:auto;display:flex;align-items:flex-start;justify-content:center}
 .pat-detail{padding:16px;background:var(--dark);border-top:1px solid var(--brd);font-family:var(--lcd);font-size:12px;color:var(--txt-d);max-height:180px;overflow-y:auto}
 .pat-zoom{display:flex;align-items:center;gap:4px}
 .pat-zoom-btn{padding:3px 10px;background:rgba(0,204,255,.08);border:1px solid var(--blue-d);color:var(--blue);font-size:13px;font-weight:700;cursor:pointer;border-radius:3px;min-width:28px;font-family:var(--lcd);transition:background 80ms}
 .pat-zoom-btn:hover{background:rgba(0,204,255,.18)}
 .pat-zoom-lbl{font-family:var(--lcd);font-size:10px;color:var(--txt-d);min-width:36px;text-align:center}
-
-/* ═══ PIXEL BLOCK SEQUENCER GRID ═══ */
-.px-grid{
-  display:flex;
-  flex-direction:column;
-  gap:2px;
-  padding:12px 16px;
-  user-select:none;
-  width:fit-content;
-  min-width:100%;
-}
-
-/* Header row with step numbers */
-.px-header{
-  display:flex;
-  align-items:center;
-  gap:2px;
-  margin-bottom:4px;
-}
-.px-hlabel{
-  width:80px;
-  flex-shrink:0;
-}
-.px-hnum{
-  width:var(--cw,20px);
-  font-family:'Share Tech Mono',monospace;
-  font-size:9px;
-  color:#1e2840;
-  text-align:center;
-  flex-shrink:0;
-}
-.px-hnum.px-b4{
-  margin-left:4px;
-  color:#2a3858;
-}
-
-/* Part row */
-.px-row{
-  display:flex;
-  align-items:center;
-  gap:2px;
-  border-radius:1px;
-  transition:background 80ms;
-}
-.px-row:hover{background:rgba(255,255,255,.015) !important}
-
-.px-label{
-  width:80px;
-  flex-shrink:0;
-  font-family:'Share Tech Mono',monospace;
-  font-size:10px;
-  text-align:right;
-  padding-right:10px;
-  letter-spacing:.5px;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  white-space:nowrap;
-  opacity:.8;
-}
-
-/* Individual step cell */
-.px-cell{
-  width:var(--cw,20px);
-  height:var(--ch,15px);
-  flex-shrink:0;
-  cursor:pointer;
-  border-radius:2px;
-  transition:filter 60ms, transform 60ms;
-  position:relative;
-}
-.px-cell.px-b4{
-  margin-left:4px;
-}
-.px-cell:hover{
-  filter:brightness(1.4);
-  transform:scaleY(1.08);
-}
-.px-cell:active{
-  transform:scaleY(.92);
-}
-
-/* Active (on) cell */
-.px-cell.px-on{
-  /* background and box-shadow set inline per part type */
-}
-/* Inactive (off) cell */
-.px-cell.px-off{
-  background:rgba(255,255,255,.04);
-  border:1px solid rgba(255,255,255,.07);
-}
-.px-cell.px-off:hover{
-  background:rgba(255,255,255,.10);
-  border-color:rgba(255,255,255,.15);
-}
-
-/* Playhead highlight */
-.px-cell.px-playing.px-on{
-  filter:brightness(1.8) saturate(1.2);
-  outline:1.5px solid rgba(255,255,255,.6);
-  outline-offset:1px;
-  animation:pxpulse .1s ease;
-}
-.px-cell.px-playing.px-off{
-  background:rgba(255,255,255,.15);
-  outline:1px solid rgba(255,255,255,.25);
-  outline-offset:1px;
-}
-@keyframes pxpulse{
-  0%{filter:brightness(2.5) saturate(1.5)}
-  100%{filter:brightness(1.8) saturate(1.2)}
-}
-
-/* Beat group separator via margin already on .px-b4,
-   add subtle vertical divider via box-shadow on the row */
-.px-cell.px-b4::before{
-  content:'';
-  position:absolute;
-  left:-3px;
-  top:0;
-  bottom:0;
-  width:1px;
-  background:rgba(30,80,160,.2);
-  pointer-events:none;
-}
-
 .pat-keys-hint{font-family:var(--lcd);font-size:9px;color:#333;padding:4px 10px;border-top:1px solid rgba(255,255,255,.03)}
 
 /* ═══ EMX VIEW ═══ */
@@ -889,7 +764,7 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
             STEP: <span id="patStepDisp">—</span>
           </div>
         </div>
-        <div class="pat-grid-wrap"><div id="patGridWrap"></div></div>
+        <div class="pat-grid-wrap"><canvas id="patGridC" width="660" height="360"></canvas></div>
         <div class="pat-detail" id="patDetail"></div>
       </div>
     </div>
@@ -1999,99 +1874,189 @@ const PAT_TYPE_LABEL_COLORS={
 };
 
 // ── Hex geometry (flat-top orientation) ──
+function hexPath(ctx,cx,cy,r){
+  ctx.beginPath();
+  for(let i=0;i<6;i++){
+    const a=(Math.PI/3)*i;
+    const x=cx+r*Math.cos(a),y=cy+r*Math.sin(a);
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  }
+  ctx.closePath();
+}
+function drawHexCell(ctx,cx,cy,r,fill,stroke,glow){
+  if(glow){ctx.shadowColor=glow;ctx.shadowBlur=r*0.9}
+  hexPath(ctx,cx,cy,r-1);
+  ctx.fillStyle=fill;ctx.fill();
+  ctx.shadowBlur=0;
+  hexPath(ctx,cx,cy,r-1);
+  ctx.strokeStyle=stroke;ctx.lineWidth=1;ctx.stroke();
+}
+
 let patPlayStep=-1;
 
-// ── Part type colors for pixel grid ──
-const PAT_TYPE_COLORS={
-  drum:'#ff3366',keyboard:'#00ccff',stretch:'#00ff88',
-  slice:'#00ff88',audioin:'#ff8800',accent:'#ffe600',
-};
-const PAT_TYPE_BG={
-  drum:'rgba(255,51,102,.12)',keyboard:'rgba(0,204,255,.10)',
-  stretch:'rgba(0,255,136,.10)',slice:'rgba(0,255,136,.10)',
-  audioin:'rgba(255,136,0,.10)',accent:'rgba(255,230,0,.10)',
-};
-
 function patDrawGrid(pat){
-  const wrap=document.getElementById('patGridWrap');
-  if(!wrap)return;
+  const c=document.getElementById('patGridC'),ctx=c.getContext('2d');
   const parts=pat.parts||[];
   const nParts=Math.max(parts.length,PAT_ROWS);
   const steps=pat.steps||16;
-  const cW=PAT_CELL;       // cell width px
-  const cH=Math.round(PAT_CELL*0.75); // cell height (3:4 ratio — wide pixel)
 
-  let html='<div class="px-grid" style="--cw:'+cW+'px;--ch:'+cH+'px">';
+  const r=Math.max(6,Math.floor(PAT_CELL*0.52));
+  const cW=PAT_CELL;
+  const cH=PAT_CELL;
+  const labelW=96;
+  const topPad=26;
+  const padV=6;
 
-  // ── Step number header ──
-  html+='<div class="px-header">';
-  html+='<div class="px-hlabel"></div>'; // spacer for label column
+  const W=labelW+steps*cW+r;
+  const H=topPad+nParts*cH+padV*2;
+
+  const dpr=window.devicePixelRatio||1;
+  c.width=W*dpr;c.height=H*dpr;
+  c.style.width=W+'px';c.style.height=H+'px';
+  ctx.scale(dpr,dpr);
+
+  // Background
+  ctx.fillStyle='#04060c';ctx.fillRect(0,0,W,H);
+
+  // Step number header
+  ctx.font=`${Math.max(8,Math.min(11,cW-4))}px "Share Tech Mono"`;
+  ctx.textAlign='center';
   for(let s=0;s<steps;s++){
-    const b4=s>0&&s%4===0?' px-b4':'';
-    html+=`<div class="px-hnum${b4}">${s+1}</div>`;
+    const x=labelW+s*cW+cW/2;
+    if(s%4===0){
+      ctx.fillStyle='rgba(30,80,160,.06)';
+      ctx.fillRect(labelW+s*cW,0,cW*4,H);
+    }
+    ctx.fillStyle=s%4===0?'#3a5080':'#2a3040';
+    ctx.fillText(s+1,x,topPad-8);
   }
-  html+='</div>';
 
-  // ── Part rows ──
+  // Beat group separators
+  ctx.strokeStyle='rgba(30,80,160,.18)';ctx.lineWidth=1;
+  for(let s=0;s<steps;s+=4){
+    const x=labelW+s*cW;
+    ctx.beginPath();ctx.moveTo(x,topPad-2);ctx.lineTo(x,H);ctx.stroke();
+  }
+
+  // Part rows
   for(let row=0;row<nParts;row++){
     const part=parts[row];
-    const pType=(part&&part.type)||'drum';
-    const col=PAT_TYPE_COLORS[pType]||'#ff3366';
-    const bg=PAT_TYPE_BG[pType]||'rgba(255,51,102,.1)';
+    const cy=topPad+padV+row*cH+cH/2;
+    const pType=part&&part.type||'drum';
+
+    const typeColor={
+      drum:   {rgb:'197,48,92',   label:'#c5305c'},
+      keyboard:{rgb:'0,204,255',  label:'#00ccff'},
+      stretch:{rgb:'0,230,118',   label:'#00e676'},
+      slice:  {rgb:'0,230,118',   label:'#00e676'},
+      audioin:{rgb:'255,183,77',  label:'#ffb74d'},
+      accent: {rgb:'255,235,59',  label:'#ffeb3b'},
+    }[pType]||{rgb:'197,48,92',label:'#c5305c'};
+
+    // Row background stripe (alternating)
+    if(row%2===0){
+      ctx.fillStyle='rgba(255,255,255,.012)';
+      ctx.fillRect(0,topPad+padV+row*cH,W,cH);
+    }
+
+    // Label
+    ctx.textAlign='left';
+    ctx.font=`${Math.max(9,Math.min(11,cH-4))}px "Share Tech Mono"`;
+    ctx.fillStyle=typeColor.label;
     const label=part?part.name||`Part ${row+1}`:`Part ${row+1}`;
-    const rowBg=row%2===0?'rgba(255,255,255,.008)':'transparent';
+    ctx.fillText(label,6,cy+4);
 
-    html+=`<div class="px-row" style="background:${rowBg}">`;
-    html+=`<div class="px-label" style="color:${col}">${label}</div>`;
+    // Waveform thumbnail behind hex steps
+    if(part&&part.waveformPeaks&&part.waveformPeaks.length>0){
+      const peaks=part.waveformPeaks;
+      const wX=labelW,wW=steps*cW;
+      const wY=topPad+padV+row*cH,wH=cH;
+      ctx.save();ctx.globalAlpha=0.12;ctx.fillStyle=typeColor.label;ctx.beginPath();
+      const step2=wW/peaks.length;
+      const mid2=wY+wH/2;
+      ctx.moveTo(wX,mid2);
+      for(let i=0;i<peaks.length;i++)ctx.lineTo(wX+i*step2,mid2-peaks[i]*wH*0.45);
+      for(let i=peaks.length-1;i>=0;i--)ctx.lineTo(wX+i*step2,mid2+peaks[i]*wH*0.45);
+      ctx.closePath();ctx.fill();ctx.restore();
+    }
 
+    // Hex step cells
     for(let s=0;s<steps;s++){
+      const cx=labelW+s*cW+cW/2;
       const active=part&&part.steps&&part.steps[s];
       const vel=(part&&part.velocities?part.velocities[s]:100)||100;
-      const alpha=active?Math.max(0.35,vel/127):0;
-      const b4=s>0&&s%4===0?' px-b4':'';
-      const playClass=patPlayStep===s?' px-playing':'';
 
       if(active){
-        html+=`<div class="px-cell px-on${b4}${playClass}"
-          data-row="${row}" data-step="${s}"
-          style="background:${col};opacity:${alpha.toFixed(2)};box-shadow:0 0 6px ${col}44">
-        </div>`;
+        const alpha=Math.max(0.35,vel/127);
+        const fillCol=`rgba(${typeColor.rgb},${alpha})`;
+        const glowCol=`rgba(${typeColor.rgb},${alpha*0.7})`;
+        const strokeCol=`rgba(${typeColor.rgb},${Math.min(1,alpha+0.3)})`;
+        drawHexCell(ctx,cx,cy,r,fillCol,strokeCol,glowCol);
+        if(vel>90){
+          ctx.fillStyle='rgba(255,255,255,0.6)';
+          ctx.beginPath();ctx.arc(cx,cy,r*0.2,0,Math.PI*2);ctx.fill();
+        }
       } else {
-        html+=`<div class="px-cell px-off${b4}${playClass}"
-          data-row="${row}" data-step="${s}">
-        </div>`;
+        drawHexCell(ctx,cx,cy,r,'rgba(10,14,24,0.8)','rgba(26,32,53,0.8)',null);
+        ctx.globalAlpha=0.06;
+        hexPath(ctx,cx,cy,r-1);
+        ctx.strokeStyle=typeColor.label;ctx.lineWidth=1;ctx.stroke();
+        ctx.globalAlpha=1;
       }
     }
-    html+='</div>'; // px-row
   }
-  html+='</div>'; // px-grid
-  wrap.innerHTML=html;
-
-  // Re-attach click handlers
-  wrap.querySelectorAll('.px-cell').forEach(cell=>{
-    cell.addEventListener('click',()=>{
-      const row=parseInt(cell.dataset.row);
-      const step=parseInt(cell.dataset.step);
-      if(!pat.parts||row>=pat.parts.length)return;
-      const part=pat.parts[row];
-      if(!part.steps)part.steps=new Array(pat.steps||16).fill(false);
-      part.steps[step]=!part.steps[step];
-      patDrawGrid(pat);
-    });
-  });
+  ctx.textAlign='left';
 }
 
 function patHighlightStep(step){
   if(patSel<0||!patData[patSel])return;
   patPlayStep=step;
-  // Remove old playing class
-  document.querySelectorAll('.px-playing').forEach(c=>c.classList.remove('px-playing'));
-  // Add to current step column
-  document.querySelectorAll(`.px-cell[data-step="${step}"]`).forEach(c=>c.classList.add('px-playing'));
-  // Step counter
-  const disp=document.getElementById('patStepDisp');
-  if(disp)disp.textContent=step+1;
+  patDrawGrid(patData[patSel]);
+  const c=document.getElementById('patGridC'),ctx=c.getContext('2d');
+  const dpr=window.devicePixelRatio||1;
+  const pat=patData[patSel];
+  const nParts=Math.max((pat.parts||[]).length,PAT_ROWS);
+  const labelW=96,topPad=26,padV=6,cW=PAT_CELL,cH=PAT_CELL;
+  const r=Math.max(6,Math.floor(PAT_CELL*0.52));
+  ctx.save();ctx.scale(dpr,dpr);
+  ctx.fillStyle='rgba(255,255,255,0.04)';
+  ctx.fillRect(labelW+step*cW,0,cW,topPad+padV+nParts*cH+padV*2);
+  (pat.parts||[]).forEach((part,row)=>{
+    if(!part||!part.steps||!part.steps[step])return;
+    const cx=labelW+step*cW+cW/2;
+    const cy=topPad+padV+row*cH+cH/2;
+    ctx.strokeStyle='rgba(255,255,255,0.8)';ctx.lineWidth=2;
+    hexPath(ctx,cx,cy,r-1);ctx.stroke();
+  });
+  ctx.restore();
 }
+
+// Click to toggle steps on canvas (hex grid)
+document.getElementById('patGridC').addEventListener('click',function(e){
+  if(patSel<0||!patData[patSel])return;
+  const rect=this.getBoundingClientRect();
+  const mx=e.clientX-rect.left;
+  const my=e.clientY-rect.top;
+  const pat=patData[patSel];
+  const steps=pat.steps||16;
+  const labelW=96,topPad=26,padV=6;
+  const cW=PAT_CELL,cH=PAT_CELL;
+
+  const row=Math.floor((my-topPad-padV)/(cH));
+  if(row<0||row>=PAT_ROWS||!pat.parts||row>=pat.parts.length)return;
+
+  let col=-1;
+  for(let s=0;s<steps;s++){
+    const cx=labelW+s*cW+cW/2;
+    if(Math.abs(mx-cx)<cW/2){col=s;break}
+  }
+  if(col<0||col>=steps)return;
+
+  const part=pat.parts[row];
+  if(!part.steps)part.steps=new Array(steps).fill(false);
+  part.steps[col]=!part.steps[col];
+  patDrawGrid(pat);
+});
 
 // ═══════════════════════════════════════════════════════════
 //  PATTERN SEARCH / KEYBOARD / ZOOM
@@ -2118,11 +2083,11 @@ document.getElementById('patSearchIn').addEventListener('keydown',function(e){
 // ── Zoom ──
 function patZoom(dir){
   if(dir===0){
-    // Fit: compute cell size so steps fit container
-    const wrap=document.getElementById('patGridWrap');
+    // Fit: compute cell size so all steps fit in container width
+    const wrap=document.getElementById('patGridC').parentElement;
     if(wrap&&patSel>=0){
       const steps=(patData[patSel]&&patData[patSel].steps)||16;
-      const availW=wrap.parentElement.clientWidth-96-steps*4; // 4px gaps
+      const availW=wrap.clientWidth-96; // 96 = labelW
       PAT_CELL=Math.round(Math.max(PAT_CELL_MIN,Math.min(PAT_CELL_MAX,availW/steps)));
     } else {
       PAT_CELL=PAT_CELL_BASE;
@@ -2132,7 +2097,10 @@ function patZoom(dir){
   }
   const pct=Math.round(PAT_CELL/PAT_CELL_BASE*100);
   document.getElementById('patZoomLbl').textContent=pct+'%';
-  // Redraw at new cell size (patDrawGrid reads PAT_CELL)
+  // Remove any CSS transform (old broken approach)
+  const c=document.getElementById('patGridC');
+  c.style.transform='none';
+  // Redraw at new cell size
   if(patSel>=0&&patData[patSel])patDrawGrid(patData[patSel]);
 }
 
@@ -2159,8 +2127,9 @@ function patGetVisibleIndices(){
   return vis;
 }
 function patHandleKeyboard(e){
-  // Only handle when pattern view is active device
-  if(activeDevice!=='e2pat')return;
+  // Only handle when pattern tab is active
+  const patTab=document.getElementById('patTab');
+  if(!patTab||patTab.style.display==='none')return;
   // Don't intercept when typing in inputs
   if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA'||e.target.tagName==='SELECT')return;
 
