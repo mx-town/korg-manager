@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(grep -n \"TODO\\\\|FIXME\\\\|BUG\\\\|HACK\\\\|XXX\" \"/c/Users/mel2497/OneDrive - Melecs/Dokumente/Schule/korg-esx-manager/src/\"*.js)",
+      "Bash(xargs wc -l)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:skratchdot.com)"
     ]
   }
 }
