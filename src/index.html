@@ -1755,9 +1755,9 @@ function emxSelPat(i){
 //  E2 PATTERN VIEWER
 // ═══════════════════════════════════════════════════════════
 let patData=[],patSel=-1,patFilePath=null,patFormat=null,patSearchQ='';
-let PAT_CELL=20; // mutable — zoom changes this
+const PAT_CELL_MIN=12,PAT_CELL_MAX=48,PAT_CELL_BASE=28;
+let PAT_CELL=PAT_CELL_BASE; // mutable — zoom changes this
 const PAT_ROWS=16,PAT_COLS=32;
-const PAT_CELL_MIN=12,PAT_CELL_MAX=48,PAT_CELL_BASE=20;
 
 async function patOpenESX(){
   if(!window.api.esx){toast('ESX module not available','error');return}
@@ -1888,6 +1888,8 @@ function patSelectPat(i){
       }
     });
   }
+  // Auto-fit zoom on first load
+  patZoom(0);
 }
 
 // Part-type color map for the step grid
@@ -2030,14 +2032,14 @@ document.getElementById('patSearchIn').addEventListener('keydown',function(e){
 // ── Zoom ──
 function patZoom(dir){
   if(dir===0){
-    const wrap=document.getElementById('patGridWrap');
-    if(wrap&&patSel>=0){
-      const steps=(patData[patSel]&&patData[patSel].steps)||16;
-      const availW=wrap.parentElement.clientWidth-96-steps*4;
-      PAT_CELL=Math.round(Math.max(PAT_CELL_MIN,Math.min(PAT_CELL_MAX,availW/steps)));
-    } else {
-      PAT_CELL=PAT_CELL_BASE;
-    }
+    // FIT: compute cell width so all COLUMNS fit in visible width
+    const gridWrap=document.getElementById('patGridWrap');
+    if(!gridWrap||patSel<0||!patData[patSel]){PAT_CELL=PAT_CELL_BASE;return;}
+    const steps=patData[patSel].steps||16;
+    const labelW=80;
+    const gapTotal=Math.floor(steps/4)*4; // beat group gaps (4px each)
+    const availW=gridWrap.parentElement.clientWidth-labelW-gapTotal-40; // 40 = padding
+    PAT_CELL=Math.round(Math.max(PAT_CELL_MIN,Math.min(PAT_CELL_MAX,availW/steps)));
   } else {
     PAT_CELL=Math.max(PAT_CELL_MIN,Math.min(PAT_CELL_MAX,PAT_CELL+dir*4));
   }
@@ -2130,17 +2132,19 @@ function patScrollToSel(){
 document.addEventListener('keydown',patHandleKeyboard);
 
 // ═══════════════════════════════════════════════════════════
-//  PATTERN PLAYBACK — Tone.js Transport
+//  PATTERN PLAYBACK — Web Audio only (no Tone.js)
 // ═══════════════════════════════════════════════════════════
-let patPlaying=false,patCurrentStep=0,patSeq=null;
-
+let patPlaying=false;
+let patCurrentStep=0;
+let patScheduleTimer=null;
 let patAudioCtx=null;
-const patSampleCache={}; // sampleNum → AudioBuffer
+const patSampleCache={};
 
 function getPatAudioCtx(){
   if(!patAudioCtx||patAudioCtx.state==='closed'){
-    patAudioCtx=new AudioContext();
+    patAudioCtx=new(window.AudioContext||window.webkitAudioContext)();
   }
+  if(patAudioCtx.state==='suspended')patAudioCtx.resume();
   return patAudioCtx;
 }
 
@@ -2153,103 +2157,95 @@ async function patLoadSample(sampleNum){
     const bytes=new Uint8Array(binary.length);
     for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
     const ctx=getPatAudioCtx();
-    const audioBuffer=await ctx.decodeAudioData(bytes.buffer);
-    patSampleCache[sampleNum]=audioBuffer;
-    return audioBuffer;
+    const buf=await ctx.decodeAudioData(bytes.buffer.slice(0));
+    patSampleCache[sampleNum]=buf;
+    return buf;
   }catch(e){
-    console.warn('patLoadSample failed for',sampleNum,e);
+    console.warn('patLoadSample error sampleNum='+sampleNum,e);
     return null;
   }
-}
-
-function patSetBpm(bpm){
-  const v=Math.max(40,Math.min(300,parseFloat(bpm)||120));
-  document.getElementById('patBpmIn').value=v;
-  if(typeof Tone!=='undefined')Tone.getTransport().bpm.value=v;
 }
 
 async function patTogglePlay(){
   if(patPlaying){patStop();return;}
   if(patSel<0||!patData[patSel])return;
-  if(typeof Tone==='undefined'){toast('Tone.js not loaded','error');return}
 
-  await Tone.start();
-  // Sync our AudioContext with Tone.js internal context
-  patAudioCtx=Tone.getContext().rawContext;
-  // Clear cache so buffers are decoded in the right context
-  Object.keys(patSampleCache).forEach(k=>delete patSampleCache[k]);
-  // Reload samples
+  const ctx=getPatAudioCtx();
   const pat=patData[patSel];
-  if(pat&&pat.parts){
-    await Promise.all(pat.parts.map(part=>{
-      if(part&&typeof part.sampleNum==='number'&&part.sampleNum>=0){
-        return patLoadSample(part.sampleNum);
-      }
-    }));
-  }
   const steps=pat.steps||16;
-  const bpm=pat.bpm||120;
-  patSetBpm(bpm);
-  document.getElementById('patBpmIn').value=bpm;
+  const bpm=parseFloat(document.getElementById('patBpmIn')?.value)||pat.bpm||120;
+  const stepMs=(60000/bpm)/4; // 16th note duration in ms
 
-  patCurrentStep=0;
+  // Preload all samples
+  toast('⏳ Loading samples...','info');
+  const loads=[];
+  (pat.parts||[]).forEach(part=>{
+    if(part&&typeof part.sampleNum==='number'&&part.sampleNum>=0){
+      loads.push(patLoadSample(part.sampleNum));
+    }
+  });
+  await Promise.all(loads);
+  toast('▶ Playing','success');
 
-  patSeq=new Tone.Sequence((time,step)=>{
-    patCurrentStep=step;
-    Tone.getDraw().schedule(()=>{
-      patHighlightStep(step);
-      document.getElementById('patStepDisp').textContent=step+1;
-    },time);
-    patPlayTick(time,step,pat);
-  },Array.from({length:steps},(_,i)=>i),'16n');
-
-  patSeq.start(0);
-  Tone.getTransport().start();
   patPlaying=true;
+  patCurrentStep=0;
   document.getElementById('patPlayBtn').classList.add('playing');
   document.getElementById('patPlayBtn').textContent='■ STOP';
+
+  function tick(){
+    if(!patPlaying)return;
+    const step=patCurrentStep;
+
+    // Trigger sounds
+    (pat.parts||[]).forEach(part=>{
+      if(!part||!part.steps||!part.steps[step])return;
+      const sampleNum=part.sampleNum;
+      if(typeof sampleNum!=='number'||sampleNum<0)return;
+      const buf=patSampleCache[sampleNum];
+      if(!buf)return;
+      const vel=(part.velocities?part.velocities[step]:100)||100;
+      try{
+        const src=ctx.createBufferSource();
+        src.buffer=buf;
+        const gain=ctx.createGain();
+        gain.gain.value=Math.max(0.05,vel/127);
+        src.connect(gain);
+        gain.connect(ctx.destination);
+        src.start();
+      }catch(e){}
+    });
+
+    // UI highlight
+    patHighlightStep(step);
+    if(document.getElementById('patStepDisp'))
+      document.getElementById('patStepDisp').textContent=step+1;
+
+    patCurrentStep=(step+1)%steps;
+    patScheduleTimer=setTimeout(tick,stepMs);
+  }
+
+  tick();
 }
 
 function patStop(){
-  if(typeof Tone==='undefined')return;
-  if(patSeq){patSeq.stop();patSeq.dispose();patSeq=null}
-  Tone.getTransport().stop();
-  Tone.getTransport().position=0;
   patPlaying=false;
+  if(patScheduleTimer){clearTimeout(patScheduleTimer);patScheduleTimer=null;}
   patCurrentStep=0;
-  document.getElementById('patPlayBtn').classList.remove('playing');
-  document.getElementById('patPlayBtn').textContent='▶ PLAY';
-  document.getElementById('patStepDisp').textContent='—';
+  patPlayStep=-1;
+  document.querySelectorAll('.px-playing').forEach(c=>c.classList.remove('px-playing'));
+  const btn=document.getElementById('patPlayBtn');
+  if(btn){btn.classList.remove('playing');btn.textContent='▶ PLAY';}
+  const disp=document.getElementById('patStepDisp');
+  if(disp)disp.textContent='—';
   if(patSel>=0&&patData[patSel])patDrawGrid(patData[patSel]);
 }
 
-function patPlayTick(time, step, pat){
-  if(!pat.parts)return;
-  const ctx=getPatAudioCtx();
-
-  pat.parts.forEach((part)=>{
-    if(!part||!part.steps||!part.steps[step])return;
-    const sampleNum=part.sampleNum;
-    if(typeof sampleNum!=='number'||sampleNum<0)return;
-
-    const buf=patSampleCache[sampleNum];
-    if(!buf)return; // not loaded yet — skip this hit
-
-    const vel=(part.velocities?part.velocities[step]:100)||100;
-    const gain=Math.max(0.05,vel/127);
-
-    const source=ctx.createBufferSource();
-    source.buffer=buf;
-
-    const gainNode=ctx.createGain();
-    gainNode.gain.value=gain;
-
-    source.connect(gainNode);
-    gainNode.connect(ctx.destination);
-
-    const startTime=typeof time==='number'?time:ctx.currentTime;
-    source.start(startTime);
-  });
+function patSetBpm(bpm){
+  const v=Math.max(40,Math.min(300,parseFloat(bpm)||120));
+  const inp=document.getElementById('patBpmIn');
+  if(inp)inp.value=v;
+  // If playing, restart with new BPM
+  if(patPlaying){patStop();patTogglePlay();}
 }
 
 // ═══════════════════════════════════════════════════════════
