@@ -1548,61 +1548,185 @@ const PAT_TYPE_LABEL_COLORS={
   drum:'#c5305c',keyboard:'#00ccff',stretch:'#00e676',slice:'#00e676',audioin:'#ffb74d',accent:'#ffeb3b',
 };
 
+// ── Hex geometry (flat-top orientation) ──
+function hexPath(ctx,cx,cy,r){
+  ctx.beginPath();
+  for(let i=0;i<6;i++){
+    const a=(Math.PI/3)*i;
+    const x=cx+r*Math.cos(a),y=cy+r*Math.sin(a);
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  }
+  ctx.closePath();
+}
+function drawHexCell(ctx,cx,cy,r,fill,stroke,glow){
+  if(glow){ctx.shadowColor=glow;ctx.shadowBlur=r*0.9}
+  hexPath(ctx,cx,cy,r-1);
+  ctx.fillStyle=fill;ctx.fill();
+  ctx.shadowBlur=0;
+  hexPath(ctx,cx,cy,r-1);
+  ctx.strokeStyle=stroke;ctx.lineWidth=1;ctx.stroke();
+}
+
+let patPlayStep=-1;
+
 function patDrawGrid(pat){
   const c=document.getElementById('patGridC'),ctx=c.getContext('2d');
   const parts=pat.parts||[];
   const nParts=Math.max(parts.length,PAT_ROWS);
   const steps=pat.steps||16;
-  const cellW=PAT_CELL,cellH=PAT_CELL;
-  const labelW=80;
-  const w=labelW+steps*cellW,h=nParts*cellH+40;
+
+  const r=Math.max(6,Math.floor(PAT_CELL*0.52));
+  const cW=PAT_CELL;
+  const cH=PAT_CELL;
+  const labelW=96;
+  const topPad=26;
+  const padV=6;
+
+  const W=labelW+steps*cW+r;
+  const H=topPad+nParts*cH+padV*2;
+
   const dpr=window.devicePixelRatio||1;
-  c.width=w*dpr;c.height=h*dpr;c.style.width=w+'px';c.style.height=h+'px';
+  c.width=W*dpr;c.height=H*dpr;
+  c.style.width=W+'px';c.style.height=H+'px';
   ctx.scale(dpr,dpr);
+
   // Background
-  ctx.fillStyle='#060a18';ctx.fillRect(0,0,w,h);
-  // Step numbers
-  ctx.font='9px "Share Tech Mono"';ctx.fillStyle='#444';
-  for(let s=0;s<steps;s++){ctx.fillText(s+1,labelW+s*cellW+4,12)}
-  // Grid
-  for(let r=0;r<nParts;r++){
-    const y=20+r*cellH;
-    const part=parts[r];
-    const pType=part&&part.type||'';
-    const col=PAT_TYPE_COLORS[pType]||{r:197,g:48,b:92};
-    // Label (colored by part type)
-    ctx.fillStyle=PAT_TYPE_LABEL_COLORS[pType]||'#00ccff';
-    ctx.font='10px "Share Tech Mono"';
-    ctx.fillText(part?part.name||`Part ${r+1}`:`Part ${r+1}`,4,y+14);
-    // Cells
+  ctx.fillStyle='#04060c';ctx.fillRect(0,0,W,H);
+
+  // Step number header
+  ctx.font=`${Math.max(8,Math.min(11,cW-4))}px "Share Tech Mono"`;
+  ctx.textAlign='center';
+  for(let s=0;s<steps;s++){
+    const x=labelW+s*cW+cW/2;
+    if(s%4===0){
+      ctx.fillStyle='rgba(30,80,160,.06)';
+      ctx.fillRect(labelW+s*cW,0,cW*4,H);
+    }
+    ctx.fillStyle=s%4===0?'#3a5080':'#2a3040';
+    ctx.fillText(s+1,x,topPad-8);
+  }
+
+  // Beat group separators
+  ctx.strokeStyle='rgba(30,80,160,.18)';ctx.lineWidth=1;
+  for(let s=0;s<steps;s+=4){
+    const x=labelW+s*cW;
+    ctx.beginPath();ctx.moveTo(x,topPad-2);ctx.lineTo(x,H);ctx.stroke();
+  }
+
+  // Part rows
+  for(let row=0;row<nParts;row++){
+    const part=parts[row];
+    const cy=topPad+padV+row*cH+cH/2;
+    const pType=part&&part.type||'drum';
+
+    const typeColor={
+      drum:   {rgb:'197,48,92',   label:'#c5305c'},
+      keyboard:{rgb:'0,204,255',  label:'#00ccff'},
+      stretch:{rgb:'0,230,118',   label:'#00e676'},
+      slice:  {rgb:'0,230,118',   label:'#00e676'},
+      audioin:{rgb:'255,183,77',  label:'#ffb74d'},
+      accent: {rgb:'255,235,59',  label:'#ffeb3b'},
+    }[pType]||{rgb:'197,48,92',label:'#c5305c'};
+
+    // Row background stripe (alternating)
+    if(row%2===0){
+      ctx.fillStyle='rgba(255,255,255,.012)';
+      ctx.fillRect(0,topPad+padV+row*cH,W,cH);
+    }
+
+    // Label
+    ctx.textAlign='left';
+    ctx.font=`${Math.max(9,Math.min(11,cH-4))}px "Share Tech Mono"`;
+    ctx.fillStyle=typeColor.label;
+    const label=part?part.name||`Part ${row+1}`:`Part ${row+1}`;
+    ctx.fillText(label,6,cy+4);
+
+    // Waveform thumbnail behind hex steps
+    if(part&&part.waveformPeaks&&part.waveformPeaks.length>0){
+      const peaks=part.waveformPeaks;
+      const wX=labelW,wW=steps*cW;
+      const wY=topPad+padV+row*cH,wH=cH;
+      ctx.save();ctx.globalAlpha=0.12;ctx.fillStyle=typeColor.label;ctx.beginPath();
+      const step2=wW/peaks.length;
+      const mid2=wY+wH/2;
+      ctx.moveTo(wX,mid2);
+      for(let i=0;i<peaks.length;i++)ctx.lineTo(wX+i*step2,mid2-peaks[i]*wH*0.45);
+      for(let i=peaks.length-1;i>=0;i--)ctx.lineTo(wX+i*step2,mid2+peaks[i]*wH*0.45);
+      ctx.closePath();ctx.fill();ctx.restore();
+    }
+
+    // Hex step cells
     for(let s=0;s<steps;s++){
-      const x=labelW+s*cellW;
+      const cx=labelW+s*cW+cW/2;
       const active=part&&part.steps&&part.steps[s];
-      const vel=part&&part.velocities?part.velocities[s]:100;
-      ctx.strokeStyle='#1a2035';ctx.strokeRect(x,y,cellW,cellH);
+      const vel=(part&&part.velocities?part.velocities[s]:100)||100;
+
       if(active){
-        const alpha=Math.max(0.3,vel/127);
-        ctx.fillStyle=`rgba(${col.r},${col.g},${col.b},${alpha})`;
-        ctx.beginPath();ctx.arc(x+cellW/2,y+cellH/2,cellW/2-3,0,Math.PI*2);ctx.fill();
+        const alpha=Math.max(0.35,vel/127);
+        const fillCol=`rgba(${typeColor.rgb},${alpha})`;
+        const glowCol=`rgba(${typeColor.rgb},${alpha*0.7})`;
+        const strokeCol=`rgba(${typeColor.rgb},${Math.min(1,alpha+0.3)})`;
+        drawHexCell(ctx,cx,cy,r,fillCol,strokeCol,glowCol);
+        if(vel>90){
+          ctx.fillStyle='rgba(255,255,255,0.6)';
+          ctx.beginPath();ctx.arc(cx,cy,r*0.2,0,Math.PI*2);ctx.fill();
+        }
       } else {
-        ctx.strokeStyle='#1a2035';
-        ctx.beginPath();ctx.arc(x+cellW/2,y+cellH/2,cellW/2-3,0,Math.PI*2);ctx.stroke();
+        drawHexCell(ctx,cx,cy,r,'rgba(10,14,24,0.8)','rgba(26,32,53,0.8)',null);
+        ctx.globalAlpha=0.06;
+        hexPath(ctx,cx,cy,r-1);
+        ctx.strokeStyle=typeColor.label;ctx.lineWidth=1;ctx.stroke();
+        ctx.globalAlpha=1;
       }
     }
   }
+  ctx.textAlign='left';
 }
 
-// Click to toggle steps on canvas
+function patHighlightStep(step){
+  if(patSel<0||!patData[patSel])return;
+  patPlayStep=step;
+  patDrawGrid(patData[patSel]);
+  const c=document.getElementById('patGridC'),ctx=c.getContext('2d');
+  const dpr=window.devicePixelRatio||1;
+  const pat=patData[patSel];
+  const nParts=Math.max((pat.parts||[]).length,PAT_ROWS);
+  const labelW=96,topPad=26,padV=6,cW=PAT_CELL,cH=PAT_CELL;
+  const r=Math.max(6,Math.floor(PAT_CELL*0.52));
+  ctx.save();ctx.scale(dpr,dpr);
+  ctx.fillStyle='rgba(255,255,255,0.04)';
+  ctx.fillRect(labelW+step*cW,0,cW,topPad+padV+nParts*cH+padV*2);
+  (pat.parts||[]).forEach((part,row)=>{
+    if(!part||!part.steps||!part.steps[step])return;
+    const cx=labelW+step*cW+cW/2;
+    const cy=topPad+padV+row*cH+cH/2;
+    ctx.strokeStyle='rgba(255,255,255,0.8)';ctx.lineWidth=2;
+    hexPath(ctx,cx,cy,r-1);ctx.stroke();
+  });
+  ctx.restore();
+}
+
+// Click to toggle steps on canvas (hex grid)
 document.getElementById('patGridC').addEventListener('click',function(e){
   if(patSel<0||!patData[patSel])return;
   const rect=this.getBoundingClientRect();
-  const x=(e.clientX-rect.left),y=(e.clientY-rect.top);
-  const labelW=80,cellW=PAT_CELL,cellH=PAT_CELL;
-  const col=Math.floor((x-labelW)/cellW),row=Math.floor((y-20)/cellH);
+  const mx=e.clientX-rect.left;
+  const my=e.clientY-rect.top;
   const pat=patData[patSel];
-  if(!pat.parts||row<0||row>=pat.parts.length)return;
   const steps=pat.steps||16;
+  const labelW=96,topPad=26,padV=6;
+  const cW=PAT_CELL,cH=PAT_CELL;
+
+  const row=Math.floor((my-topPad-padV)/(cH));
+  if(row<0||row>=PAT_ROWS||!pat.parts||row>=pat.parts.length)return;
+
+  let col=-1;
+  for(let s=0;s<steps;s++){
+    const cx=labelW+s*cW+cW/2;
+    if(Math.abs(mx-cx)<cW/2){col=s;break}
+  }
   if(col<0||col>=steps)return;
+
   const part=pat.parts[row];
   if(!part.steps)part.steps=new Array(steps).fill(false);
   part.steps[col]=!part.steps[col];
