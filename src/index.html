@@ -786,6 +786,8 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
         <div class="m-tool" onclick="mTool('loop')">⟲ LOOP XFADE</div>
         <div class="m-tool" onclick="mTool('dup')">⧉ DUPLICATE</div>
         <div class="m-tool" onclick="mTool('wav')">💾 EXPORT WAV</div>
+        <div class="m-tool" id="mCutBtn" onclick="mCutHere()" style="display:none;border-color:var(--hi-d);color:var(--hi)">✂ CUT HERE</div>
+        <div class="m-tool" id="mTrimSelBtn" onclick="mTrimSelection()" style="display:none;border-color:var(--hi-d);color:var(--hi)">◧ TRIM SEL</div>
       </div>
       <button class="m-guide-btn" onclick="closeModal();openGuide()">📖 HARDTEKK GUIDE ÖFFNEN</button>
     </div>
@@ -993,19 +995,129 @@ function drawWfCanvas(canvas,data,h,cursorPos){
 }
 
 // Modal waveform helpers
-function drawModalWfStatic(){if(!wfData)return;drawWfCanvas(document.getElementById('mWfC'),wfData,220,null)}
-function drawModalWfWithCursor(pos){if(!wfData)return;drawWfCanvas(document.getElementById('mWfC'),wfData,220,pos)}
-async function drawModalWf(){const wf=await window.api.getWaveform(sel);if(wf){wfData=wf;drawWfCanvas(document.getElementById('mWfC'),wf,220,null);
+let modalTrimMode='cursor'; // 'cursor' | 'range'
+let modalRangeStart=null,modalRangeEnd=null;
+let modalDragging=false,modalDragAnchor=0;
+
+function redrawModalWf(){
+  if(!wfData)return;
+  const c=document.getElementById('mWfC'),ctx=c.getContext('2d');
+  const dpr=window.devicePixelRatio||1;
+  const W=c.parentElement.clientWidth||900,H=220;
+  c.width=W*dpr;c.height=H*dpr;c.style.width=W+'px';c.style.height=H+'px';
+  ctx.scale(dpr,dpr);
+
+  drawWfCanvas(c,wfData,H,null);
+
+  if(modalTrimMode==='range'&&modalRangeStart!==null&&modalRangeEnd!==null){
+    const sx=modalRangeStart*W,ex=modalRangeEnd*W;
+    ctx.fillStyle='rgba(197,48,92,0.12)';ctx.fillRect(sx,0,ex-sx,H);
+    ctx.strokeStyle='#C5305C';ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(sx,0);ctx.lineTo(sx,H);ctx.stroke();
+    ctx.fillStyle='#C5305C';
+    ctx.beginPath();ctx.moveTo(sx-5,0);ctx.lineTo(sx+5,0);ctx.lineTo(sx,9);ctx.closePath();ctx.fill();
+    ctx.beginPath();ctx.moveTo(sx-5,H);ctx.lineTo(sx+5,H);ctx.lineTo(sx,H-9);ctx.closePath();ctx.fill();
+    ctx.beginPath();ctx.moveTo(ex,0);ctx.lineTo(ex,H);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(ex-5,0);ctx.lineTo(ex+5,0);ctx.lineTo(ex,9);ctx.closePath();ctx.fill();
+    ctx.beginPath();ctx.moveTo(ex-5,H);ctx.lineTo(ex+5,H);ctx.lineTo(ex,H-9);ctx.closePath();ctx.fill();
+    const s=S.samples.find(x=>x.index===sel);
+    if(s){
+      const dur=s.duration||1;
+      const tStart=fmtTime(modalRangeStart*dur);
+      const tEnd=fmtTime(modalRangeEnd*dur);
+      const tLen=fmtTime((modalRangeEnd-modalRangeStart)*dur);
+      ctx.font='11px "Share Tech Mono"';ctx.fillStyle='rgba(197,48,92,0.9)';
+      ctx.textAlign='left';ctx.fillText(tStart,sx+4,H-20);
+      ctx.textAlign='right';ctx.fillText(tEnd,ex-4,H-20);
+      ctx.textAlign='center';
+      ctx.fillStyle='rgba(255,255,255,0.7)';
+      ctx.fillText(tLen,(sx+ex)/2,H-6);
+      ctx.textAlign='left';
+    }
+  } else {
+    if(seekPos!==null&&seekPos>=0){
+      const cx=seekPos*W;
+      const cg=ctx.createLinearGradient(cx-6,0,cx+6,0);
+      cg.addColorStop(0,'transparent');cg.addColorStop(.5,'rgba(197,48,92,.25)');cg.addColorStop(1,'transparent');
+      ctx.fillStyle=cg;ctx.fillRect(cx-6,0,12,H);
+      ctx.strokeStyle='#C5305C';ctx.lineWidth=2;
+      ctx.beginPath();ctx.moveTo(cx,0);ctx.lineTo(cx,H);ctx.stroke();
+      ctx.fillStyle='#C5305C';
+      ctx.beginPath();ctx.moveTo(cx-5,0);ctx.lineTo(cx+5,0);ctx.lineTo(cx,7);ctx.closePath();ctx.fill();
+      ctx.beginPath();ctx.moveTo(cx-5,H);ctx.lineTo(cx+5,H);ctx.lineTo(cx,H-7);ctx.closePath();ctx.fill();
+      const s=S.samples.find(x=>x.index===sel);
+      if(s)document.getElementById('mTime').textContent=fmtTime(seekPos*s.duration);
+    }
+  }
+  updateModalTrimButtons();
+}
+
+function drawModalWfStatic(){if(!wfData)return;redrawModalWf()}
+function drawModalWfWithCursor(pos){if(!wfData)return;seekPos=pos;redrawModalWf()}
+async function drawModalWf(){const wf=await window.api.getWaveform(sel);if(wf){wfData=wf;modalTrimMode='cursor';modalRangeStart=null;modalRangeEnd=null;redrawModalWf();
   document.getElementById('mR').textContent=wf.sampleRate;document.getElementById('mF').textContent=wf.numFrames.toLocaleString();document.getElementById('mD2').textContent=wf.duration<1?`${(wf.duration*1000).toFixed(1)}ms`:`${wf.duration.toFixed(3)}s`;document.getElementById('mP').textContent=wf.peakDb+'dB';document.getElementById('mM').textContent=wf.rmsDb+'dB';document.getElementById('mTimeT').textContent=fmtTime(wf.duration);document.getElementById('mTime').textContent='0:00.000'}}
 
-// ═══ CLICK-TO-SEEK ON MODAL WAVEFORM ═══
-document.getElementById('mWfWrap').addEventListener('click',function(e){
-  const c=document.getElementById('mWfC'),r=c.getBoundingClientRect();const pct=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));
-  seekPos=pct;
-  if(playing){audio.currentTime=pct*audio.duration}else{
-    // Show cursor at clicked position even when not playing
-    if(wfData){drawWfCanvas(document.getElementById('mWfC'),wfData,220,pct);const s=S.samples.find(x=>x.index===sel);if(s)document.getElementById('mTime').textContent=fmtTime(pct*s.duration)}}
-});
+function updateModalTrimButtons(){
+  const cutBtn=document.getElementById('mCutBtn');
+  const trimBtn=document.getElementById('mTrimSelBtn');
+  if(cutBtn)cutBtn.style.display=(modalTrimMode==='cursor'&&seekPos>0.001&&seekPos<0.999)?'block':'none';
+  if(trimBtn)trimBtn.style.display=(modalTrimMode==='range'&&modalRangeEnd-modalRangeStart>0.01)?'block':'none';
+}
+
+async function mCutHere(){
+  if(sel<0||seekPos===null)return;
+  const keepEnd=seekPos*100;
+  const r=await window.api.fxCrop(sel,0,keepEnd);
+  if(r&&!r.error){dirty=true;modalRangeStart=null;modalRangeEnd=null;
+    seekPos=0;modalTrimMode='cursor';updateState(r);drawModalWf();
+    toast('CUT','success');updateModalUndo();updateModalTrimButtons();}
+  else if(r)toast(r.error,'error');
+}
+
+async function mTrimSelection(){
+  if(sel<0||modalRangeStart===null)return;
+  const s=Math.round(modalRangeStart*1000)/10;
+  const e2=Math.round(modalRangeEnd*1000)/10;
+  const r=await window.api.fxCrop(sel,s,e2);
+  if(r&&!r.error){dirty=true;modalRangeStart=null;modalRangeEnd=null;
+    seekPos=0;modalTrimMode='cursor';updateState(r);drawModalWf();
+    toast('TRIMMED TO SELECTION','success');updateModalUndo();updateModalTrimButtons();}
+  else if(r)toast(r.error,'error');
+}
+
+// ═══ MODAL WAVEFORM MOUSE HANDLERS ═══
+(function(){
+  const wrap=document.getElementById('mWfWrap');
+  const getPos=e=>{const r=document.getElementById('mWfC').getBoundingClientRect();return Math.max(0,Math.min(1,(e.clientX-r.left)/r.width))};
+
+  wrap.addEventListener('mousedown',e=>{
+    e.preventDefault();
+    const pos=getPos(e);
+    modalDragging=true;modalDragAnchor=pos;
+    modalRangeStart=pos;modalRangeEnd=pos;
+    modalTrimMode='cursor';
+    seekPos=pos;
+    redrawModalWf();
+  });
+
+  document.addEventListener('mousemove',e=>{
+    if(!modalDragging)return;
+    const pos=getPos(e);
+    if(Math.abs(pos-modalDragAnchor)>0.01){
+      modalTrimMode='range';
+      modalRangeStart=Math.min(pos,modalDragAnchor);
+      modalRangeEnd=Math.max(pos,modalDragAnchor);
+    }
+    redrawModalWf();
+  });
+
+  document.addEventListener('mouseup',e=>{
+    if(!modalDragging)return;
+    modalDragging=false;
+    updateModalTrimButtons();
+    if(playing){audio.currentTime=seekPos*audio.duration}
+  });
+})();
 
 // Sidebar waveform click-to-seek
 document.getElementById('wfW').addEventListener('click',function(e){
