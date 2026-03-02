@@ -1342,8 +1342,10 @@ function emxSelPat(i){
 // ═══════════════════════════════════════════════════════════
 //  E2 PATTERN VIEWER
 // ═══════════════════════════════════════════════════════════
-let patData=[],patSel=-1,patFilePath=null,patFormat=null,patSearchQ='',patZoomLvl=1.0;
-const PAT_CELL=20,PAT_ROWS=16,PAT_COLS=32;
+let patData=[],patSel=-1,patFilePath=null,patFormat=null,patSearchQ='';
+let PAT_CELL=20; // mutable — zoom changes this
+const PAT_ROWS=16,PAT_COLS=32;
+const PAT_CELL_MIN=12,PAT_CELL_MAX=48,PAT_CELL_BASE=20;
 
 async function patOpenESX(){
   if(!window.api.esx){toast('ESX module not available','error');return}
@@ -1536,21 +1538,25 @@ document.getElementById('patSearchIn').addEventListener('keydown',function(e){
 // ── Zoom ──
 function patZoom(dir){
   if(dir===0){
-    // Fit: calculate zoom to fill container width
+    // Fit: compute cell size so all steps fit in container width
     const wrap=document.getElementById('patGridC').parentElement;
     if(wrap&&patSel>=0){
-      const pat=patData[patSel];
-      const steps=(pat&&pat.steps)||16;
-      const nativeW=80+steps*PAT_CELL;
-      patZoomLvl=Math.min(2,Math.max(0.5,wrap.clientWidth/nativeW));
-    } else { patZoomLvl=1; }
+      const steps=(patData[patSel]&&patData[patSel].steps)||16;
+      const availW=wrap.clientWidth-96; // 96 = labelW
+      PAT_CELL=Math.round(Math.max(PAT_CELL_MIN,Math.min(PAT_CELL_MAX,availW/steps)));
+    } else {
+      PAT_CELL=PAT_CELL_BASE;
+    }
   } else {
-    patZoomLvl=Math.round(Math.min(2,Math.max(0.5,patZoomLvl+dir*0.25))*100)/100;
+    PAT_CELL=Math.max(PAT_CELL_MIN,Math.min(PAT_CELL_MAX,PAT_CELL+dir*4));
   }
+  const pct=Math.round(PAT_CELL/PAT_CELL_BASE*100);
+  document.getElementById('patZoomLbl').textContent=pct+'%';
+  // Remove any CSS transform (old broken approach)
   const c=document.getElementById('patGridC');
-  c.style.transformOrigin='top left';
-  c.style.transform=`scale(${patZoomLvl})`;
-  document.getElementById('patZoomLbl').textContent=Math.round(patZoomLvl*100)+'%';
+  c.style.transform='none';
+  // Redraw at new cell size
+  if(patSel>=0&&patData[patSel])patDrawGrid(patData[patSel]);
 }
 
 // ── Keyboard Navigation ──
