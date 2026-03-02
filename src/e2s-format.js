@@ -338,20 +338,54 @@ function buildE2sAllFile(samples) {
 // ── Resample helpers ──────────────────────────────────────
 
 /**
- * Linear-interpolation resampler (float samples).
+ * High-quality resampler using 4-point cubic (Catmull-Rom) interpolation.
+ * For downsampling, applies a simple anti-aliasing pre-filter.
  */
 function resampleLinear(floatBuf, fromRate, toRate) {
   if (fromRate === toRate) return floatBuf;
-  const ratio     = fromRate / toRate;
-  const newLen    = Math.floor(floatBuf.length / ratio);
-  const out       = new Float32Array(newLen);
+  const ratio = fromRate / toRate;
+  const newLen = Math.floor(floatBuf.length / ratio);
+  const out = new Float32Array(newLen);
+
+  // Anti-aliasing pre-filter for downsampling (simple RC lowpass)
+  let src = floatBuf;
+  if (ratio > 1.0) {
+    src = new Float32Array(floatBuf.length);
+    const cutoff = 1.0 / ratio;
+    const rc = (1 - cutoff * Math.PI) / (1 + cutoff * Math.PI);
+    let prev = 0;
+    for (let i = 0; i < floatBuf.length; i++) {
+      prev = prev * rc + floatBuf[i] * (1 - rc);
+      src[i] = prev;
+    }
+  }
+
+  const len = src.length;
+  function getSample(i) {
+    if (i < 0) return src[0];
+    if (i >= len) return src[len - 1];
+    return src[i];
+  }
+
   for (let i = 0; i < newLen; i++) {
-    const srcPos = i * ratio;
-    const idx    = Math.floor(srcPos);
-    const frac   = srcPos - idx;
-    const s0     = floatBuf[Math.min(idx, floatBuf.length - 1)];
-    const s1     = floatBuf[Math.min(idx + 1, floatBuf.length - 1)];
-    out[i] = s0 + frac * (s1 - s0);
+    const pos = i * ratio;
+    const idx = Math.floor(pos);
+    const t = pos - idx;
+    // Catmull-Rom cubic interpolation
+    const p0 = getSample(idx - 1);
+    const p1 = getSample(idx);
+    const p2 = getSample(idx + 1);
+    const p3 = getSample(idx + 2);
+    const t2 = t * t, t3 = t2 * t;
+    out[i] = 0.5 * (
+      (2 * p1) +
+      (-p0 + p2) * t +
+      (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 +
+      (-p0 + 3 * p1 - 3 * p2 + p3) * t3
+    );
+    // Clamp to [-1, 1]
+    if (out[i] > 1) out[i] = 1;
+    else if (out[i] < -1) out[i] = -1;
   }
   return out;
 }
