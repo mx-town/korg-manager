@@ -391,7 +391,26 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
 .pat-grid-panel{display:flex;flex-direction:column;overflow:hidden;background:var(--void)}
 .pat-info-bar{display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--dark);border-bottom:1px solid var(--brd);font-family:var(--lcd);font-size:12px;flex-wrap:wrap}
 .pat-info-bar span{color:var(--led)}
-.pat-grid-wrap{flex:1;padding:16px;overflow:auto;display:flex;align-items:flex-start;justify-content:center}
+.pat-grid-wrap{flex:1;padding:0;overflow:auto;display:flex;align-items:flex-start}
+/* ═══ PIXEL BLOCK GRID ═══ */
+.px-grid{display:flex;flex-direction:column;gap:2px;padding:12px 16px;user-select:none;width:fit-content}
+.px-header{display:flex;align-items:center;gap:2px;margin-bottom:4px}
+.px-hlabel{width:80px;flex-shrink:0}
+.px-hnum{width:var(--cw,20px);font-family:'Share Tech Mono',monospace;font-size:9px;color:#1e2840;text-align:center;flex-shrink:0}
+.px-hnum.px-b4{color:#2a3858}
+.px-row{display:flex;align-items:center;gap:2px;border-radius:1px}
+.px-row:hover{background:rgba(255,255,255,.012)}
+.px-label{width:80px;flex-shrink:0;font-family:'Share Tech Mono',monospace;font-size:10px;text-align:right;padding-right:10px;letter-spacing:.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.8}
+.px-cell{width:var(--cw,20px);height:var(--ch,14px);flex-shrink:0;cursor:pointer;border-radius:2px;position:relative;transition:filter 60ms,transform 60ms}
+.px-cell.px-b4{margin-left:4px}
+.px-cell:hover{filter:brightness(1.5);transform:scaleY(1.1)}
+.px-cell:active{transform:scaleY(.9)}
+.px-cell.px-off{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07)}
+.px-cell.px-off:hover{background:rgba(255,255,255,.10)}
+.px-cell.px-b4::before{content:'';position:absolute;left:-3px;top:0;bottom:0;width:1px;background:rgba(30,80,160,.2);pointer-events:none}
+.px-cell.px-playing.px-on{filter:brightness(2);outline:1.5px solid rgba(255,255,255,.7);outline-offset:1px;animation:pxpulse .1s ease}
+.px-cell.px-playing.px-off{background:rgba(255,255,255,.15);outline:1px solid rgba(255,255,255,.3);outline-offset:1px}
+@keyframes pxpulse{0%{filter:brightness(3)}100%{filter:brightness(2)}}
 .pat-detail{padding:16px;background:var(--dark);border-top:1px solid var(--brd);font-family:var(--lcd);font-size:12px;color:var(--txt-d);max-height:180px;overflow-y:auto}
 .pat-zoom{display:flex;align-items:center;gap:4px}
 .pat-zoom-btn{padding:3px 10px;background:rgba(0,204,255,.08);border:1px solid var(--blue-d);color:var(--blue);font-size:13px;font-weight:700;cursor:pointer;border-radius:3px;min-width:28px;font-family:var(--lcd);transition:background 80ms}
@@ -764,7 +783,7 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
             STEP: <span id="patStepDisp">—</span>
           </div>
         </div>
-        <div class="pat-grid-wrap"><canvas id="patGridC" width="660" height="360"></canvas></div>
+        <div class="pat-grid-wrap"><div id="patGridWrap"></div></div>
         <div class="pat-detail" id="patDetail"></div>
       </div>
     </div>
@@ -1748,6 +1767,7 @@ async function patOpenESX(){
   patFilePath=r.filePath;
   patFormat='ESX-1';
   patData=r.patterns||[];
+  Object.keys(patSampleCache).forEach(k=>delete patSampleCache[k]);
   patSel=patData.length?0:-1;
   document.getElementById('patFormatBadge').textContent='ESX-1';
   patRenderList();
@@ -1764,6 +1784,7 @@ async function patOpen(){
   patFilePath=r.filePath;
   patFormat='E2';
   patData=r.patterns||[r.pattern].filter(Boolean);
+  Object.keys(patSampleCache).forEach(k=>delete patSampleCache[k]);
   patSel=patData.length?0:-1;
   document.getElementById('patFormatBadge').textContent='E2';
   patRenderList();
@@ -1780,6 +1801,7 @@ async function patOpenAll(){
   patFilePath=r.filePath;
   patFormat='E2';
   patData=r.patterns||[];
+  Object.keys(patSampleCache).forEach(k=>delete patSampleCache[k]);
   patSel=patData.length?0:-1;
   document.getElementById('patFormatBadge').textContent='E2';
   patRenderList();
@@ -1858,6 +1880,14 @@ function patSelectPat(i){
   let h='';
   if(p.parts){for(let j=0;j<p.parts.length;j++){const pt=p.parts[j];const lc=PAT_TYPE_LABEL_COLORS[pt.type]||'var(--led)';h+=`<span style="color:${lc}">${esc(pt.name||'Part '+(j+1))}</span> | `;}}
   document.getElementById('patDetail').innerHTML=h||'// no part data';
+  // Preload samples for playback
+  if(p&&p.parts){
+    p.parts.forEach(part=>{
+      if(part&&typeof part.sampleNum==='number'&&part.sampleNum>=0){
+        patLoadSample(part.sampleNum);
+      }
+    });
+  }
 }
 
 // Part-type color map for the step grid
@@ -1894,169 +1924,86 @@ function drawHexCell(ctx,cx,cy,r,fill,stroke,glow){
 
 let patPlayStep=-1;
 
+const PAT_PX_COLORS={
+  drum:'197,48,92', keyboard:'0,204,255', stretch:'0,230,118',
+  slice:'0,230,118', audioin:'255,183,77', accent:'255,235,59',
+};
+const PAT_PX_LABEL={
+  drum:'#c5305c',keyboard:'#00ccff',stretch:'#00e676',
+  slice:'#00e676',audioin:'#ffb74d',accent:'#ffeb3b',
+};
+
 function patDrawGrid(pat){
-  const c=document.getElementById('patGridC'),ctx=c.getContext('2d');
+  const wrap=document.getElementById('patGridWrap');
+  if(!wrap)return;
   const parts=pat.parts||[];
   const nParts=Math.max(parts.length,PAT_ROWS);
   const steps=pat.steps||16;
-
-  const r=Math.max(6,Math.floor(PAT_CELL*0.52));
   const cW=PAT_CELL;
-  const cH=PAT_CELL;
-  const labelW=96;
-  const topPad=26;
-  const padV=6;
+  const cH=Math.max(10,Math.round(PAT_CELL*0.72));
 
-  const W=labelW+steps*cW+r;
-  const H=topPad+nParts*cH+padV*2;
-
-  const dpr=window.devicePixelRatio||1;
-  c.width=W*dpr;c.height=H*dpr;
-  c.style.width=W+'px';c.style.height=H+'px';
-  ctx.scale(dpr,dpr);
-
-  // Background
-  ctx.fillStyle='#04060c';ctx.fillRect(0,0,W,H);
+  let html=`<div class="px-grid" style="--cw:${cW}px;--ch:${cH}px">`;
 
   // Step number header
-  ctx.font=`${Math.max(8,Math.min(11,cW-4))}px "Share Tech Mono"`;
-  ctx.textAlign='center';
+  html+='<div class="px-header"><div class="px-hlabel"></div>';
   for(let s=0;s<steps;s++){
-    const x=labelW+s*cW+cW/2;
-    if(s%4===0){
-      ctx.fillStyle='rgba(30,80,160,.06)';
-      ctx.fillRect(labelW+s*cW,0,cW*4,H);
-    }
-    ctx.fillStyle=s%4===0?'#3a5080':'#2a3040';
-    ctx.fillText(s+1,x,topPad-8);
+    html+=`<div class="px-hnum${s>0&&s%4===0?' px-b4':''}">${s+1}</div>`;
   }
-
-  // Beat group separators
-  ctx.strokeStyle='rgba(30,80,160,.18)';ctx.lineWidth=1;
-  for(let s=0;s<steps;s+=4){
-    const x=labelW+s*cW;
-    ctx.beginPath();ctx.moveTo(x,topPad-2);ctx.lineTo(x,H);ctx.stroke();
-  }
+  html+='</div>';
 
   // Part rows
   for(let row=0;row<nParts;row++){
     const part=parts[row];
-    const cy=topPad+padV+row*cH+cH/2;
-    const pType=part&&part.type||'drum';
-
-    const typeColor={
-      drum:   {rgb:'197,48,92',   label:'#c5305c'},
-      keyboard:{rgb:'0,204,255',  label:'#00ccff'},
-      stretch:{rgb:'0,230,118',   label:'#00e676'},
-      slice:  {rgb:'0,230,118',   label:'#00e676'},
-      audioin:{rgb:'255,183,77',  label:'#ffb74d'},
-      accent: {rgb:'255,235,59',  label:'#ffeb3b'},
-    }[pType]||{rgb:'197,48,92',label:'#c5305c'};
-
-    // Row background stripe (alternating)
-    if(row%2===0){
-      ctx.fillStyle='rgba(255,255,255,.012)';
-      ctx.fillRect(0,topPad+padV+row*cH,W,cH);
-    }
-
-    // Label
-    ctx.textAlign='left';
-    ctx.font=`${Math.max(9,Math.min(11,cH-4))}px "Share Tech Mono"`;
-    ctx.fillStyle=typeColor.label;
+    const pType=(part&&part.type)||'drum';
+    const rgb=PAT_PX_COLORS[pType]||'197,48,92';
+    const labelCol=PAT_PX_LABEL[pType]||'#c5305c';
     const label=part?part.name||`Part ${row+1}`:`Part ${row+1}`;
-    ctx.fillText(label,6,cy+4);
+    const rowBg=row%2===0?'rgba(255,255,255,.006)':'transparent';
 
-    // Waveform thumbnail behind hex steps
-    if(part&&part.waveformPeaks&&part.waveformPeaks.length>0){
-      const peaks=part.waveformPeaks;
-      const wX=labelW,wW=steps*cW;
-      const wY=topPad+padV+row*cH,wH=cH;
-      ctx.save();ctx.globalAlpha=0.12;ctx.fillStyle=typeColor.label;ctx.beginPath();
-      const step2=wW/peaks.length;
-      const mid2=wY+wH/2;
-      ctx.moveTo(wX,mid2);
-      for(let i=0;i<peaks.length;i++)ctx.lineTo(wX+i*step2,mid2-peaks[i]*wH*0.45);
-      for(let i=peaks.length-1;i>=0;i--)ctx.lineTo(wX+i*step2,mid2+peaks[i]*wH*0.45);
-      ctx.closePath();ctx.fill();ctx.restore();
-    }
+    html+=`<div class="px-row" style="background:${rowBg}">`;
+    html+=`<div class="px-label" style="color:${labelCol}">${label}</div>`;
 
-    // Hex step cells
     for(let s=0;s<steps;s++){
-      const cx=labelW+s*cW+cW/2;
       const active=part&&part.steps&&part.steps[s];
-      const vel=(part&&part.velocities?part.velocities[s]:100)||100;
+      const vel=(part&&part.velocities&&part.velocities[s])||100;
+      const alpha=active?Math.max(0.35,vel/127):0;
+      const b4=s>0&&s%4===0?' px-b4':'';
+      const playing=patPlayStep===s?' px-playing':'';
 
       if(active){
-        const alpha=Math.max(0.35,vel/127);
-        const fillCol=`rgba(${typeColor.rgb},${alpha})`;
-        const glowCol=`rgba(${typeColor.rgb},${alpha*0.7})`;
-        const strokeCol=`rgba(${typeColor.rgb},${Math.min(1,alpha+0.3)})`;
-        drawHexCell(ctx,cx,cy,r,fillCol,strokeCol,glowCol);
-        if(vel>90){
-          ctx.fillStyle='rgba(255,255,255,0.6)';
-          ctx.beginPath();ctx.arc(cx,cy,r*0.2,0,Math.PI*2);ctx.fill();
-        }
+        html+=`<div class="px-cell px-on${b4}${playing}" data-row="${row}" data-step="${s}"
+          style="background:rgba(${rgb},${alpha.toFixed(2)});box-shadow:0 0 5px rgba(${rgb},.35)">
+        </div>`;
       } else {
-        drawHexCell(ctx,cx,cy,r,'rgba(10,14,24,0.8)','rgba(26,32,53,0.8)',null);
-        ctx.globalAlpha=0.06;
-        hexPath(ctx,cx,cy,r-1);
-        ctx.strokeStyle=typeColor.label;ctx.lineWidth=1;ctx.stroke();
-        ctx.globalAlpha=1;
+        html+=`<div class="px-cell px-off${b4}${playing}" data-row="${row}" data-step="${s}"></div>`;
       }
     }
+    html+='</div>';
   }
-  ctx.textAlign='left';
+  html+='</div>';
+  wrap.innerHTML=html;
+
+  // Click to toggle
+  wrap.querySelectorAll('.px-cell').forEach(cell=>{
+    cell.addEventListener('click',()=>{
+      const row=parseInt(cell.dataset.row);
+      const step=parseInt(cell.dataset.step);
+      if(!pat.parts||row>=pat.parts.length)return;
+      const part=pat.parts[row];
+      if(!part.steps)part.steps=new Array(pat.steps||16).fill(false);
+      part.steps[step]=!part.steps[step];
+      patDrawGrid(pat);
+    });
+  });
 }
 
 function patHighlightStep(step){
-  if(patSel<0||!patData[patSel])return;
   patPlayStep=step;
-  patDrawGrid(patData[patSel]);
-  const c=document.getElementById('patGridC'),ctx=c.getContext('2d');
-  const dpr=window.devicePixelRatio||1;
-  const pat=patData[patSel];
-  const nParts=Math.max((pat.parts||[]).length,PAT_ROWS);
-  const labelW=96,topPad=26,padV=6,cW=PAT_CELL,cH=PAT_CELL;
-  const r=Math.max(6,Math.floor(PAT_CELL*0.52));
-  ctx.save();ctx.scale(dpr,dpr);
-  ctx.fillStyle='rgba(255,255,255,0.04)';
-  ctx.fillRect(labelW+step*cW,0,cW,topPad+padV+nParts*cH+padV*2);
-  (pat.parts||[]).forEach((part,row)=>{
-    if(!part||!part.steps||!part.steps[step])return;
-    const cx=labelW+step*cW+cW/2;
-    const cy=topPad+padV+row*cH+cH/2;
-    ctx.strokeStyle='rgba(255,255,255,0.8)';ctx.lineWidth=2;
-    hexPath(ctx,cx,cy,r-1);ctx.stroke();
-  });
-  ctx.restore();
+  document.querySelectorAll('.px-playing').forEach(c=>c.classList.remove('px-playing'));
+  document.querySelectorAll(`.px-cell[data-step="${step}"]`).forEach(c=>c.classList.add('px-playing'));
+  const disp=document.getElementById('patStepDisp');
+  if(disp)disp.textContent=step+1;
 }
-
-// Click to toggle steps on canvas (hex grid)
-document.getElementById('patGridC').addEventListener('click',function(e){
-  if(patSel<0||!patData[patSel])return;
-  const rect=this.getBoundingClientRect();
-  const mx=e.clientX-rect.left;
-  const my=e.clientY-rect.top;
-  const pat=patData[patSel];
-  const steps=pat.steps||16;
-  const labelW=96,topPad=26,padV=6;
-  const cW=PAT_CELL,cH=PAT_CELL;
-
-  const row=Math.floor((my-topPad-padV)/(cH));
-  if(row<0||row>=PAT_ROWS||!pat.parts||row>=pat.parts.length)return;
-
-  let col=-1;
-  for(let s=0;s<steps;s++){
-    const cx=labelW+s*cW+cW/2;
-    if(Math.abs(mx-cx)<cW/2){col=s;break}
-  }
-  if(col<0||col>=steps)return;
-
-  const part=pat.parts[row];
-  if(!part.steps)part.steps=new Array(steps).fill(false);
-  part.steps[col]=!part.steps[col];
-  patDrawGrid(pat);
-});
 
 // ═══════════════════════════════════════════════════════════
 //  PATTERN SEARCH / KEYBOARD / ZOOM
@@ -2083,11 +2030,10 @@ document.getElementById('patSearchIn').addEventListener('keydown',function(e){
 // ── Zoom ──
 function patZoom(dir){
   if(dir===0){
-    // Fit: compute cell size so all steps fit in container width
-    const wrap=document.getElementById('patGridC').parentElement;
+    const wrap=document.getElementById('patGridWrap');
     if(wrap&&patSel>=0){
       const steps=(patData[patSel]&&patData[patSel].steps)||16;
-      const availW=wrap.clientWidth-96; // 96 = labelW
+      const availW=wrap.parentElement.clientWidth-96-steps*4;
       PAT_CELL=Math.round(Math.max(PAT_CELL_MIN,Math.min(PAT_CELL_MAX,availW/steps)));
     } else {
       PAT_CELL=PAT_CELL_BASE;
@@ -2096,11 +2042,8 @@ function patZoom(dir){
     PAT_CELL=Math.max(PAT_CELL_MIN,Math.min(PAT_CELL_MAX,PAT_CELL+dir*4));
   }
   const pct=Math.round(PAT_CELL/PAT_CELL_BASE*100);
-  document.getElementById('patZoomLbl').textContent=pct+'%';
-  // Remove any CSS transform (old broken approach)
-  const c=document.getElementById('patGridC');
-  c.style.transform='none';
-  // Redraw at new cell size
+  const lbl=document.getElementById('patZoomLbl');
+  if(lbl)lbl.textContent=pct+'%';
   if(patSel>=0&&patData[patSel])patDrawGrid(patData[patSel]);
 }
 
@@ -2191,6 +2134,34 @@ document.addEventListener('keydown',patHandleKeyboard);
 // ═══════════════════════════════════════════════════════════
 let patPlaying=false,patCurrentStep=0,patSeq=null;
 
+let patAudioCtx=null;
+const patSampleCache={}; // sampleNum → AudioBuffer
+
+function getPatAudioCtx(){
+  if(!patAudioCtx||patAudioCtx.state==='closed'){
+    patAudioCtx=new AudioContext();
+  }
+  return patAudioCtx;
+}
+
+async function patLoadSample(sampleNum){
+  if(patSampleCache[sampleNum])return patSampleCache[sampleNum];
+  try{
+    const b64=await window.api.getWavPreview(sampleNum);
+    if(!b64)return null;
+    const binary=atob(b64);
+    const bytes=new Uint8Array(binary.length);
+    for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
+    const ctx=getPatAudioCtx();
+    const audioBuffer=await ctx.decodeAudioData(bytes.buffer);
+    patSampleCache[sampleNum]=audioBuffer;
+    return audioBuffer;
+  }catch(e){
+    console.warn('patLoadSample failed for',sampleNum,e);
+    return null;
+  }
+}
+
 function patSetBpm(bpm){
   const v=Math.max(40,Math.min(300,parseFloat(bpm)||120));
   document.getElementById('patBpmIn').value=v;
@@ -2203,7 +2174,19 @@ async function patTogglePlay(){
   if(typeof Tone==='undefined'){toast('Tone.js not loaded','error');return}
 
   await Tone.start();
+  // Sync our AudioContext with Tone.js internal context
+  patAudioCtx=Tone.getContext().rawContext;
+  // Clear cache so buffers are decoded in the right context
+  Object.keys(patSampleCache).forEach(k=>delete patSampleCache[k]);
+  // Reload samples
   const pat=patData[patSel];
+  if(pat&&pat.parts){
+    await Promise.all(pat.parts.map(part=>{
+      if(part&&typeof part.sampleNum==='number'&&part.sampleNum>=0){
+        return patLoadSample(part.sampleNum);
+      }
+    }));
+  }
   const steps=pat.steps||16;
   const bpm=pat.bpm||120;
   patSetBpm(bpm);
@@ -2240,43 +2223,32 @@ function patStop(){
   if(patSel>=0&&patData[patSel])patDrawGrid(patData[patSel]);
 }
 
-let patSynths={};
-function patPlayTick(time,step,pat){
+function patPlayTick(time, step, pat){
   if(!pat.parts)return;
-  pat.parts.forEach((part,i)=>{
+  const ctx=getPatAudioCtx();
+
+  pat.parts.forEach((part)=>{
     if(!part||!part.steps||!part.steps[step])return;
-    const vel=(part.velocities?part.velocities[step]:100)/127;
-    const type=part.type||'drum';
+    const sampleNum=part.sampleNum;
+    if(typeof sampleNum!=='number'||sampleNum<0)return;
 
-    if(!patSynths[type]){
-      if(type==='drum'||type==='accent'){
-        patSynths[type]=new Tone.MembraneSynth({
-          pitchDecay:0.05,octaves:6,
-          envelope:{attack:0.001,decay:0.2,sustain:0,release:0.1}
-        }).toDestination();
-      } else if(type==='keyboard'){
-        patSynths[type]=new Tone.Synth({
-          oscillator:{type:'triangle'},
-          envelope:{attack:0.01,decay:0.3,sustain:0.1,release:0.3}
-        }).toDestination();
-      } else {
-        patSynths[type]=new Tone.NoiseSynth({
-          noise:{type:'white'},
-          envelope:{attack:0.001,decay:0.15,sustain:0,release:0.05}
-        }).toDestination();
-      }
-    }
+    const buf=patSampleCache[sampleNum];
+    if(!buf)return; // not loaded yet — skip this hit
 
-    const synth=patSynths[type];
-    try{
-      if(type==='drum'||type==='accent'){
-        synth.triggerAttackRelease('C1','16n',time,vel);
-      } else if(type==='keyboard'){
-        synth.triggerAttackRelease('C3','16n',time,vel);
-      } else {
-        synth.triggerAttackRelease('16n',time,vel);
-      }
-    }catch(err){/* ignore synth errors */}
+    const vel=(part.velocities?part.velocities[step]:100)||100;
+    const gain=Math.max(0.05,vel/127);
+
+    const source=ctx.createBufferSource();
+    source.buffer=buf;
+
+    const gainNode=ctx.createGain();
+    gainNode.gain.value=gain;
+
+    source.connect(gainNode);
+    gainNode.connect(ctx.destination);
+
+    const startTime=typeof time==='number'?time:ctx.currentTime;
+    source.start(startTime);
   });
 }
 
