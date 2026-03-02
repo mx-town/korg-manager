@@ -430,7 +430,38 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
 .export-bar::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(-45deg,transparent 0px,transparent 4px,rgba(0,0,0,.3) 4px,rgba(0,0,0,.3) 8px);animation:expAnim .5s linear infinite}
 @keyframes expAnim{from{background-position:0}to{background-position:11px}}
 .export-text{font-family:var(--lcd);font-size:11px;color:var(--hi);letter-spacing:2px;white-space:nowrap}
+/* ═══ PATTERN TRANSPORT ═══ */
+.pat-transport{
+  display:flex;align-items:center;gap:10px;
+  padding:8px 16px;background:var(--void);
+  border-bottom:1px solid var(--brd);flex-shrink:0;
+}
+.pat-play-btn{
+  padding:7px 20px;background:var(--hi-dk);border:2px solid var(--hi-d);
+  color:var(--hi);font-family:var(--head);font-size:12px;font-weight:700;
+  cursor:pointer;letter-spacing:3px;transition:all 60ms;
+  clip-path:polygon(4px 0%,100% 0%,calc(100% - 4px) 100%,0% 100%);
+}
+.pat-play-btn:hover{background:var(--hi-d);color:#fff;box-shadow:0 0 14px var(--hi-g)}
+.pat-play-btn.playing{background:var(--hi);color:#fff;animation:bp .5s ease infinite}
+.pat-stop-btn{
+  padding:7px 14px;background:var(--void);border:1px solid var(--brd-h);
+  color:var(--txt-d);font-family:var(--head);font-size:12px;cursor:pointer;
+  letter-spacing:2px;transition:all 60ms;
+  clip-path:polygon(4px 0%,100% 0%,calc(100% - 4px) 100%,0% 100%);
+}
+.pat-stop-btn:hover{border-color:var(--txt);color:var(--txt)}
+.pat-bpm-lbl{font-family:var(--lcd);font-size:11px;color:var(--txt-x);letter-spacing:2px}
+#patBpmIn{
+  background:var(--void);border:1px solid var(--brd-h);color:var(--led);
+  font-family:var(--lcd);font-size:13px;padding:4px 8px;
+  text-align:center;outline:none;
+}
+#patBpmIn:focus{border-color:var(--led)}
+.pat-step-disp{font-family:var(--lcd);font-size:12px;color:var(--txt-x);margin-left:auto}
+.pat-step-disp span{color:var(--hi);font-size:14px}
 </style>
+<script src="https://unpkg.com/tone@14/build/Tone.js"></script>
 </head>
 <body>
 <div class="app">
@@ -652,6 +683,18 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
       <div class="pat-grid-panel">
         <div class="pat-info-bar" id="patInfoBar">
           <span>// pattern wählen</span>
+        </div>
+        <div class="pat-transport" id="patTransport">
+          <button class="pat-play-btn" id="patPlayBtn" onclick="patTogglePlay()">▶ PLAY</button>
+          <button class="pat-stop-btn" onclick="patStop()">■ STOP</button>
+          <div class="pat-bpm-ctrl">
+            <span class="pat-bpm-lbl">BPM</span>
+            <input type="number" id="patBpmIn" value="120" min="60" max="300" step="1"
+                   onchange="patSetBpm(this.value)" style="width:56px">
+          </div>
+          <div class="pat-step-disp">
+            STEP: <span id="patStepDisp">—</span>
+          </div>
         </div>
         <div class="pat-grid-wrap"><canvas id="patGridC" width="660" height="360"></canvas></div>
         <div class="pat-detail" id="patDetail"></div>
@@ -1163,6 +1206,7 @@ try{if(localStorage.getItem('vsbCollapsed')==='true')toggleSidebar()}catch(e){}
 
 function switchDevice(dev){
   if(dev===activeDevice)return;
+  if(activeDevice==='e2pat')patStop();
   stopPlay();
   activeDevice=dev;
   document.querySelectorAll('.vsb-item').forEach(t=>t.classList.toggle('active',t.dataset.device===dev));
@@ -1842,7 +1886,7 @@ function patHandleKeyboard(e){
       break;
     case ' ':
       e.preventDefault();
-      // Space could be used for playback later
+      if(activeDevice==='e2pat')patTogglePlay();
       break;
     case '+':{e.preventDefault();patZoom(1);break;}
     case '-':{e.preventDefault();patZoom(-1);break;}
@@ -1855,6 +1899,100 @@ function patScrollToSel(){
   if(el)el.scrollIntoView({block:'nearest',behavior:'smooth'});
 }
 document.addEventListener('keydown',patHandleKeyboard);
+
+// ═══════════════════════════════════════════════════════════
+//  PATTERN PLAYBACK — Tone.js Transport
+// ═══════════════════════════════════════════════════════════
+let patPlaying=false,patCurrentStep=0,patSeq=null;
+
+function patSetBpm(bpm){
+  const v=Math.max(40,Math.min(300,parseFloat(bpm)||120));
+  document.getElementById('patBpmIn').value=v;
+  if(typeof Tone!=='undefined')Tone.getTransport().bpm.value=v;
+}
+
+async function patTogglePlay(){
+  if(patPlaying){patStop();return;}
+  if(patSel<0||!patData[patSel])return;
+  if(typeof Tone==='undefined'){toast('Tone.js not loaded','error');return}
+
+  await Tone.start();
+  const pat=patData[patSel];
+  const steps=pat.steps||16;
+  const bpm=pat.bpm||120;
+  patSetBpm(bpm);
+  document.getElementById('patBpmIn').value=bpm;
+
+  patCurrentStep=0;
+
+  patSeq=new Tone.Sequence((time,step)=>{
+    patCurrentStep=step;
+    Tone.getDraw().schedule(()=>{
+      patHighlightStep(step);
+      document.getElementById('patStepDisp').textContent=step+1;
+    },time);
+    patPlayTick(time,step,pat);
+  },Array.from({length:steps},(_,i)=>i),'16n');
+
+  patSeq.start(0);
+  Tone.getTransport().start();
+  patPlaying=true;
+  document.getElementById('patPlayBtn').classList.add('playing');
+  document.getElementById('patPlayBtn').textContent='■ STOP';
+}
+
+function patStop(){
+  if(typeof Tone==='undefined')return;
+  if(patSeq){patSeq.stop();patSeq.dispose();patSeq=null}
+  Tone.getTransport().stop();
+  Tone.getTransport().position=0;
+  patPlaying=false;
+  patCurrentStep=0;
+  document.getElementById('patPlayBtn').classList.remove('playing');
+  document.getElementById('patPlayBtn').textContent='▶ PLAY';
+  document.getElementById('patStepDisp').textContent='—';
+  if(patSel>=0&&patData[patSel])patDrawGrid(patData[patSel]);
+}
+
+let patSynths={};
+function patPlayTick(time,step,pat){
+  if(!pat.parts)return;
+  pat.parts.forEach((part,i)=>{
+    if(!part||!part.steps||!part.steps[step])return;
+    const vel=(part.velocities?part.velocities[step]:100)/127;
+    const type=part.type||'drum';
+
+    if(!patSynths[type]){
+      if(type==='drum'||type==='accent'){
+        patSynths[type]=new Tone.MembraneSynth({
+          pitchDecay:0.05,octaves:6,
+          envelope:{attack:0.001,decay:0.2,sustain:0,release:0.1}
+        }).toDestination();
+      } else if(type==='keyboard'){
+        patSynths[type]=new Tone.Synth({
+          oscillator:{type:'triangle'},
+          envelope:{attack:0.01,decay:0.3,sustain:0.1,release:0.3}
+        }).toDestination();
+      } else {
+        patSynths[type]=new Tone.NoiseSynth({
+          noise:{type:'white'},
+          envelope:{attack:0.001,decay:0.15,sustain:0,release:0.05}
+        }).toDestination();
+      }
+    }
+
+    const synth=patSynths[type];
+    try{
+      if(type==='drum'||type==='accent'){
+        synth.triggerAttackRelease('C1','16n',time,vel);
+      } else if(type==='keyboard'){
+        synth.triggerAttackRelease('C3','16n',time,vel);
+      } else {
+        synth.triggerAttackRelease('16n',time,vel);
+      }
+    }catch(err){/* ignore synth errors */}
+  });
+}
 
 // ═══════════════════════════════════════════════════════════
 //  CROSS-DEVICE CONVERSION
