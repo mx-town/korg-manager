@@ -22,6 +22,11 @@
   --lcd:'Share Tech Mono',monospace;--head:'Orbitron',sans-serif;--ui:'Rajdhani',sans-serif;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--void)}
+::-webkit-scrollbar-thumb{background:var(--blue-d);border-radius:2px}
+::-webkit-scrollbar-thumb:hover{background:var(--blue)}
+::-webkit-scrollbar-corner{background:var(--void)}
 html,body{width:100%;height:100%;background:var(--void);color:var(--txt);font-family:var(--ui);font-size:14px;overflow:hidden;user-select:none}
 body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,4,16,.06) 3px,rgba(0,4,16,.06) 6px);pointer-events:none;z-index:9998}
 .app{display:flex;flex-direction:column;height:100vh}
@@ -324,7 +329,8 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
 
 /* ═══ DEVICE VIEWS ═══ */
 .device-view{display:none;flex-direction:column;overflow:hidden}
-.device-view.active{display:flex}
+.device-view.active{display:flex;animation:viewIn 150ms ease}
+@keyframes viewIn{from{opacity:0;transform:translateX(-4px)}to{opacity:1;transform:translateX(0)}}
 .device-view .main{flex:1;min-height:0}
 
 /* ═══ E2S VIEW ═══ */
@@ -487,6 +493,25 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
   font-weight:700;letter-spacing:1px;color:#000;border-radius:2px;
   vertical-align:middle;margin-left:4px;
 }
+.pat-badge{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:3px 10px;background:rgba(30,80,160,.15);
+  border:1px solid var(--brd-h);
+  font-family:var(--lcd);font-size:11px;color:var(--txt-d);
+  letter-spacing:1px;
+}
+.pat-badge b,.pat-badge span{color:var(--led)}
+.pat-badge small{color:var(--txt-x);font-size:9px;letter-spacing:2px}
+.pat-badge-name{
+  background:rgba(197,48,92,.1);border-color:var(--hi-d);
+  color:var(--hi);font-size:12px;letter-spacing:2px;
+}
+.pat-active-dots{
+  color:var(--hi);font-size:10px;letter-spacing:1px;
+  overflow:hidden;white-space:nowrap;max-width:60px;display:block;
+  margin-top:1px;
+}
+.pat-item.act .pat-active-dots{color:var(--led)}
 </style>
 <script src="https://unpkg.com/tone@14/build/Tone.js"></script>
 <script src="https://unpkg.com/meyda/dist/web/meyda.min.js"></script>
@@ -1805,7 +1830,10 @@ function patRenderList(){
     if(show&&bpmMax<9999&&(p.bpm||120)>bpmMax)show=false;
     if(!show)continue;
     const a=i===patSel;
-    h+=`<div class="pat-item ${a?'act':''}" onclick="patSelectPat(${i})"><div class="pi">${i}</div><div class="pn">${esc(name)}</div><div class="pb2">${(p.bpm||120).toFixed(0)}</div></div>`;
+    let activeCount=0;
+    if(p.parts){for(const pt of p.parts){if(pt.steps){for(const s of pt.steps){if(s)activeCount++}}}}
+    const dots=activeCount>0?'●'.repeat(Math.min(activeCount,8))+(activeCount>8?'+':''):'';
+    h+=`<div class="pat-item ${a?'act':''}" onclick="patSelectPat(${i})"><div class="pi">${i}</div><div class="pn">${esc(name)}</div><span class="pat-active-dots">${dots}</span><div class="pb2">${(p.bpm||120).toFixed(0)}</div></div>`;
     shown++;
   }
   if(!shown&&(q||occupiedOnly||bpmMin>0||bpmMax<9999))h=`<div style="padding:16px;color:#555;font-family:var(--lcd);font-size:11px;text-align:center">No patterns match filters</div>`;
@@ -1817,7 +1845,14 @@ function patSelectPat(i){
   const p=patData[i];if(!p)return;
   const steps=p.steps||16;
   const fmtLabel=p.format||patFormat||'';
-  document.getElementById('patInfoBar').innerHTML=`${fmtLabel?`<span style="color:var(--hi)">[${fmtLabel}]</span> | `:''}Pattern: <span>${esc(p.name||'Pattern')}</span> | <span>${(p.bpm||120).toFixed(1)} BPM</span> | Swing: <span>${p.swing||50}%</span> | Steps: <span>${steps}</span> | Beat: <span>${p.beat||'16th'}</span>`;
+  document.getElementById('patInfoBar').innerHTML=`
+    <span class="pat-badge pat-badge-name">${esc(p.name||'Pattern')}</span>
+    <span class="pat-badge">${(p.bpm||120).toFixed(1)} <small>BPM</small></span>
+    <span class="pat-badge">SW <b>${p.swing||50}%</b></span>
+    <span class="pat-badge">${steps} <small>STEPS</small></span>
+    <span class="pat-badge">${p.beat||'16th'}</span>
+    ${fmtLabel?`<span class="pat-badge" style="border-color:var(--hi-d);color:var(--hi)">${fmtLabel}</span>`:''}
+  `;
   patDrawGrid(p);
   // Detail (colored by part type)
   let h='';
