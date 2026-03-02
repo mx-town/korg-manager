@@ -1435,8 +1435,8 @@ document.addEventListener('keydown',e=>{
   if(document.getElementById('modalBg').classList.contains('show')||document.getElementById('guideBg').classList.contains('show')){if(e.key===' '&&sel>=0){e.preventDefault();togglePlay()}return}
   if(e.key==='Delete'&&sel>=0)remCur();
   if(e.key===' '&&sel>=0){e.preventDefault();togglePlay()}
-  if(e.key==='ArrowDown'&&sel<S.numSamples-1)selS(sel+1);
-  if(e.key==='ArrowUp'&&sel>0)selS(sel-1);
+  if(activeDevice==='esx1'&&e.key==='ArrowDown'&&sel<S.numSamples-1)selS(sel+1);
+  if(activeDevice==='esx1'&&e.key==='ArrowUp'&&sel>0)selS(sel-1);
   if(e.key==='F2'&&sel>=0)startRen(sel);
   if(e.ctrlKey&&e.key==='z'){e.preventDefault();doUndo()}
   if(e.ctrlKey&&(e.key==='y'||e.key==='Z')){e.preventDefault();doRedo()}
@@ -2127,9 +2127,7 @@ function patGetVisibleIndices(){
   return vis;
 }
 function patHandleKeyboard(e){
-  // Only handle when pattern tab is active
-  const patTab=document.getElementById('patTab');
-  if(!patTab||patTab.style.display==='none')return;
+  if(activeDevice!=='e2pat')return;
   // Don't intercept when typing in inputs
   if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA'||e.target.tagName==='SELECT')return;
 
@@ -2139,24 +2137,20 @@ function patHandleKeyboard(e){
   const curIdx=vis.indexOf(patSel);
 
   switch(e.key){
-    case 'ArrowRight':
     case 'ArrowDown':{
-      e.preventDefault();
-      const step=e.key==='ArrowDown'?10:1;
-      const next=Math.min(curIdx+step,vis.length-1);
-      if(next>=0)patSelectPat(vis[next]);
-      patScrollToSel();
-      break;
-    }
-    case 'ArrowLeft':
-    case 'ArrowUp':{
-      e.preventDefault();
-      const step=e.key==='ArrowUp'?10:1;
-      const prev=Math.max(curIdx-step,0);
-      if(vis.length)patSelectPat(vis[prev]);
-      patScrollToSel();
-      break;
-    }
+  e.preventDefault();
+  const next=Math.min(curIdx+1,vis.length-1);
+  if(next>=0)patSelectPat(vis[next]);
+  patScrollToSel();
+  break;
+}
+case 'ArrowUp':{
+  e.preventDefault();
+  const prev=Math.max(curIdx-1,0);
+  if(vis.length)patSelectPat(vis[prev]);
+  patScrollToSel();
+  break;
+}
     case 'Home':
       e.preventDefault();
       if(vis.length)patSelectPat(vis[0]);
