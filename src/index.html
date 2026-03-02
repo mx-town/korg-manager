@@ -395,19 +395,22 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
 /* ═══ PIXEL BLOCK GRID ═══ */
 .px-grid{display:flex;flex-direction:column;gap:2px;padding:12px 16px;user-select:none;width:fit-content}
 .px-header{display:flex;align-items:center;gap:2px;margin-bottom:4px}
-.px-hlabel{width:80px;flex-shrink:0}
+.px-hlabel{width:140px;flex-shrink:0}
 .px-hnum{width:var(--cw,20px);font-family:'Share Tech Mono',monospace;font-size:9px;color:#1e2840;text-align:center;flex-shrink:0}
 .px-hnum.px-b4{color:#2a3858}
 .px-row{display:flex;align-items:center;gap:2px;border-radius:1px}
 .px-row:hover{background:rgba(255,255,255,.012)}
-.px-label{width:80px;flex-shrink:0;font-family:'Share Tech Mono',monospace;font-size:10px;text-align:right;padding-right:10px;letter-spacing:.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.8}
+.px-label{width:140px;flex-shrink:0;font-family:'Share Tech Mono',monospace;font-size:10px;text-align:right;padding-right:10px;letter-spacing:.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.8}
 .px-cell{width:var(--cw,20px);height:var(--ch,14px);flex-shrink:0;cursor:pointer;border-radius:2px;position:relative;transition:filter 60ms,transform 60ms}
 .px-cell.px-b4{margin-left:4px}
+.px-cell.px-bar{margin-left:8px}
 .px-cell:hover{filter:brightness(1.5);transform:scaleY(1.1)}
 .px-cell:active{transform:scaleY(.9)}
 .px-cell.px-off{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07)}
 .px-cell.px-off:hover{background:rgba(255,255,255,.10)}
 .px-cell.px-b4::before{content:'';position:absolute;left:-3px;top:0;bottom:0;width:1px;background:rgba(30,80,160,.2);pointer-events:none}
+.px-cell.px-bar::before{content:'';position:absolute;left:-5px;top:-2px;bottom:-2px;width:2px;background:rgba(60,140,255,.45);pointer-events:none}
+.px-hnum.px-bar{margin-left:8px;color:#3c8cff;font-weight:bold}
 .px-cell.px-playing.px-on{filter:brightness(2);outline:1.5px solid rgba(255,255,255,.7);outline-offset:1px;animation:pxpulse .1s ease}
 .px-cell.px-playing.px-off{background:rgba(255,255,255,.15);outline:1px solid rgba(255,255,255,.3);outline-offset:1px}
 @keyframes pxpulse{0%{filter:brightness(3)}100%{filter:brightness(2)}}
@@ -1770,6 +1773,19 @@ const PAT_CELL_MIN=12,PAT_CELL_MAX=48,PAT_CELL_BASE=28;
 let PAT_CELL=PAT_CELL_BASE; // mutable — zoom changes this
 const PAT_ROWS=16,PAT_COLS=32;
 
+// Total step count from parsed pattern (lastStep is 0-based, so +1)
+function patStepCount(p){return (p.lastStep!=null?p.lastStep+1:p.steps||16);}
+
+// Read step state for a given part at a given step index (handles wrapping + keyboard)
+function patGetStep(part,s){
+  if(!part)return false;
+  // Keyboard: 128-entry notes array, no wrapping needed
+  if(part.type==='keyboard')return !!(part.notes&&part.notes[s]&&part.notes[s].active);
+  // Drum/stretch/slice/audioin/accent: 16-step array, wraps for multi-bar
+  if(part.steps)return !!part.steps[s%16];
+  return false;
+}
+
 async function patOpenESX(){
   if(!window.api.esx){toast('ESX module not available','error');return}
   const r=await window.api.esx.openPatterns();
@@ -1864,7 +1880,10 @@ function patRenderList(){
     if(!show)continue;
     const a=i===patSel;
     let activeCount=0;
-    if(p.parts){for(const pt of p.parts){if(pt.steps){for(const s of pt.steps){if(s)activeCount++}}}}
+    if(p.parts){for(const pt of p.parts){
+      if(pt.type==='keyboard'){if(pt.notes)for(const n of pt.notes){if(n.active)activeCount++}}
+      else if(pt.steps){for(const s of pt.steps){if(s)activeCount++}}
+    }}
     const dots=activeCount>0?'●'.repeat(Math.min(activeCount,8))+(activeCount>8?'+':''):'';
     h+=`<div class="pat-item ${a?'act':''}" onclick="patSelectPat(${i})"><div class="pi">${i}</div><div class="pn">${esc(name)}</div><span class="pat-active-dots">${dots}</span><div class="pb2">${(p.bpm||120).toFixed(0)}</div></div>`;
     shown++;
@@ -1876,13 +1895,14 @@ function patRenderList(){
 function patSelectPat(i){
   patSel=i;patRenderList();
   const p=patData[i];if(!p)return;
-  const steps=p.steps||16;
+  const steps=patStepCount(p);
+  const bars=Math.ceil(steps/16);
   const fmtLabel=p.format||patFormat||'';
   document.getElementById('patInfoBar').innerHTML=`
     <span class="pat-badge pat-badge-name">${esc(p.name||'Pattern')}</span>
     <span class="pat-badge">${(p.bpm||120).toFixed(1)} <small>BPM</small></span>
     <span class="pat-badge">SW <b>${p.swing||50}%</b></span>
-    <span class="pat-badge">${steps} <small>STEPS</small></span>
+    <span class="pat-badge">${bars} <small>BAR${bars>1?'S':''}</small> / ${steps} <small>STEPS</small></span>
     <span class="pat-badge">${p.beat||'16th'}</span>
     ${fmtLabel?`<span class="pat-badge" style="border-color:var(--hi-d);color:var(--hi)">${fmtLabel}</span>`:''}
   `;
@@ -1947,7 +1967,7 @@ function patDrawGrid(pat){
   if(!wrap)return;
   const parts=pat.parts||[];
   const nParts=Math.max(parts.length,PAT_ROWS);
-  const steps=pat.steps||16;
+  const steps=patStepCount(pat);
   const cW=PAT_CELL;
   const cH=Math.max(10,Math.round(PAT_CELL*0.72));
 
@@ -1956,7 +1976,10 @@ function patDrawGrid(pat){
   // Step number header
   html+='<div class="px-header"><div class="px-hlabel"></div>';
   for(let s=0;s<steps;s++){
-    html+=`<div class="px-hnum${s>0&&s%4===0?' px-b4':''}">${s+1}</div>`;
+    const isBar=s>0&&s%16===0;
+    const isBeat=!isBar&&s>0&&s%4===0;
+    const cls=isBar?' px-bar':isBeat?' px-b4':'';
+    html+=`<div class="px-hnum${cls}">${s+1}</div>`;
   }
   html+='</div>';
 
@@ -1966,25 +1989,29 @@ function patDrawGrid(pat){
     const pType=(part&&part.type)||'drum';
     const rgb=PAT_PX_COLORS[pType]||'197,48,92';
     const labelCol=PAT_PX_LABEL[pType]||'#c5305c';
-    const label=part?part.name||`Part ${row+1}`:`Part ${row+1}`;
+    const partName=part?part.name||`Part ${row+1}`:`Part ${row+1}`;
+    const sampleName=part&&part.sampleName?part.sampleName:'';
+    const label=sampleName?`${partName} <span style="color:var(--led);opacity:.7">— ${esc(sampleName)}</span>`:partName;
     const rowBg=row%2===0?'rgba(255,255,255,.006)':'transparent';
 
     html+=`<div class="px-row" style="background:${rowBg}">`;
     html+=`<div class="px-label" style="color:${labelCol}">${label}</div>`;
 
     for(let s=0;s<steps;s++){
-      const active=part&&part.steps&&part.steps[s];
-      const vel=(part&&part.velocities&&part.velocities[s])||100;
+      const active=patGetStep(part,s);
+      const vel=(part&&part.velocities&&part.velocities[s%16])||100;
       const alpha=active?Math.max(0.35,vel/127):0;
-      const b4=s>0&&s%4===0?' px-b4':'';
+      const isBar=s>0&&s%16===0;
+      const isBeat=!isBar&&s>0&&s%4===0;
+      const cls=isBar?' px-bar':isBeat?' px-b4':'';
       const playing=patPlayStep===s?' px-playing':'';
 
       if(active){
-        html+=`<div class="px-cell px-on${b4}${playing}" data-row="${row}" data-step="${s}"
+        html+=`<div class="px-cell px-on${cls}${playing}" data-row="${row}" data-step="${s}"
           style="background:rgba(${rgb},${alpha.toFixed(2)});box-shadow:0 0 5px rgba(${rgb},.35)">
         </div>`;
       } else {
-        html+=`<div class="px-cell px-off${b4}${playing}" data-row="${row}" data-step="${s}"></div>`;
+        html+=`<div class="px-cell px-off${cls}${playing}" data-row="${row}" data-step="${s}"></div>`;
       }
     }
     html+='</div>';
@@ -1999,8 +2026,13 @@ function patDrawGrid(pat){
       const step=parseInt(cell.dataset.step);
       if(!pat.parts||row>=pat.parts.length)return;
       const part=pat.parts[row];
-      if(!part.steps)part.steps=new Array(pat.steps||16).fill(false);
-      part.steps[step]=!part.steps[step];
+      if(part.type==='keyboard'){
+        if(part.notes&&part.notes[step])part.notes[step].active=!part.notes[step].active;
+      }else{
+        const wrappedStep=step%16;
+        if(!part.steps)part.steps=new Array(16).fill(false);
+        part.steps[wrappedStep]=!part.steps[wrappedStep];
+      }
       patDrawGrid(pat);
     });
   });
@@ -2042,9 +2074,11 @@ function patZoom(dir){
     // FIT: compute cell width so all COLUMNS fit in visible width
     const gridWrap=document.getElementById('patGridWrap');
     if(!gridWrap||patSel<0||!patData[patSel]){PAT_CELL=PAT_CELL_BASE;return;}
-    const steps=patData[patSel].steps||16;
-    const labelW=80;
-    const gapTotal=Math.floor(steps/4)*4; // beat group gaps (4px each)
+    const steps=patStepCount(patData[patSel]);
+    const labelW=140;
+    const barGaps=Math.floor(steps/16)*8; // bar boundary gaps (8px each)
+    const beatGaps=Math.floor(steps/4)*4; // beat group gaps (4px each)
+    const gapTotal=barGaps+beatGaps;
     const availW=gridWrap.parentElement.clientWidth-labelW-gapTotal-40; // 40 = padding
     PAT_CELL=Math.round(Math.max(PAT_CELL_MIN,Math.min(PAT_CELL_MAX,availW/steps)));
   } else {
@@ -2247,7 +2281,8 @@ function seqScheduleStep(step,time){
 
   for(let i=0;i<parts.length;i++){
     const part=parts[i];
-    if(!part||!part.steps||!part.steps[step])continue;
+    if(!part)continue;
+    if(!patGetStep(part,step))continue;
     if(muteStatus&(1<<i))continue;
 
     const sn=part.sampleNum;
@@ -2255,7 +2290,7 @@ function seqScheduleStep(step,time){
     const buf=patSampleCache[sn];
     if(!buf)continue;
 
-    const vel=(part.velocities&&part.velocities[step])||100;
+    const vel=(part.velocities&&part.velocities[step%16])||100;
     try{
       // Voice stealing: stop previous source for this part
       if(patActiveVoices[i]){
@@ -2292,7 +2327,7 @@ function seqScheduler(){
   try{
     const ctx=getPatAudioCtx();
     if(!ctx){patStop();return;}
-    const totalSteps=seqPattern.steps||16;
+    const totalSteps=patStepCount(seqPattern);
 
     while(seqNextStepTime<ctx.currentTime+SEQ_LOOKAHEAD){
       seqScheduleStep(seqCurrentStep,seqNextStepTime);

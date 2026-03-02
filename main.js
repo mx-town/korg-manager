@@ -1135,6 +1135,29 @@ ipcMain.handle('esx:open-patterns', async () => {
     const buf = fs.readFileSync(result.filePaths[0]);
     const rawPatterns = esx.parseEsxPatterns(buf);
     const patterns = rawPatterns.map(p => esxPatternToUI(p));
+
+    // Resolve sample names from the full ESX buffer
+    const SAMPLE_HDR_MONO = 0x001B0100;
+    const SAMPLE_HDR_STEREO = 0x001B2900;
+    for (const pat of patterns) {
+      for (let i = 0; i < pat.parts.length; i++) {
+        const part = pat.parts[i];
+        const sn = part.sampleNum;
+        if (sn != null && sn !== 0x8000 && sn !== 0xFFFF) {
+          if (sn < 256) {
+            const nameOff = SAMPLE_HDR_MONO + sn * 40;
+            if (nameOff + 8 <= buf.length) {
+              part.sampleName = buf.toString('ascii', nameOff, nameOff + 8).replace(/\0/g, '').trim();
+            }
+          } else if (sn >= 256 && sn < 384) {
+            const nameOff = SAMPLE_HDR_STEREO + (sn - 256) * 44;
+            if (nameOff + 8 <= buf.length) {
+              part.sampleName = buf.toString('ascii', nameOff, nameOff + 8).replace(/\0/g, '').trim();
+            }
+          }
+        }
+      }
+    }
     // Cache parsed samples for pattern playback (separate try/catch so pattern loading still works)
     try {
       const parsed = esx.parseEsxFile(buf);
