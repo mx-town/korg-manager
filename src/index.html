@@ -2155,21 +2155,19 @@ let seqTimer=null;
 const SEQ_LOOKAHEAD=0.1;   // Schedule 100ms ahead
 const SEQ_INTERVAL=25;     // Check every 25ms
 
-// ──── STEP 1: Reuse Tone.js AudioContext (no new AudioContext) ────
 function getPatAudioCtx(){
   if(!patAudioCtx){
     try{
       patAudioCtx=Tone.getContext().rawContext;
-      console.log('[AUDIO] Using Tone.js AudioContext, state:',patAudioCtx.state);
     }catch(e){
-      console.error('[AUDIO] Failed to get Tone context:',e);
+      console.error('Failed to get Tone.js AudioContext:',e);
       return null;
     }
   }
   return patAudioCtx;
 }
 
-// ──── STEP 2: Manual WAV→AudioBuffer (bypasses native decodeAudioData crash) ────
+// Manual WAV→AudioBuffer (bypasses native decodeAudioData crash on non-standard sample rates)
 function b64ToAudioBuffer(b64,ctx){
   try{
     const binary=atob(b64);
@@ -2177,49 +2175,38 @@ function b64ToAudioBuffer(b64,ctx){
     for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
     const dv=new DataView(bytes.buffer);
 
-    // Validate RIFF/WAVE header
     const riff=String.fromCharCode(bytes[0],bytes[1],bytes[2],bytes[3]);
     const wave=String.fromCharCode(bytes[8],bytes[9],bytes[10],bytes[11]);
     if(riff!=='RIFF'||wave!=='WAVE'){
-      console.error('[AUDIO] Invalid WAV header:',riff,wave);
+      console.error('Invalid WAV header:',riff,wave);
       return Promise.resolve(null);
     }
 
-    // Parse fmt chunk
     const numChannels=dv.getUint16(22,true);
     const sampleRate=dv.getUint32(24,true);
     const bitsPerSample=dv.getUint16(34,true);
-
-    // Parse data chunk — find 'data' marker (usually at offset 36)
-    let dataOffset=44; // standard position after 44-byte header
     const dataSize=dv.getUint32(40,true);
     const numFrames=dataSize/(numChannels*(bitsPerSample/8));
 
-    console.log('[AUDIO] WAV parsed: sr='+sampleRate+', ch='+numChannels+
-      ', bits='+bitsPerSample+', frames='+numFrames+', dataSize='+dataSize);
-
-    // Create AudioBuffer and fill with float32 samples
     const audioBuf=ctx.createBuffer(numChannels,numFrames,sampleRate);
     if(bitsPerSample===16){
       for(let ch=0;ch<numChannels;ch++){
         const channelData=audioBuf.getChannelData(ch);
         for(let i=0;i<numFrames;i++){
-          const byteIdx=dataOffset+(i*numChannels+ch)*2;
-          const sample=dv.getInt16(byteIdx,true); // signed 16-bit LE
-          channelData[i]=sample/32768; // normalize to -1.0 … 1.0
+          const byteIdx=44+(i*numChannels+ch)*2;
+          const sample=dv.getInt16(byteIdx,true);
+          channelData[i]=sample/32768;
         }
       }
     }
 
-    console.log('[AUDIO] AudioBuffer created: duration='+audioBuf.duration.toFixed(3)+'s');
     return Promise.resolve(audioBuf);
   }catch(e){
-    console.error('[AUDIO] b64ToAudioBuffer error:',e);
+    console.error('b64ToAudioBuffer error:',e);
     return Promise.resolve(null);
   }
 }
 
-// ──── STEP 3: patLoadSamples — ALL samples, sequentially ────
 async function patLoadSamples(parts){
   if(!parts||!parts.length)return;
   const needed=[];
@@ -2230,38 +2217,28 @@ async function patLoadSamples(parts){
   const unique=[...new Set(needed)];
   if(!unique.length)return;
 
-  console.log('[AUDIO] Loading ALL',unique.length,'samples sequentially:',unique.join(', '));
-
   const ctx=getPatAudioCtx();
-  if(!ctx){console.error('[AUDIO] No AudioContext');return;}
+  if(!ctx)return;
 
   if(window.api.esx&&window.api.esx.getPatternSamples){
     try{
       const wavMap=await window.api.esx.getPatternSamples(unique);
-      console.log('[AUDIO] IPC returned, keys:',wavMap?Object.keys(wavMap).length:0);
       if(wavMap&&!wavMap.error){
         for(const num of unique){
           const b64=wavMap[num];
           if(!b64||patSampleCache[num])continue;
-          console.log('[AUDIO] Decoding sample',num,', b64 length:',b64.length);
           try{
             const buf=await b64ToAudioBuffer(b64,ctx);
-            if(buf){
-              patSampleCache[num]=buf;
-              console.log('[AUDIO] Decoded sample',num,'OK — duration:',buf.duration.toFixed(2)+'s');
-            }else{
-              console.warn('[AUDIO] Decode returned null for sample',num);
-            }
-          }catch(e){console.warn('[AUDIO] Decode FAILED for sample',num,e)}
+            if(buf) patSampleCache[num]=buf;
+            else console.warn('Decode returned null for sample',num);
+          }catch(e){console.warn('Decode failed for sample',num,e)}
         }
-        console.log('[AUDIO] All done, cache size:',Object.keys(patSampleCache).length);
         return;
       }
-    }catch(e){console.warn('[AUDIO] Batch IPC failed:',e)}
+    }catch(e){console.warn('Batch sample load failed:',e)}
   }
 }
 
-// ──── STEP 4: Real audio playback restored ────
 function seqScheduleStep(step,time){
   const ctx=getPatAudioCtx();
   if(!ctx)return;
@@ -2302,7 +2279,7 @@ function seqScheduleStep(step,time){
       src.start(time);
       patActiveVoices[i]=src;
       src.onended=()=>{if(patActiveVoices[i]===src)delete patActiveVoices[i];};
-    }catch(e){console.warn('[AUDIO] seqScheduleStep error, part',i,'sample',sn,e)}
+    }catch(e){console.warn('seqScheduleStep error, part',i,'sample',sn,e)}
   }
 
   // UI highlight
@@ -2337,9 +2314,7 @@ async function patTogglePlay(){
     const pat=patData[patSel];
     const bpm=parseFloat(document.getElementById('patBpmIn')?.value)||pat.bpm||120;
 
-    // Ensure Tone.js audio context is started (requires user gesture)
     await Tone.start();
-    console.log('[AUDIO] Tone.start() done, context state:',Tone.getContext().rawContext.state);
 
     toast('Loading samples...','info');
     await patLoadSamples(pat.parts||[]);
@@ -2350,13 +2325,12 @@ async function patTogglePlay(){
     seqPattern=pat;
     seqStepDuration=60/bpm/4; // 16th note in seconds
     seqCurrentStep=0;
-    seqNextStepTime=ctx.currentTime+0.05; // Small initial delay
+    seqNextStepTime=ctx.currentTime+0.05;
     patPlaying=true;
 
     document.getElementById('patPlayBtn').classList.add('playing');
     document.getElementById('patPlayBtn').textContent='STOP';
     toast('Playing','success');
-    console.log('[AUDIO] Sequencer started, bpm:',bpm,'steps:',pat.steps||16,'cached samples:',Object.keys(patSampleCache).length);
 
     seqScheduler();
   }catch(e){
