@@ -783,11 +783,12 @@ function buildEsxFile(samples) {
         if (sampleIdx < monoCount) {
           headerBuffer.writeUInt16BE(sampleIdx, partOff + 0);
         }
-        // Only Part 0 gets active steps (like factory Init pattern)
+        // Only Part 0 gets active steps (four-on-the-floor: steps 0,4,8,12)
+        // LSB-first bit-packed: byte 0 = steps 0-7, step 0 (bit0) + step 4 (bit4) = 0x11
         if (p === 0) {
-          for (let s = 0; s < 16; s++) {
-            headerBuffer.writeUInt8(0x11, partOff + 18 + s);
-          }
+          headerBuffer.writeUInt8(0x11, partOff + 18 + 0); // steps 0,4
+          headerBuffer.writeUInt8(0x11, partOff + 18 + 1); // steps 8,12
+          // bytes 2-15 remain 0x00 (no active steps beyond step 15)
         }
       }
     }
@@ -811,16 +812,47 @@ function buildEsxFile(samples) {
   return finalBuffer;
 }
 
+// ── Bit-packed step helpers ───────────────────────────────
+
+/**
+ * Unpack bit-packed step data: each byte holds 8 steps (LSB first).
+ * 16 bytes = 128 step slots.
+ */
+function unpackStepBits(buf, offset, numBytes) {
+  const steps = [];
+  for (let byteIdx = 0; byteIdx < numBytes; byteIdx++) {
+    const byte = buf.readUInt8(offset + byteIdx);
+    for (let bit = 0; bit <= 7; bit++) {
+      steps.push((byte & (1 << bit)) ? true : false);
+    }
+  }
+  return steps;
+}
+
+/**
+ * Pack boolean step array back into bit-packed bytes (LSB first).
+ */
+function packStepBits(steps) {
+  const numBytes = Math.ceil(steps.length / 8);
+  const buf = Buffer.alloc(numBytes, 0);
+  for (let i = 0; i < steps.length; i++) {
+    if (steps[i]) {
+      const byteIdx = Math.floor(i / 8);
+      const bitIdx = i % 8;
+      buf[byteIdx] |= (1 << bitIdx);
+    }
+  }
+  return buf;
+}
+
 // ── ESX Pattern Parsing ──────────────────────────────────
 
 /**
- * Parse ESX drum part (34 bytes: 18 params + 16 steps).
+ * Parse ESX drum part (34 bytes: 18 params + 16 step bytes).
+ * Step bytes are bit-packed: 16 bytes × 8 bits = 128 step slots (LSB first).
  */
 function parseEsxDrumPart(buf, offset) {
-  const steps = [];
-  for (let i = 0; i < 16; i++) {
-    steps.push(buf.readUInt8(offset + 18 + i) !== 0x00);
-  }
+  const steps = unpackStepBits(buf, offset + 18, 16);
   return {
     sampleNum: buf.readUInt16BE(offset + 0),
     filterType: buf.readUInt8(offset + 4),
@@ -863,13 +895,11 @@ function parseEsxKeyboardPart(buf, offset) {
 }
 
 /**
- * Parse ESX stretch/slice part (32 bytes: 16 params + 16 steps).
+ * Parse ESX stretch/slice part (32 bytes: 16 params + 16 step bytes).
+ * Step bytes are bit-packed: 16 bytes × 8 bits = 128 step slots (LSB first).
  */
 function parseEsxStretchPart(buf, offset) {
-  const steps = [];
-  for (let i = 0; i < 16; i++) {
-    steps.push(buf.readUInt8(offset + 16 + i) !== 0x00);
-  }
+  const steps = unpackStepBits(buf, offset + 16, 16);
   return {
     sampleNum: buf.readUInt16BE(offset + 0),
     level: buf.readUInt8(offset + 7),
@@ -879,14 +909,12 @@ function parseEsxStretchPart(buf, offset) {
 }
 
 /**
- * Parse ESX audio-in part (156 bytes: 12 params + 16 steps + 128 gates).
+ * Parse ESX audio-in part (156 bytes: 12 params + 16 step bytes + 128 gates).
+ * Step bytes are bit-packed: 16 bytes × 8 bits = 128 step slots (LSB first).
  */
 function parseEsxAudioInPart(buf, offset) {
-  const steps = [];
+  const steps = unpackStepBits(buf, offset + 12, 16);
   const gates = [];
-  for (let i = 0; i < 16; i++) {
-    steps.push(buf.readUInt8(offset + 12 + i) !== 0x00);
-  }
   for (let i = 0; i < 128; i++) {
     gates.push(buf.readUInt8(offset + 28 + i));
   }
@@ -899,14 +927,13 @@ function parseEsxAudioInPart(buf, offset) {
 }
 
 /**
- * Parse ESX accent part (18 bytes: level + reserved + 16 steps).
- * Steps use INVERTED logic: 0xFF = OFF, 0x00 = ON.
+ * Parse ESX accent part (18 bytes: level + reserved + 16 step bytes).
+ * Step bytes are bit-packed (16 × 8 = 128 slots) with INVERTED logic:
+ * bit 1 = OFF, bit 0 = ON.
  */
 function parseEsxAccentPart(buf, offset) {
-  const steps = [];
-  for (let i = 0; i < 16; i++) {
-    steps.push(buf.readUInt8(offset + 2 + i) !== 0xFF);
-  }
+  const rawSteps = unpackStepBits(buf, offset + 2, 16);
+  const steps = rawSteps.map(s => !s); // invert: 1→OFF, 0→ON
   return {
     level: buf.readUInt8(offset + 0),
     steps,
@@ -1237,6 +1264,7 @@ module.exports = {
   parseEsxPatterns,
   parseEsxPattern,
   parsePatternBlock,
+  packStepBits,
   ADDR,
   SIZE,
   NUM,

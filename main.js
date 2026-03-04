@@ -1133,8 +1133,25 @@ ipcMain.handle('esx:open-patterns', async () => {
   if (result.canceled) return { canceled: true };
   try {
     const buf = fs.readFileSync(result.filePaths[0]);
+
     const rawPatterns = esx.parseEsxPatterns(buf);
     const patterns = rawPatterns.map(p => esxPatternToUI(p));
+
+    // ── TEMP: Verify LSB-first bit unpacking for House1 Drum 1 ──
+    for (let i = 0; i < Math.min(rawPatterns.length, 10); i++) {
+      const rp = rawPatterns[i];
+      if (rp.name && rp.name.trim() === 'House1') {
+        const drum1 = rp.parts[0];
+        const first16 = drum1.steps.slice(0, 16);
+        const activeIdxs = first16.map((v, idx) => v ? idx : null).filter(v => v !== null);
+        const patOff = 0x200 + i * 4280;
+        const rawByte0 = buf.readUInt8(patOff + 24 + 18);
+        const rawByte1 = buf.readUInt8(patOff + 24 + 19);
+        console.log(`[VERIFY] House1 Drum 1: raw bytes [0x${rawByte0.toString(16).padStart(2,'0')}, 0x${rawByte1.toString(16).padStart(2,'0')}] → active steps: [${activeIdxs}]`);
+        break;
+      }
+    }
+    // ── END TEMP ──
 
     // Resolve sample names from the full ESX buffer
     const SAMPLE_HDR_MONO = 0x001B0100;

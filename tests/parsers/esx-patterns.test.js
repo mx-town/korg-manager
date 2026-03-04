@@ -151,9 +151,9 @@ describe('ESX Patterns - Drum parts', () => {
     }
   });
 
-  it('should have 16 steps per drum part', () => {
+  it('should have 128 steps per drum part (bit-packed)', () => {
     for (const p of parts) {
-      expect(p.steps).toHaveLength(16);
+      expect(p.steps).toHaveLength(128);
     }
   });
 
@@ -253,9 +253,9 @@ describe('ESX Patterns - Stretch & Slice parts', () => {
     expect(parts.filter(p => p.type === 'slice')).toHaveLength(1);
   });
 
-  it('should have 16 steps per part', () => {
+  it('should have 128 steps per part (bit-packed)', () => {
     for (const p of parts) {
-      expect(p.steps).toHaveLength(16);
+      expect(p.steps).toHaveLength(128);
     }
   });
 
@@ -286,8 +286,8 @@ describe('ESX Patterns - Audio In part', () => {
     expect(audioIn.name).toBe('Audio In');
   });
 
-  it('should have 16 steps', () => {
-    expect(audioIn.steps).toHaveLength(16);
+  it('should have 128 steps (bit-packed)', () => {
+    expect(audioIn.steps).toHaveLength(128);
   });
 
   it('should have 128 gate entries', () => {
@@ -323,8 +323,8 @@ describe('ESX Patterns - Accent part', () => {
     expect(accent.name).toBe('Accent');
   });
 
-  it('should have 16 steps', () => {
-    expect(accent.steps).toHaveLength(16);
+  it('should have 128 steps (bit-packed)', () => {
+    expect(accent.steps).toHaveLength(128);
   });
 
   it('should decode inverted logic: 0xFF → OFF (false)', () => {
@@ -340,19 +340,23 @@ describe('ESX Patterns - Accent part', () => {
 // ── Accent inversion verification ────────────────────────
 
 describe('ESX Patterns - Accent inversion manual test', () => {
-  it('should decode 0x00 as ON and 0xFF as OFF', () => {
+  it('should decode inverted bit-packed accent steps (LSB-first)', () => {
     const buf = generateMinimalESX();
     const accentOff = ADDR.PATTERN_DATA + PATTERN_OFFSETS.ACCENT;
 
-    // Write step 0 as ON (0x00) and step 1 as OFF (0xFF)
-    buf.writeUInt8(0x00, accentOff + 2);   // step 0 ON
-    buf.writeUInt8(0xFF, accentOff + 3);   // step 1 OFF
+    // LSB-first, inverted: bit=0 means ON, bit=1 means OFF
+    // Byte 0 = 0xFE = 1111_1110 → bit0=0 → step 0 ON; bits 1-7=1 → steps 1-7 OFF
+    buf.writeUInt8(0xFE, accentOff + 2);
+    // Byte 1 = 0xFF → all bits=1 → all OFF
+    buf.writeUInt8(0xFF, accentOff + 3);
 
     const patterns = parseEsxPatterns(buf);
     const accent = patterns[0].parts.find(p => p.type === 'accent');
 
-    expect(accent.steps[0]).toBe(true);    // 0x00 = ON
-    expect(accent.steps[1]).toBe(false);   // 0xFF = OFF
+    expect(accent.steps[0]).toBe(true);    // bit0=0 → inverted → ON
+    expect(accent.steps[1]).toBe(false);   // bit1=1 → inverted → OFF
+    expect(accent.steps[7]).toBe(false);   // bit7=1 → inverted → OFF
+    expect(accent.steps[8]).toBe(false);   // byte 1 all 1s → all OFF
   });
 });
 
@@ -413,15 +417,16 @@ describe('ESX Patterns - Custom pattern header', () => {
 // ── Drum step activation ─────────────────────────────────
 
 describe('ESX Patterns - Drum step activation', () => {
-  it('should detect active drum steps (non-zero bytes)', () => {
+  it('should detect active drum steps from bit-packed bytes (LSB-first)', () => {
     const buf = generateMinimalESX();
     const drumOff = ADDR.PATTERN_DATA + PATTERN_OFFSETS.DRUM_START;
 
-    // Activate steps 0, 4, 8, 12 (4-on-the-floor)
+    // LSB-first bit-packed: byte 0 covers steps 0-7, byte 1 covers steps 8-15
+    // Four-on-the-floor: steps 0,4,8,12 active
+    // Byte 0: step 0 = bit0, step 4 = bit4 → 0001_0001 = 0x11
+    // Byte 1: step 8 = bit0, step 12 = bit4 → 0001_0001 = 0x11
     buf.writeUInt8(0x11, drumOff + 18 + 0);
-    buf.writeUInt8(0x11, drumOff + 18 + 4);
-    buf.writeUInt8(0x11, drumOff + 18 + 8);
-    buf.writeUInt8(0x11, drumOff + 18 + 12);
+    buf.writeUInt8(0x11, drumOff + 18 + 1);
 
     const patterns = parseEsxPatterns(buf);
     const drum1 = patterns[0].parts[0];
@@ -431,8 +436,10 @@ describe('ESX Patterns - Drum step activation', () => {
     expect(drum1.steps[2]).toBe(false);
     expect(drum1.steps[3]).toBe(false);
     expect(drum1.steps[4]).toBe(true);
+    expect(drum1.steps[5]).toBe(false);
     expect(drum1.steps[8]).toBe(true);
     expect(drum1.steps[12]).toBe(true);
+    expect(drum1.steps[15]).toBe(false);
   });
 });
 
@@ -453,10 +460,14 @@ describe('ESX Patterns - File with samples', () => {
     const buf = generateESXWithNSamples(1);
     const patterns = parseEsxPatterns(buf);
 
-    // buildEsxFile activates all 16 steps for drum part 0
+    // buildEsxFile writes four-on-the-floor: steps 0,4,8,12 active
     const drum1 = patterns[0].parts[0];
     const activeCount = drum1.steps.filter(s => s).length;
-    expect(activeCount).toBe(16);
+    expect(activeCount).toBe(4);
+    expect(drum1.steps[0]).toBe(true);
+    expect(drum1.steps[4]).toBe(true);
+    expect(drum1.steps[8]).toBe(true);
+    expect(drum1.steps[12]).toBe(true);
   });
 });
 

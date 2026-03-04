@@ -1779,11 +1779,7 @@ function patStepCount(p){return (p.lastStep!=null?p.lastStep+1:p.steps||16);}
 // Read step state for a given part at a given step index (handles wrapping + keyboard)
 function patGetStep(part,s){
   if(!part)return false;
-  // Keyboard: 128-entry notes array, no wrapping needed
-  if(part.type==='keyboard')return !!(part.notes&&part.notes[s]&&part.notes[s].active);
-  // Drum/stretch/slice/audioin/accent: 16-step array, wraps for multi-bar
-  if(part.steps)return !!part.steps[s%16];
-  return false;
+  return !!(part.steps&&part.steps[s]);
 }
 
 async function patOpenESX(){
@@ -1906,6 +1902,9 @@ function patSelectPat(i){
     <span class="pat-badge">${p.beat||'16th'}</span>
     ${fmtLabel?`<span class="pat-badge" style="border-color:var(--hi-d);color:var(--hi)">${fmtLabel}</span>`:''}
   `;
+  // Sync BPM input with selected pattern
+  const bpmIn=document.getElementById('patBpmIn');
+  if(bpmIn)bpmIn.value=Math.round(p.bpm||120);
   patDrawGrid(p);
   // Detail (colored by part type)
   let h='';
@@ -1999,7 +1998,7 @@ function patDrawGrid(pat){
 
     for(let s=0;s<steps;s++){
       const active=patGetStep(part,s);
-      const vel=(part&&part.velocities&&part.velocities[s%16])||100;
+      const vel=(part&&part.velocities&&part.velocities[s])||100;
       const alpha=active?Math.max(0.35,vel/127):0;
       const isBar=s>0&&s%16===0;
       const isBeat=!isBar&&s>0&&s%4===0;
@@ -2026,13 +2025,8 @@ function patDrawGrid(pat){
       const step=parseInt(cell.dataset.step);
       if(!pat.parts||row>=pat.parts.length)return;
       const part=pat.parts[row];
-      if(part.type==='keyboard'){
-        if(part.notes&&part.notes[step])part.notes[step].active=!part.notes[step].active;
-      }else{
-        const wrappedStep=step%16;
-        if(!part.steps)part.steps=new Array(16).fill(false);
-        part.steps[wrappedStep]=!part.steps[wrappedStep];
-      }
+      if(!part.steps)part.steps=new Array(128).fill(false);
+      if(step<part.steps.length)part.steps[step]=!part.steps[step];
       patDrawGrid(pat);
     });
   });
@@ -2290,7 +2284,7 @@ function seqScheduleStep(step,time){
     const buf=patSampleCache[sn];
     if(!buf)continue;
 
-    const vel=(part.velocities&&part.velocities[step%16])||100;
+    const vel=(part.velocities&&part.velocities[step])||100;
     try{
       // Voice stealing: stop previous source for this part
       if(patActiveVoices[i]){
