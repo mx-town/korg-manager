@@ -414,7 +414,6 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
 .px-cell.px-playing.px-on{filter:brightness(2);outline:1.5px solid rgba(255,255,255,.7);outline-offset:1px;animation:pxpulse .1s ease}
 .px-cell.px-playing.px-off{background:rgba(255,255,255,.15);outline:1px solid rgba(255,255,255,.3);outline-offset:1px}
 @keyframes pxpulse{0%{filter:brightness(3)}100%{filter:brightness(2)}}
-.pat-detail{padding:16px;background:var(--dark);border-top:1px solid var(--brd);font-family:var(--lcd);font-size:12px;color:var(--txt-d);max-height:180px;overflow-y:auto}
 .pat-zoom{display:flex;align-items:center;gap:4px}
 .pat-zoom-btn{padding:3px 10px;background:rgba(0,204,255,.08);border:1px solid var(--blue-d);color:var(--blue);font-size:13px;font-weight:700;cursor:pointer;border-radius:3px;min-width:28px;font-family:var(--lcd);transition:background 80ms}
 .pat-zoom-btn:hover{background:rgba(0,204,255,.18)}
@@ -527,6 +526,25 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
 .pat-badge-name{
   background:rgba(197,48,92,.1);border-color:var(--hi-d);
   color:var(--hi);font-size:12px;letter-spacing:2px;
+}
+.pat-bar-sel-row{
+  display:flex;align-items:center;justify-content:center;
+  gap:3px;padding:6px 0 2px;
+}
+.pat-bar-sel-label{
+  font-family:var(--lcd);font-size:9px;color:var(--txt-x);
+  letter-spacing:2px;margin-right:4px;
+}
+.pat-bar-btn{
+  width:22px;height:18px;padding:0;border:1px solid var(--brd-h);
+  background:rgba(255,255,255,.04);color:var(--txt-x);
+  font-family:var(--lcd);font-size:10px;cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;
+}
+.pat-bar-btn:hover{background:rgba(0,204,255,.12);color:var(--led)}
+.pat-bar-btn.pat-bar-act{
+  background:rgba(0,204,255,.2);border-color:var(--hi);
+  color:var(--hi);font-weight:bold;
 }
 .pat-active-dots{
   color:var(--hi);font-size:10px;letter-spacing:1px;
@@ -787,7 +805,6 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
           </div>
         </div>
         <div class="pat-grid-wrap"><div id="patGridWrap"></div></div>
-        <div class="pat-detail" id="patDetail"></div>
       </div>
     </div>
   </div><!-- /e2pat-view -->
@@ -1769,12 +1786,19 @@ function emxSelPat(i){
 //  E2 PATTERN VIEWER
 // ═══════════════════════════════════════════════════════════
 let patData=[],patSel=-1,patFilePath=null,patFormat=null,patSearchQ='';
+let patBarCount=1; // selected bar count (1-8), controls grid columns and playback loop
 const PAT_CELL_MIN=12,PAT_CELL_MAX=48,PAT_CELL_BASE=28;
 let PAT_CELL=PAT_CELL_BASE; // mutable — zoom changes this
 const PAT_ROWS=16,PAT_COLS=32;
 
-// Total step count from parsed pattern (lastStep is 0-based, so +1)
-function patStepCount(p){return (p.lastStep!=null?p.lastStep+1:p.steps||16);}
+// Total step count for display/playback.
+// Short patterns (lastStep < 15, e.g. 12 steps) always use their native length.
+// Otherwise use the bar selector: patBarCount × 16.
+function patStepCount(p){
+  const native=p.lastStep!=null?p.lastStep+1:p.steps||16;
+  if(native<16)return native; // short pattern, ignore bar selector
+  return patBarCount*16;
+}
 
 // Read step state for a given part at a given step index (handles wrapping + keyboard)
 function patGetStep(part,s){
@@ -1888,12 +1912,21 @@ function patRenderList(){
   document.getElementById('patList').innerHTML=h;
 }
 
-function patSelectPat(i){
-  patSel=i;patRenderList();
-  const p=patData[i];if(!p)return;
+function patSetBarCount(n){
+  patBarCount=Math.max(1,Math.min(8,n));
+  patUpdateInfoBar();
+  if(patSel>=0&&patData[patSel]){
+    patDrawGrid(patData[patSel]);
+    patZoom(0); // re-fit if in fit mode
+  }
+}
+
+function patUpdateInfoBar(){
+  const p=patData[patSel];if(!p)return;
   const steps=patStepCount(p);
   const bars=Math.ceil(steps/16);
   const fmtLabel=p.format||patFormat||'';
+
   document.getElementById('patInfoBar').innerHTML=`
     <span class="pat-badge pat-badge-name">${esc(p.name||'Pattern')}</span>
     <span class="pat-badge">${(p.bpm||120).toFixed(1)} <small>BPM</small></span>
@@ -1902,14 +1935,19 @@ function patSelectPat(i){
     <span class="pat-badge">${p.beat||'16th'}</span>
     ${fmtLabel?`<span class="pat-badge" style="border-color:var(--hi-d);color:var(--hi)">${fmtLabel}</span>`:''}
   `;
+}
+
+function patSelectPat(i){
+  patSel=i;patRenderList();
+  const p=patData[i];if(!p)return;
+  // Set default bar count from pattern's native length
+  const native=p.lastStep!=null?p.lastStep+1:p.steps||16;
+  patBarCount=Math.max(1,Math.ceil(native/16));
+  patUpdateInfoBar();
   // Sync BPM input with selected pattern
   const bpmIn=document.getElementById('patBpmIn');
   if(bpmIn)bpmIn.value=Math.round(p.bpm||120);
   patDrawGrid(p);
-  // Detail (colored by part type)
-  let h='';
-  if(p.parts){for(let j=0;j<p.parts.length;j++){const pt=p.parts[j];const lc=PAT_TYPE_LABEL_COLORS[pt.type]||'var(--led)';h+=`<span style="color:${lc}">${esc(pt.name||'Part '+(j+1))}</span> | `;}}
-  document.getElementById('patDetail').innerHTML=h||'// no part data';
   // Preload samples for playback (async, don't block UI)
   if(p&&p.parts){
     patLoadSamples(p.parts).catch(e=>console.warn('patLoadSamples error',e));
@@ -2016,6 +2054,19 @@ function patDrawGrid(pat){
     html+='</div>';
   }
   html+='</div>';
+
+  // Bar selector below grid (only for patterns with >= 16 native steps)
+  const native=pat.lastStep!=null?pat.lastStep+1:pat.steps||16;
+  if(native>=16){
+    html+='<div class="pat-bar-sel-row">';
+    html+='<span class="pat-bar-sel-label">BARS</span>';
+    for(let b=1;b<=8;b++){
+      const act=b===patBarCount?' pat-bar-act':'';
+      html+=`<button class="pat-bar-btn${act}" onclick="patSetBarCount(${b})">${b}</button>`;
+    }
+    html+='</div>';
+  }
+
   wrap.innerHTML=html;
 
   // Click to toggle
@@ -2026,7 +2077,12 @@ function patDrawGrid(pat){
       if(!pat.parts||row>=pat.parts.length)return;
       const part=pat.parts[row];
       if(!part.steps)part.steps=new Array(128).fill(false);
-      if(step<part.steps.length)part.steps[step]=!part.steps[step];
+      if(!part.velocities)part.velocities=new Array(128).fill(0);
+      // Extend arrays to 128 if shorter (e.g. sliced by esxPatternToUI)
+      while(part.steps.length<128)part.steps.push(false);
+      while(part.velocities.length<128)part.velocities.push(0);
+      part.steps[step]=!part.steps[step];
+      part.velocities[step]=part.steps[step]?(part.level||100):0;
       patDrawGrid(pat);
     });
   });
@@ -2037,7 +2093,10 @@ function patHighlightStep(step){
   document.querySelectorAll('.px-playing').forEach(c=>c.classList.remove('px-playing'));
   document.querySelectorAll(`.px-cell[data-step="${step}"]`).forEach(c=>c.classList.add('px-playing'));
   const disp=document.getElementById('patStepDisp');
-  if(disp)disp.textContent=step+1;
+  if(disp){
+    const total=seqPattern?patStepCount(seqPattern):patBarCount*16;
+    disp.textContent=`${step+1}/${total}`;
+  }
 }
 
 // ═══════════════════════════════════════════════════════════

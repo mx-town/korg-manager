@@ -1096,13 +1096,14 @@ function esxPatternToUI(esxPat) {
   const parts = esxPat.parts.map(part => {
     let steps, velocities;
     if (part.type === 'keyboard') {
-      steps = part.notes.slice(0, numSteps).map(n => n.active);
-      velocities = part.gates.slice(0, numSteps);
+      // Keep all 128 note/gate entries for multi-bar viewing
+      steps = part.notes.map(n => n.active);
+      velocities = part.gates.slice();
     } else if (part.type === 'accent') {
-      steps = part.steps.slice(0, numSteps);
+      steps = part.steps.slice(); // full 128 entries
       velocities = steps.map(active => active ? part.level : 0);
     } else {
-      steps = part.steps.slice(0, numSteps);
+      steps = part.steps.slice(); // full 128 entries
       velocities = steps.map(active => active ? (part.level || 100) : 0);
     }
     return { name: part.name, type: part.type, level: part.level || 100, sampleNum: part.sampleNum, pan: part.pan, steps, velocities };
@@ -1113,6 +1114,7 @@ function esxPatternToUI(esxPat) {
     bpm: esxPat.tempo,
     swing: esxPat.swing || 50,
     steps: numSteps,
+    lastStep: esxPat.lastStep,
     beat: '16th',
     deviceId: 'esx',
     format: 'ESX-1',
