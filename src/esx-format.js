@@ -858,9 +858,14 @@ function parseEsxDrumPart(buf, offset) {
     filterType: buf.readUInt8(offset + 4),
     cutoff: buf.readUInt8(offset + 5),
     resonance: buf.readUInt8(offset + 6),
+    egInt: buf.readUInt8(offset + 7),
     pitch: buf.readUInt8(offset + 8),
     level: buf.readUInt8(offset + 9),
     pan: buf.readUInt8(offset + 10),
+    egTime: buf.readUInt8(offset + 11),
+    startPoint: buf.readUInt8(offset + 12),
+    modSpeed: buf.readUInt8(offset + 15),
+    modDepth: buf.readUInt8(offset + 16),
     steps,
   };
 }

@@ -1106,7 +1106,7 @@ function esxPatternToUI(esxPat) {
       steps = part.steps.slice(); // full 128 entries
       velocities = steps.map(active => active ? (part.level || 100) : 0);
     }
-    return { name: part.name, type: part.type, level: part.level || 100, sampleNum: part.sampleNum, pan: part.pan, steps, velocities };
+    return { ...part, steps, velocities };
   });
 
   return {

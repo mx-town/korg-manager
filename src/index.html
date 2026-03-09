@@ -546,6 +546,140 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
   background:rgba(0,204,255,.2);border-color:var(--hi);
   color:var(--hi);font-weight:bold;
 }
+
+/* ── Three-mode pattern editor ── */
+.pat-mode-view{flex:1;overflow:auto;display:none}
+.pat-mode-view.active{display:block}
+
+/* Mode toggle buttons in transport bar */
+.pat-mode-tabs{display:flex;gap:2px;margin-left:auto}
+.pat-mode-btn{
+  padding:3px 10px;border:1px solid var(--brd-h);
+  background:rgba(255,255,255,.04);color:var(--txt-x);
+  font-family:var(--lcd);font-size:10px;letter-spacing:1px;
+  cursor:pointer;
+}
+.pat-mode-btn:hover{background:rgba(255,255,255,.08)}
+.pat-mode-btn.active{
+  background:rgba(0,204,255,.18);border-color:var(--hi);
+  color:var(--hi);font-weight:bold;
+}
+
+/* ── PARTS view: 16 part buttons ── */
+.parts-grid{
+  display:grid;grid-template-columns:repeat(8,1fr);
+  gap:6px;padding:12px 16px;
+}
+.part-btn{
+  border:2px solid var(--brd-h);border-radius:6px;
+  background:rgba(255,255,255,.03);padding:8px 4px;
+  cursor:pointer;display:flex;flex-direction:column;
+  align-items:center;gap:3px;position:relative;
+  min-height:72px;transition:border-color .1s,background .1s;
+}
+.part-btn:hover{background:rgba(255,255,255,.06)}
+.part-btn.part-sel{border-width:2px}
+.part-btn.part-muted{opacity:0.3}
+.part-btn .part-type-lbl{
+  font-family:var(--head);font-size:13px;font-weight:bold;
+  letter-spacing:1px;
+}
+.part-btn .part-sample-lbl{
+  font-family:var(--lcd);font-size:9px;color:var(--txt-x);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  max-width:100%;text-align:center;
+}
+.part-btn .part-ms{
+  display:flex;gap:2px;position:absolute;top:3px;right:3px;
+}
+.part-btn .part-ms-btn{
+  width:14px;height:12px;border:1px solid var(--brd-h);
+  background:rgba(255,255,255,.04);color:var(--txt-x);
+  font-family:var(--lcd);font-size:7px;cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;
+  border-radius:2px;
+}
+.part-btn .part-ms-btn:hover{background:rgba(255,255,255,.12)}
+.part-btn .part-ms-btn.muted{background:rgba(197,48,92,.5);color:#fff;border-color:#c5305c}
+.part-btn .part-ms-btn.soloed{background:rgba(255,235,59,.5);color:#111;border-color:#ffeb3b}
+
+/* ── Parameter area ── */
+.part-params{
+  padding:12px 16px;border-top:1px solid var(--brd);
+}
+.part-params-hdr{
+  font-family:var(--head);font-size:13px;font-weight:bold;
+  margin-bottom:8px;display:flex;align-items:center;gap:8px;
+}
+.part-params-grid{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:6px 8px;
+}
+.param-cell{
+  display:flex;flex-direction:column;align-items:center;
+  padding:6px 4px;border:1px solid var(--brd);border-radius:4px;
+  background:rgba(255,255,255,.02);min-height:44px;
+  justify-content:center;
+}
+.param-lbl{font-family:var(--lcd);font-size:7px;color:var(--txt-x);letter-spacing:.5px;text-transform:uppercase;white-space:nowrap}
+.param-val{font-family:var(--lcd);font-size:15px;color:var(--led);margin-top:2px}
+.param-cell.param-empty{border-color:transparent;background:transparent}
+
+/* ── STEPS view ── */
+.seq-info{
+  display:flex;align-items:center;gap:12px;padding:10px 16px;
+  border-bottom:1px solid var(--brd);
+}
+.seq-part-name{font-family:var(--head);font-size:15px;font-weight:bold}
+.seq-sample-name{font-family:var(--lcd);font-size:12px;color:var(--led)}
+.seq-steps{
+  display:flex;flex-wrap:wrap;gap:6px;padding:16px;justify-content:center;
+}
+.seq-step{
+  width:52px;height:52px;border:2px solid var(--brd-h);
+  border-radius:4px;background:rgba(255,255,255,.03);
+  font-family:var(--lcd);font-size:14px;color:var(--txt-x);
+  cursor:pointer;display:inline-flex;align-items:center;justify-content:center;
+  transition:background .08s,border-color .08s;
+}
+.seq-step:hover{border-color:rgba(255,255,255,.2)}
+.seq-step.seq-step-on{color:#fff}
+.seq-step.seq-step-playing{outline:2px solid #fff;outline-offset:-2px;animation:seq-pulse .2s ease-out}
+@keyframes seq-pulse{from{outline-width:4px;outline-offset:-4px}to{outline-width:2px;outline-offset:-2px}}
+.seq-bar-nav{
+  display:flex;align-items:center;justify-content:center;
+  gap:4px;padding:10px 16px;border-top:1px solid var(--brd);
+}
+.seq-bar-nav-label{
+  font-family:var(--lcd);font-size:9px;color:var(--txt-x);
+  letter-spacing:2px;margin-right:4px;
+}
+.seq-bar-btn{
+  width:28px;height:22px;padding:0;border:1px solid var(--brd-h);
+  background:rgba(255,255,255,.04);color:var(--txt-x);
+  font-family:var(--lcd);font-size:10px;cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;
+}
+.seq-bar-btn:hover{background:rgba(0,204,255,.12);color:var(--led)}
+.seq-bar-btn.seq-bar-act{
+  background:rgba(0,204,255,.2);border-color:var(--hi);
+  color:var(--hi);font-weight:bold;
+}
+
+/* ── GRID view: mute/solo in grid ── */
+.px-ms-btns{display:flex;align-items:center;gap:2px;width:36px;flex-shrink:0}
+.px-ms-btn{
+  width:16px;height:14px;padding:0;border:1px solid var(--brd-h);
+  background:rgba(255,255,255,.04);color:var(--txt-x);
+  font-family:var(--lcd);font-size:8px;cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;
+  border-radius:2px;
+}
+.px-ms-btn:hover{background:rgba(255,255,255,.1)}
+.px-ms-btn.muted{background:rgba(197,48,92,.5);color:#fff;border-color:#c5305c}
+.px-ms-btn.soloed{background:rgba(255,235,59,.5);color:#111;border-color:#ffeb3b}
+.px-row.row-muted{opacity:0.3}
+.px-row.row-muted .px-label{text-decoration:line-through}
+
 .pat-active-dots{
   color:var(--hi);font-size:10px;letter-spacing:1px;
   overflow:hidden;white-space:nowrap;max-width:60px;display:block;
@@ -803,8 +937,27 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
           <div class="pat-step-disp">
             STEP: <span id="patStepDisp">—</span>
           </div>
+          <div class="pat-mode-tabs" id="patModeTabs">
+            <button class="pat-mode-btn active" data-mode="parts" onclick="patSetMode('parts')">PARTS</button>
+            <button class="pat-mode-btn" data-mode="steps" onclick="patSetMode('steps')">STEPS</button>
+            <button class="pat-mode-btn" data-mode="grid" onclick="patSetMode('grid')">GRID</button>
+          </div>
         </div>
-        <div class="pat-grid-wrap"><div id="patGridWrap"></div></div>
+        <!-- PARTS view -->
+        <div class="pat-mode-view active" id="patPartsWrap">
+          <div id="partsGrid"></div>
+          <div id="partParams"></div>
+        </div>
+        <!-- STEPS view -->
+        <div class="pat-mode-view" id="patStepsWrap">
+          <div class="seq-info" id="seqInfo"></div>
+          <div class="seq-steps" id="seqSteps"></div>
+          <div class="seq-bar-nav" id="seqBarNav"></div>
+        </div>
+        <!-- GRID view (existing matrix) -->
+        <div class="pat-mode-view" id="patGridViewWrap">
+          <div id="patGridWrap"></div>
+        </div>
       </div>
     </div>
   </div><!-- /e2pat-view -->
@@ -1787,9 +1940,33 @@ function emxSelPat(i){
 // ═══════════════════════════════════════════════════════════
 let patData=[],patSel=-1,patFilePath=null,patFormat=null,patSearchQ='';
 let patBarCount=1; // selected bar count (1-8), controls grid columns and playback loop
+let patViewMode='parts'; // 'parts' | 'steps' | 'grid'
+let patSeqPart=0;        // selected part index 0-15
+let patSeqBar=0;         // bar 0-7 in steps view
+let patSoloActive=-1;    // -1 = no solo, 0-15 = soloed part
+let patMuteSaved=0;      // saved muteStatus before solo
+const SEQ_PART_LABELS=['D1','D2','D3','D4','D5','D6','D7','D8','D9','KB1','KB2','ST1','ST2','SLC','AIN','ACC'];
 const PAT_CELL_MIN=12,PAT_CELL_MAX=48,PAT_CELL_BASE=28;
 let PAT_CELL=PAT_CELL_BASE; // mutable — zoom changes this
 const PAT_ROWS=16,PAT_COLS=32;
+
+function patSetMode(mode, partIndex){
+  patViewMode=mode;
+  if(typeof partIndex==='number')patSeqPart=partIndex;
+  // Toggle view containers
+  document.querySelectorAll('.pat-mode-view').forEach(v=>v.classList.remove('active'));
+  const viewMap={parts:'patPartsWrap',steps:'patStepsWrap',grid:'patGridViewWrap'};
+  const el=document.getElementById(viewMap[mode]);
+  if(el)el.classList.add('active');
+  // Toggle tab buttons
+  document.querySelectorAll('.pat-mode-btn').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));
+  // Render active view
+  const pat=patData[patSel];
+  if(!pat)return;
+  if(mode==='parts'){partsRender(pat);}
+  else if(mode==='steps'){patSeqBar=0;stepsRender(pat);}
+  else if(mode==='grid'){patDrawGrid(pat);}
+}
 
 // Total step count for display/playback.
 // Short patterns (lastStep < 15, e.g. 12 steps) always use their native length.
@@ -1916,8 +2093,8 @@ function patSetBarCount(n){
   patBarCount=Math.max(1,Math.min(8,n));
   patUpdateInfoBar();
   if(patSel>=0&&patData[patSel]){
-    patDrawGrid(patData[patSel]);
-    patZoom(0); // re-fit if in fit mode
+    patRenderCurrentView(patData[patSel]);
+    if(patViewMode==='grid')patZoom(0);
   }
 }
 
@@ -1940,6 +2117,8 @@ function patUpdateInfoBar(){
 function patSelectPat(i){
   patSel=i;patRenderList();
   const p=patData[i];if(!p)return;
+  // Reset solo state
+  patSoloActive=-1;patMuteSaved=0;
   // Set default bar count from pattern's native length
   const native=p.lastStep!=null?p.lastStep+1:p.steps||16;
   patBarCount=Math.max(1,Math.ceil(native/16));
@@ -1947,13 +2126,12 @@ function patSelectPat(i){
   // Sync BPM input with selected pattern
   const bpmIn=document.getElementById('patBpmIn');
   if(bpmIn)bpmIn.value=Math.round(p.bpm||120);
-  patDrawGrid(p);
+  // Reset to parts view and render
+  patSetMode('parts');
   // Preload samples for playback (async, don't block UI)
   if(p&&p.parts){
     patLoadSamples(p.parts).catch(e=>console.warn('patLoadSamples error',e));
   }
-  // Auto-fit zoom on first load
-  patZoom(0);
 }
 
 // Part-type color map for the step grid
@@ -2011,7 +2189,8 @@ function patDrawGrid(pat){
   let html=`<div class="px-grid" style="--cw:${cW}px;--ch:${cH}px">`;
 
   // Step number header
-  html+='<div class="px-header"><div class="px-hlabel"></div>';
+  const muteStatus=pat.muteStatus||0;
+  html+='<div class="px-header"><div class="px-ms-btns" style="visibility:hidden"></div><div class="px-hlabel"></div>';
   for(let s=0;s<steps;s++){
     const isBar=s>0&&s%16===0;
     const isBeat=!isBar&&s>0&&s%4===0;
@@ -2030,8 +2209,11 @@ function patDrawGrid(pat){
     const sampleName=part&&part.sampleName?part.sampleName:'';
     const label=sampleName?`${partName} <span style="color:var(--led);opacity:.7">— ${esc(sampleName)}</span>`:partName;
     const rowBg=row%2===0?'rgba(255,255,255,.006)':'transparent';
+    const isMuted=!!(muteStatus&(1<<row));
+    const isSoloed=patSoloActive===row;
 
-    html+=`<div class="px-row" style="background:${rowBg}">`;
+    html+=`<div class="px-row${isMuted?' row-muted':''}" style="background:${rowBg}" data-part="${row}">`;
+    html+=`<div class="px-ms-btns"><div class="px-ms-btn${isMuted?' muted':''}" data-action="mute" data-part="${row}">M</div><div class="px-ms-btn${isSoloed?' soloed':''}" data-action="solo" data-part="${row}">S</div></div>`;
     html+=`<div class="px-label" style="color:${labelCol}">${label}</div>`;
 
     for(let s=0;s<steps;s++){
@@ -2069,7 +2251,7 @@ function patDrawGrid(pat){
 
   wrap.innerHTML=html;
 
-  // Click to toggle
+  // Click to toggle steps
   wrap.querySelectorAll('.px-cell').forEach(cell=>{
     cell.addEventListener('click',()=>{
       const row=parseInt(cell.dataset.row);
@@ -2078,7 +2260,6 @@ function patDrawGrid(pat){
       const part=pat.parts[row];
       if(!part.steps)part.steps=new Array(128).fill(false);
       if(!part.velocities)part.velocities=new Array(128).fill(0);
-      // Extend arrays to 128 if shorter (e.g. sliced by esxPatternToUI)
       while(part.steps.length<128)part.steps.push(false);
       while(part.velocities.length<128)part.velocities.push(0);
       part.steps[step]=!part.steps[step];
@@ -2086,12 +2267,252 @@ function patDrawGrid(pat){
       patDrawGrid(pat);
     });
   });
+
+  // Double-click row → open sequencer for that part
+  wrap.querySelectorAll('.px-row[data-part]').forEach(row=>{
+    row.addEventListener('dblclick',()=>{
+      const idx=parseInt(row.dataset.part);
+      if(!isNaN(idx))patSetMode('steps',idx);
+    });
+  });
+
+  // Mute/Solo buttons
+  wrap.querySelectorAll('.px-ms-btn').forEach(btn=>{
+    btn.addEventListener('click',(e)=>{
+      e.stopPropagation();
+      const idx=parseInt(btn.dataset.part);
+      const action=btn.dataset.action;
+      if(action==='mute')patToggleMute(idx);
+      else if(action==='solo')patToggleSolo(idx);
+    });
+  });
 }
 
+function patToggleMute(idx){
+  const pat=patData[patSel];if(!pat)return;
+  if(!pat.muteStatus)pat.muteStatus=0;
+  pat.muteStatus^=(1<<idx);
+  // If soloed part gets muted, clear solo
+  if(patSoloActive===idx&&(pat.muteStatus&(1<<idx))){
+    patSoloActive=-1;patMuteSaved=0;
+  }
+  patRenderCurrentView(pat);
+}
+
+function patToggleSolo(idx){
+  const pat=patData[patSel];if(!pat)return;
+  if(!pat.muteStatus)pat.muteStatus=0;
+  if(patSoloActive===idx){
+    pat.muteStatus=patMuteSaved;
+    patSoloActive=-1;patMuteSaved=0;
+  } else {
+    patMuteSaved=pat.muteStatus;
+    pat.muteStatus=0xFFFF&~(1<<idx);
+    patSoloActive=idx;
+  }
+  patRenderCurrentView(pat);
+}
+
+function patRenderCurrentView(pat){
+  if(patViewMode==='parts')partsRender(pat);
+  else if(patViewMode==='steps')stepsRender(pat);
+  else if(patViewMode==='grid')patDrawGrid(pat);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  VIEW 1: PARTS — 16 part buttons + parameter area
+// ═══════════════════════════════════════════════════════════
+function partsRender(pat){
+  if(!pat)return;
+  const parts=pat.parts||[];
+  const muteStatus=pat.muteStatus||0;
+  const wrap=document.getElementById('partsGrid');
+  if(!wrap)return;
+
+  let h='<div class="parts-grid">';
+  for(let i=0;i<16;i++){
+    const p=parts[i];
+    const pType=(p&&p.type)||'drum';
+    const col=PAT_PX_LABEL[pType]||'#c5305c';
+    const rgb=PAT_PX_COLORS[pType]||'197,48,92';
+    const isMuted=!!(muteStatus&(1<<i));
+    const isSoloed=patSoloActive===i;
+    const isSelected=i===patSeqPart;
+    const label=SEQ_PART_LABELS[i]||`P${i+1}`;
+    const sName=(p&&p.sampleName)?esc(p.sampleName):'—';
+    const selStyle=isSelected?`border-color:${col};background:rgba(${rgb},.15)`:'';
+
+    h+=`<div class="part-btn${isMuted?' part-muted':''}${isSelected?' part-sel':''}" data-part="${i}" style="${selStyle}">`;
+    h+=`<div class="part-ms">`;
+    h+=`<div class="part-ms-btn${isMuted?' muted':''}" data-action="mute" data-part="${i}">M</div>`;
+    h+=`<div class="part-ms-btn${isSoloed?' soloed':''}" data-action="solo" data-part="${i}">S</div>`;
+    h+=`</div>`;
+    h+=`<div class="part-type-lbl" style="color:${col}">${label}</div>`;
+    h+=`<div class="part-sample-lbl">${sName}</div>`;
+    h+=`</div>`;
+  }
+  h+='</div>';
+  wrap.innerHTML=h;
+
+  // Event handlers
+  wrap.querySelectorAll('.part-btn').forEach(btn=>{
+    btn.addEventListener('click',(e)=>{
+      // Ignore if clicking M/S buttons
+      if(e.target.classList.contains('part-ms-btn'))return;
+      patSeqPart=parseInt(btn.dataset.part);
+      partsRender(pat);
+    });
+  });
+  wrap.querySelectorAll('.part-ms-btn').forEach(btn=>{
+    btn.addEventListener('click',(e)=>{
+      e.stopPropagation();
+      const idx=parseInt(btn.dataset.part);
+      const action=btn.dataset.action;
+      if(action==='mute')patToggleMute(idx);
+      else if(action==='solo')patToggleSolo(idx);
+    });
+  });
+
+  // Render parameter area for selected part
+  partsRenderParams(pat, parts[patSeqPart]);
+}
+
+// ESX-1 filter type names
+const ESX_FILTER_NAMES=['LPF','HPF','BPF','BPF+'];
+function esxFilterName(v){return ESX_FILTER_NAMES[v]||String(v);}
+
+function partsRenderParams(pat, part){
+  const wrap=document.getElementById('partParams');
+  if(!wrap)return;
+  if(!part){wrap.innerHTML='';return;}
+
+  const pType=(part.type)||'drum';
+  const col=PAT_PX_LABEL[pType]||'#c5305c';
+  const label=SEQ_PART_LABELS[patSeqPart]||'PART';
+  const partName=part.name||`Part ${patSeqPart+1}`;
+  const sName=part.sampleName?` — ${esc(part.sampleName)}`:'';
+
+  // Helper: get value from part, return undefined if missing
+  const pv=(key)=>part[key]!==undefined?part[key]:undefined;
+
+  // Fixed 4×3 grid layout — show all params, missing ones get "—"
+  // Row 1: LEVEL, PAN, PITCH, START POINT
+  // Row 2: FILTER TYPE, CUTOFF, RESONANCE, EG INT
+  // Row 3: EG TIME, MOD SPEED, MOD DEPTH, SAMPLE#
+  const grid=[
+    {l:'LEVEL',      v:pv('level')},
+    {l:'PAN',        v:pv('pan')},
+    {l:'PITCH',      v:pv('pitch')},
+    {l:'START PT',   v:pv('startPoint')},
+    {l:'FILTER',     v:pv('filterType')!==undefined?esxFilterName(pv('filterType')):undefined},
+    {l:'CUTOFF',     v:pv('cutoff')},
+    {l:'RESONANCE',  v:pv('resonance')},
+    {l:'EG INT',     v:pv('egInt')},
+    {l:'EG TIME',    v:pv('egTime')},
+    {l:'MOD SPEED',  v:pv('modSpeed')},
+    {l:'MOD DEPTH',  v:pv('modDepth')},
+    {l:'SAMPLE#',    v:pv('sampleNum')},
+  ];
+
+  let h=`<div class="part-params">`;
+  h+=`<div class="part-params-hdr"><span style="color:${col}">${label}</span> <span style="color:var(--txt-x);font-weight:normal;font-size:11px">${esc(partName)}${sName}</span></div>`;
+  h+=`<div class="part-params-grid">`;
+  for(const p of grid){
+    const val=p.v!==undefined?p.v:'—';
+    h+=`<div class="param-cell"><span class="param-lbl">${p.l}</span><span class="param-val">${val}</span></div>`;
+  }
+  h+=`</div></div>`;
+  wrap.innerHTML=h;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  VIEW 2: STEPS — step sequencer for selected part
+// ═══════════════════════════════════════════════════════════
+function stepsRender(pat){
+  if(!pat)return;
+  const parts=pat.parts||[];
+  const part=parts[patSeqPart];
+  const pType=(part&&part.type)||'drum';
+  const rgb=PAT_PX_COLORS[pType]||'197,48,92';
+  const col=PAT_PX_LABEL[pType]||'#c5305c';
+  const partName=part?part.name||`Part ${patSeqPart+1}`:`Part ${patSeqPart+1}`;
+  const sampleName=(part&&part.sampleName)||'';
+
+  // Info header
+  const info=document.getElementById('seqInfo');
+  if(info)info.innerHTML=
+    `<span class="seq-part-name" style="color:${col}">${SEQ_PART_LABELS[patSeqPart]} — ${esc(partName)}</span>`+
+    (sampleName?`<span class="seq-sample-name">${esc(sampleName)}</span>`:'');
+
+  stepsRenderButtons(pat,part,rgb);
+  stepsRenderBarNav(pat);
+}
+
+function stepsRenderButtons(pat,part,rgb){
+  const wrap=document.getElementById('seqSteps');
+  if(!wrap)return;
+  const startStep=patSeqBar*16;
+  let h='';
+  for(let i=0;i<16;i++){
+    const stepIdx=startStep+i;
+    const active=patGetStep(part,stepIdx);
+    const vel=(part&&part.velocities&&part.velocities[stepIdx])||100;
+    const alpha=active?Math.max(0.35,vel/127):0;
+    const playing=patPlayStep===stepIdx?' seq-step-playing':'';
+    const bg=active?`background:rgba(${rgb},${alpha.toFixed(2)});box-shadow:0 0 8px rgba(${rgb},.3)`:'';
+    h+=`<div class="seq-step${active?' seq-step-on':''}${playing}" data-step="${stepIdx}" style="${bg}">${i+1}</div>`;
+  }
+  wrap.innerHTML=h;
+  wrap.querySelectorAll('.seq-step').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const stepIdx=parseInt(btn.dataset.step);
+      if(!pat.parts||patSeqPart>=pat.parts.length)return;
+      const p=pat.parts[patSeqPart];
+      if(!p)return;
+      if(!p.steps)p.steps=new Array(128).fill(false);
+      if(!p.velocities)p.velocities=new Array(128).fill(0);
+      while(p.steps.length<128)p.steps.push(false);
+      while(p.velocities.length<128)p.velocities.push(0);
+      p.steps[stepIdx]=!p.steps[stepIdx];
+      p.velocities[stepIdx]=p.steps[stepIdx]?(p.level||100):0;
+      stepsRenderButtons(pat,p,rgb);
+    });
+  });
+}
+
+function stepsRenderBarNav(pat){
+  const wrap=document.getElementById('seqBarNav');
+  if(!wrap)return;
+  let h='<span class="seq-bar-nav-label">BAR</span>';
+  for(let b=0;b<patBarCount;b++){
+    const act=b===patSeqBar?' seq-bar-act':'';
+    h+=`<button class="seq-bar-btn${act}" data-bar="${b}">${b+1}</button>`;
+  }
+  wrap.innerHTML=h;
+  wrap.querySelectorAll('.seq-bar-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      patSeqBar=parseInt(btn.dataset.bar);
+      stepsRender(patData[patSel]);
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PLAYHEAD HIGHLIGHT (all three modes)
+// ═══════════════════════════════════════════════════════════
 function patHighlightStep(step){
   patPlayStep=step;
+  // Clear all highlight types
   document.querySelectorAll('.px-playing').forEach(c=>c.classList.remove('px-playing'));
-  document.querySelectorAll(`.px-cell[data-step="${step}"]`).forEach(c=>c.classList.add('px-playing'));
+  document.querySelectorAll('.seq-step-playing').forEach(c=>c.classList.remove('seq-step-playing'));
+  // Apply to active view
+  if(patViewMode==='grid'){
+    document.querySelectorAll(`.px-cell[data-step="${step}"]`).forEach(c=>c.classList.add('px-playing'));
+  } else if(patViewMode==='steps'){
+    const el=document.querySelector(`.seq-step[data-step="${step}"]`);
+    if(el)el.classList.add('seq-step-playing');
+  }
+  // Parts view doesn't show per-step highlights (could add a part-level pulse later)
   const disp=document.getElementById('patStepDisp');
   if(disp){
     const total=seqPattern?patStepCount(seqPattern):patBarCount*16;
@@ -2207,6 +2628,7 @@ case 'ArrowUp':{
       break;
     }
     case 'Escape':
+      if(patViewMode!=='parts'){patSetMode('parts');break;}
       if(patSearchQ)patSearchClear();
       break;
     case ' ':
@@ -2438,12 +2860,15 @@ function patStop(){
   }
   seqCurrentStep=0;
   patPlayStep=-1;
+  // Clear all playing highlights
   document.querySelectorAll('.px-playing').forEach(c=>c.classList.remove('px-playing'));
+  document.querySelectorAll('.seq-step-playing').forEach(c=>c.classList.remove('seq-step-playing'));
   const btn=document.getElementById('patPlayBtn');
   if(btn){btn.classList.remove('playing');btn.textContent='PLAY';}
   const disp=document.getElementById('patStepDisp');
   if(disp)disp.textContent='—';
-  if(patSel>=0&&patData[patSel])patDrawGrid(patData[patSel]);
+  // Mode-aware re-render
+  if(patSel>=0&&patData[patSel])patRenderCurrentView(patData[patSel]);
 }
 
 function patSetBpm(bpm){
