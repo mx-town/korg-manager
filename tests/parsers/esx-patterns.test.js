@@ -522,3 +522,225 @@ describe('ESX Patterns - Constants', () => {
     expect(total).toBe(PATTERN_SIZE);
   });
 });
+
+// ── Filter params on all part types ─────────────────────
+
+describe('ESX Patterns - Filter params on all part types', () => {
+  let pattern;
+
+  beforeAll(() => {
+    pattern = parseEsxPatterns(generateMinimalESX())[0];
+  });
+
+  it('drum parts should have all filter/mod params', () => {
+    for (const p of pattern.parts.filter(p => p.type === 'drum')) {
+      expect(p.filterType).toBeDefined();
+      expect(p.cutoff).toBeDefined();
+      expect(p.resonance).toBeDefined();
+      expect(p.egInt).toBeDefined();
+      expect(p.pitch).toBeDefined();
+      expect(p.egTime).toBeDefined();
+      expect(p.startPoint).toBeDefined();
+      expect(p.modSpeed).toBeDefined();
+      expect(p.modDepth).toBeDefined();
+    }
+  });
+
+  it('drum parts should have correct Init defaults', () => {
+    const d = pattern.parts[0];
+    expect(d.filterType).toBe(0x00);  // LPF
+    expect(d.cutoff).toBe(0x7F);      // open
+    expect(d.resonance).toBe(0x00);
+    expect(d.egInt).toBe(0x40);       // center
+    expect(d.pitch).toBe(0x40);       // center
+    expect(d.egTime).toBe(0x7F);
+    expect(d.startPoint).toBe(0x00);
+    expect(d.modSpeed).toBe(0x40);
+    expect(d.modDepth).toBe(0x40);    // center
+  });
+
+  it('keyboard parts should have all filter/mod params plus glide', () => {
+    for (const p of pattern.parts.filter(p => p.type === 'keyboard')) {
+      expect(p.filterType).toBeDefined();
+      expect(p.cutoff).toBeDefined();
+      expect(p.resonance).toBeDefined();
+      expect(p.egInt).toBeDefined();
+      expect(p.glide).toBeDefined();
+      expect(p.egTime).toBeDefined();
+      expect(p.startPoint).toBeDefined();
+      expect(p.modSpeed).toBeDefined();
+      expect(p.modDepth).toBeDefined();
+    }
+  });
+
+  it('keyboard parts should have correct Init defaults', () => {
+    const kb = pattern.parts[9];
+    expect(kb.glide).toBe(0x00);
+    expect(kb.filterType).toBe(0x00);
+    expect(kb.cutoff).toBe(0x7F);
+    expect(kb.resonance).toBe(0x00);
+    expect(kb.egInt).toBe(0x40);
+    expect(kb.egTime).toBe(0x40);
+    expect(kb.startPoint).toBe(0x00);
+    expect(kb.modSpeed).toBe(0x40);
+    expect(kb.modDepth).toBe(0x40);
+  });
+
+  it('stretch/slice parts should have all filter/mod params', () => {
+    for (const p of pattern.parts.filter(p => p.type === 'stretch' || p.type === 'slice')) {
+      expect(p.filterType).toBeDefined();
+      expect(p.cutoff).toBeDefined();
+      expect(p.resonance).toBeDefined();
+      expect(p.egInt).toBeDefined();
+      expect(p.pitch).toBeDefined();
+      expect(p.egTime).toBeDefined();
+      expect(p.startPoint).toBeDefined();
+      expect(p.modSpeed).toBeDefined();
+      expect(p.modDepth).toBeDefined();
+    }
+  });
+
+  it('stretch parts should have correct Init defaults', () => {
+    const st = pattern.parts[11];
+    expect(st.filterType).toBe(0x00);
+    expect(st.cutoff).toBe(0x7F);
+    expect(st.resonance).toBe(0x00);
+    expect(st.egInt).toBe(0x40);
+    expect(st.pitch).toBe(0x40);
+    expect(st.egTime).toBe(0x7F);
+    expect(st.startPoint).toBe(0x00);
+    expect(st.modSpeed).toBe(0x40);
+    expect(st.modDepth).toBe(0x40);
+  });
+
+  it('audio-in part should have filter/mod params (no pitch, no sample)', () => {
+    const ain = pattern.parts[14];
+    expect(ain.filterType).toBeDefined();
+    expect(ain.cutoff).toBeDefined();
+    expect(ain.resonance).toBeDefined();
+    expect(ain.egInt).toBeDefined();
+    expect(ain.egTime).toBeDefined();
+    expect(ain.modSpeed).toBeDefined();
+    expect(ain.modDepth).toBeDefined();
+    expect(ain.pitch).toBeUndefined();
+    expect(ain.sampleNum).toBeUndefined();
+  });
+
+  it('audio-in part should have correct Init defaults', () => {
+    const ain = pattern.parts[14];
+    expect(ain.filterType).toBe(0x00);
+    expect(ain.cutoff).toBe(0x7F);
+    expect(ain.resonance).toBe(0x00);
+    expect(ain.egInt).toBe(0x40);
+    expect(ain.egTime).toBe(0x40);
+    expect(ain.modSpeed).toBe(0x40);
+    expect(ain.modDepth).toBe(0x40);
+  });
+
+  it('all cutoff values should be in 0-127 range', () => {
+    for (const p of pattern.parts) {
+      if ('cutoff' in p) {
+        expect(p.cutoff).toBeGreaterThanOrEqual(0);
+        expect(p.cutoff).toBeLessThanOrEqual(127);
+      }
+    }
+  });
+});
+
+// ── Custom filter param values via byte injection ───────
+
+describe('ESX Patterns - Custom filter param byte injection', () => {
+  it('drum part: custom filter values round-trip correctly', () => {
+    const buf = generateMinimalESX();
+    const off = ADDR.PATTERN_DATA + PATTERN_OFFSETS.DRUM_START; // drum 1
+    buf.writeUInt8(2, off + 4);    // filterType = BPF
+    buf.writeUInt8(100, off + 5);  // cutoff = 100
+    buf.writeUInt8(80, off + 6);   // resonance = 80
+    buf.writeUInt8(30, off + 7);   // egInt = 30
+    buf.writeUInt8(0x7F, off + 11); // egTime = 127
+    buf.writeUInt8(50, off + 12);  // startPoint = 50
+    buf.writeUInt8(90, off + 15);  // modSpeed = 90
+    buf.writeUInt8(10, off + 16);  // modDepth = 10
+
+    const d = parseEsxPatterns(buf)[0].parts[0];
+    expect(d.filterType).toBe(2);
+    expect(d.cutoff).toBe(100);
+    expect(d.resonance).toBe(80);
+    expect(d.egInt).toBe(30);
+    expect(d.egTime).toBe(127);
+    expect(d.startPoint).toBe(50);
+    expect(d.modSpeed).toBe(90);
+    expect(d.modDepth).toBe(10);
+  });
+
+  it('stretch part: custom filter values round-trip correctly', () => {
+    const buf = generateMinimalESX();
+    const off = ADDR.PATTERN_DATA + PATTERN_OFFSETS.STRETCH1;
+    buf.writeUInt8(1, off + 2);    // filterType = HPF
+    buf.writeUInt8(60, off + 3);   // cutoff = 60
+    buf.writeUInt8(40, off + 4);   // resonance = 40
+    buf.writeUInt8(20, off + 5);   // egInt = 20
+    buf.writeUInt8(70, off + 6);   // pitch = 70
+    buf.writeUInt8(55, off + 9);   // egTime = 55
+    buf.writeUInt8(33, off + 10);  // startPoint = 33
+    buf.writeUInt8(77, off + 13);  // modSpeed = 77
+    buf.writeUInt8(88, off + 14);  // modDepth = 88
+
+    const st = parseEsxPatterns(buf)[0].parts[11];
+    expect(st.filterType).toBe(1);
+    expect(st.cutoff).toBe(60);
+    expect(st.resonance).toBe(40);
+    expect(st.egInt).toBe(20);
+    expect(st.pitch).toBe(70);
+    expect(st.egTime).toBe(55);
+    expect(st.startPoint).toBe(33);
+    expect(st.modSpeed).toBe(77);
+    expect(st.modDepth).toBe(88);
+  });
+
+  it('audio-in part: custom filter values round-trip correctly', () => {
+    const buf = generateMinimalESX();
+    const off = ADDR.PATTERN_DATA + PATTERN_OFFSETS.AUDIOIN;
+    buf.writeUInt8(3, off + 0);    // filterType = BPF+
+    buf.writeUInt8(45, off + 1);   // cutoff = 45
+    buf.writeUInt8(55, off + 2);   // resonance = 55
+    buf.writeUInt8(65, off + 3);   // egInt = 65
+    buf.writeUInt8(75, off + 6);   // egTime = 75
+    buf.writeUInt8(85, off + 9);   // modSpeed = 85
+    buf.writeUInt8(95, off + 10);  // modDepth = 95
+
+    const ain = parseEsxPatterns(buf)[0].parts[14];
+    expect(ain.filterType).toBe(3);
+    expect(ain.cutoff).toBe(45);
+    expect(ain.resonance).toBe(55);
+    expect(ain.egInt).toBe(65);
+    expect(ain.egTime).toBe(75);
+    expect(ain.modSpeed).toBe(85);
+    expect(ain.modDepth).toBe(95);
+  });
+
+  it('keyboard part: custom filter values round-trip correctly', () => {
+    const buf = generateMinimalESX();
+    const off = ADDR.PATTERN_DATA + PATTERN_OFFSETS.KB1;
+    buf.writeUInt8(42, off + 4);   // glide = 42
+    buf.writeUInt8(2, off + 5);    // filterType = BPF
+    buf.writeUInt8(111, off + 6);  // cutoff = 111
+    buf.writeUInt8(22, off + 7);   // resonance = 22
+    buf.writeUInt8(33, off + 8);   // egInt = 33
+    buf.writeUInt8(44, off + 11);  // egTime = 44
+    buf.writeUInt8(55, off + 12);  // startPoint = 55
+    buf.writeUInt8(66, off + 15);  // modSpeed = 66
+    buf.writeUInt8(77, off + 16);  // modDepth = 77
+
+    const kb = parseEsxPatterns(buf)[0].parts[9];
+    expect(kb.glide).toBe(42);
+    expect(kb.filterType).toBe(2);
+    expect(kb.cutoff).toBe(111);
+    expect(kb.resonance).toBe(22);
+    expect(kb.egInt).toBe(33);
+    expect(kb.egTime).toBe(44);
+    expect(kb.startPoint).toBe(55);
+    expect(kb.modSpeed).toBe(66);
+    expect(kb.modDepth).toBe(77);
+  });
+});

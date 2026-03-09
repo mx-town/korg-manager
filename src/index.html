@@ -624,6 +624,32 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
 .param-val{font-family:var(--lcd);font-size:15px;color:var(--led);margin-top:2px}
 .param-cell.param-empty{border-color:transparent;background:transparent}
 
+/* ── Mini step bar in part buttons ── */
+.part-step-bar{
+  display:flex;gap:1px;width:100%;max-width:100%;height:6px;margin-top:2px;
+  padding:0 2px;box-sizing:border-box;
+}
+.part-step-bar .psb{flex:1;border-radius:1px;min-width:0}
+.part-activity{
+  font-family:var(--lcd);font-size:7px;color:var(--txt-x);
+  letter-spacing:.5px;margin-top:1px;
+}
+
+/* ── STEPS part nav ── */
+.seq-part-nav{
+  display:flex;gap:2px;padding:8px 16px;border-bottom:1px solid var(--brd);
+  overflow-x:auto;flex-shrink:0;
+}
+.seq-part-btn{
+  padding:4px 8px;border:1px solid var(--brd-h);border-radius:3px;
+  background:rgba(255,255,255,.03);font-family:var(--lcd);font-size:10px;
+  color:var(--txt-x);cursor:pointer;white-space:nowrap;
+  transition:background .08s,border-color .08s,color .08s;flex-shrink:0;
+}
+.seq-part-btn:hover{background:rgba(255,255,255,.07)}
+.seq-part-btn.seq-part-act{border-width:2px;font-weight:bold}
+.seq-part-btn.seq-part-muted{opacity:0.3}
+
 /* ── STEPS view ── */
 .seq-info{
   display:flex;align-items:center;gap:12px;padding:10px 16px;
@@ -950,6 +976,7 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
         </div>
         <!-- STEPS view -->
         <div class="pat-mode-view" id="patStepsWrap">
+          <div class="seq-part-nav" id="seqPartNav"></div>
           <div class="seq-info" id="seqInfo"></div>
           <div class="seq-steps" id="seqSteps"></div>
           <div class="seq-bar-nav" id="seqBarNav"></div>
@@ -2349,6 +2376,16 @@ function partsRender(pat){
     h+=`</div>`;
     h+=`<div class="part-type-lbl" style="color:${col}">${label}</div>`;
     h+=`<div class="part-sample-lbl">${sName}</div>`;
+    // Mini step bar (first 16 steps)
+    h+=`<div class="part-step-bar">`;
+    let activeCount=0;
+    for(let s=0;s<16;s++){
+      const on=patGetStep(p,s);
+      if(on)activeCount++;
+      h+=`<div class="psb" style="background:${on?`rgba(${rgb},.7)`:'rgba(255,255,255,.06)'}"></div>`;
+    }
+    h+=`</div>`;
+    h+=`<div class="part-activity">${activeCount}/16</div>`;
     h+=`</div>`;
   }
   h+='</div>';
@@ -2394,30 +2431,45 @@ function partsRenderParams(pat, part){
 
   // Helper: get value from part, return undefined if missing
   const pv=(key)=>part[key]!==undefined?part[key]:undefined;
+  const filt=pv('filterType')!==undefined?esxFilterName(pv('filterType')):undefined;
 
-  // Fixed 4×3 grid layout — show all params, missing ones get "—"
-  // Row 1: LEVEL, PAN, PITCH, START POINT
-  // Row 2: FILTER TYPE, CUTOFF, RESONANCE, EG INT
-  // Row 3: EG TIME, MOD SPEED, MOD DEPTH, SAMPLE#
-  const grid=[
-    {l:'LEVEL',      v:pv('level')},
-    {l:'PAN',        v:pv('pan')},
-    {l:'PITCH',      v:pv('pitch')},
-    {l:'START PT',   v:pv('startPoint')},
-    {l:'FILTER',     v:pv('filterType')!==undefined?esxFilterName(pv('filterType')):undefined},
-    {l:'CUTOFF',     v:pv('cutoff')},
-    {l:'RESONANCE',  v:pv('resonance')},
-    {l:'EG INT',     v:pv('egInt')},
-    {l:'EG TIME',    v:pv('egTime')},
-    {l:'MOD SPEED',  v:pv('modSpeed')},
-    {l:'MOD DEPTH',  v:pv('modDepth')},
-    {l:'SAMPLE#',    v:pv('sampleNum')},
-  ];
+  // Type-appropriate 4×3 grid layouts
+  let grid;
+  if(pType==='accent'){
+    // Accent: only level, show prominent
+    grid=[
+      {l:'LEVEL',v:pv('level')},{},{},{},
+      {},{},{},{},
+      {},{},{},{},
+    ];
+  } else if(pType==='audioin'){
+    // Audio In: no pitch, no startPoint, no sampleNum
+    grid=[
+      {l:'LEVEL',v:pv('level')},{l:'PAN',v:pv('pan')},{},{},
+      {l:'FILTER',v:filt},{l:'CUTOFF',v:pv('cutoff')},{l:'RESONANCE',v:pv('resonance')},{l:'EG INT',v:pv('egInt')},
+      {l:'EG TIME',v:pv('egTime')},{l:'MOD SPEED',v:pv('modSpeed')},{l:'MOD DEPTH',v:pv('modDepth')},{},
+    ];
+  } else if(pType==='keyboard'){
+    // Keyboard: GLIDE instead of PITCH
+    grid=[
+      {l:'LEVEL',v:pv('level')},{l:'PAN',v:pv('pan')},{l:'GLIDE',v:pv('glide')},{l:'START PT',v:pv('startPoint')},
+      {l:'FILTER',v:filt},{l:'CUTOFF',v:pv('cutoff')},{l:'RESONANCE',v:pv('resonance')},{l:'EG INT',v:pv('egInt')},
+      {l:'EG TIME',v:pv('egTime')},{l:'MOD SPEED',v:pv('modSpeed')},{l:'MOD DEPTH',v:pv('modDepth')},{l:'SAMPLE#',v:pv('sampleNum')},
+    ];
+  } else {
+    // Drum, Stretch, Slice: full layout
+    grid=[
+      {l:'LEVEL',v:pv('level')},{l:'PAN',v:pv('pan')},{l:'PITCH',v:pv('pitch')},{l:'START PT',v:pv('startPoint')},
+      {l:'FILTER',v:filt},{l:'CUTOFF',v:pv('cutoff')},{l:'RESONANCE',v:pv('resonance')},{l:'EG INT',v:pv('egInt')},
+      {l:'EG TIME',v:pv('egTime')},{l:'MOD SPEED',v:pv('modSpeed')},{l:'MOD DEPTH',v:pv('modDepth')},{l:'SAMPLE#',v:pv('sampleNum')},
+    ];
+  }
 
   let h=`<div class="part-params">`;
   h+=`<div class="part-params-hdr"><span style="color:${col}">${label}</span> <span style="color:var(--txt-x);font-weight:normal;font-size:11px">${esc(partName)}${sName}</span></div>`;
   h+=`<div class="part-params-grid">`;
   for(const p of grid){
+    if(!p.l){h+=`<div class="param-cell param-empty"></div>`;continue;}
     const val=p.v!==undefined?p.v:'—';
     h+=`<div class="param-cell"><span class="param-lbl">${p.l}</span><span class="param-val">${val}</span></div>`;
   }
@@ -2430,6 +2482,7 @@ function partsRenderParams(pat, part){
 // ═══════════════════════════════════════════════════════════
 function stepsRender(pat){
   if(!pat)return;
+  stepsRenderPartNav(pat);
   const parts=pat.parts||[];
   const part=parts[patSeqPart];
   const pType=(part&&part.type)||'drum';
@@ -2446,6 +2499,37 @@ function stepsRender(pat){
 
   stepsRenderButtons(pat,part,rgb);
   stepsRenderBarNav(pat);
+}
+
+function stepsRenderPartNav(pat){
+  const wrap=document.getElementById('seqPartNav');
+  if(!wrap)return;
+  const muteStatus=pat.muteStatus||0;
+  const parts=pat.parts||[];
+  let h='';
+  for(let i=0;i<16;i++){
+    const p=parts[i];
+    const pType=(p&&p.type)||'drum';
+    const col=PAT_PX_LABEL[pType]||'#c5305c';
+    const rgb=PAT_PX_COLORS[pType]||'197,48,92';
+    const isActive=i===patSeqPart;
+    const isMuted=!!(muteStatus&(1<<i));
+    const cls='seq-part-btn'+(isActive?' seq-part-act':'')+(isMuted?' seq-part-muted':'');
+    const style=isActive?`border-color:${col};color:${col};background:rgba(${rgb},.15)`:``;
+    h+=`<button class="${cls}" data-part="${i}" style="${style}">${SEQ_PART_LABELS[i]}</button>`;
+  }
+  wrap.innerHTML=h;
+  wrap.querySelectorAll('.seq-part-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      patSeqPart=parseInt(btn.dataset.part);
+      patSeqBar=0;
+      stepsRender(pat);
+    });
+    btn.addEventListener('dblclick',()=>{
+      const idx=parseInt(btn.dataset.part);
+      patSetMode('parts',idx);
+    });
+  });
 }
 
 function stepsRenderButtons(pat,part,rgb){

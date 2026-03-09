@@ -889,11 +889,17 @@ function parseEsxKeyboardPart(buf, offset) {
   }
   return {
     sampleNum: buf.readUInt16BE(offset + 0),
+    glide: buf.readUInt8(offset + 4),
     filterType: buf.readUInt8(offset + 5),
     cutoff: buf.readUInt8(offset + 6),
     resonance: buf.readUInt8(offset + 7),
+    egInt: buf.readUInt8(offset + 8),
     level: buf.readUInt8(offset + 9),
     pan: buf.readUInt8(offset + 10),
+    egTime: buf.readUInt8(offset + 11),
+    startPoint: buf.readUInt8(offset + 12),
+    modSpeed: buf.readUInt8(offset + 15),
+    modDepth: buf.readUInt8(offset + 16),
     notes,
     gates,
   };
@@ -907,8 +913,17 @@ function parseEsxStretchPart(buf, offset) {
   const steps = unpackStepBits(buf, offset + 16, 16);
   return {
     sampleNum: buf.readUInt16BE(offset + 0),
+    filterType: buf.readUInt8(offset + 2),
+    cutoff: buf.readUInt8(offset + 3),
+    resonance: buf.readUInt8(offset + 4),
+    egInt: buf.readUInt8(offset + 5),
+    pitch: buf.readUInt8(offset + 6),
     level: buf.readUInt8(offset + 7),
     pan: buf.readUInt8(offset + 8),
+    egTime: buf.readUInt8(offset + 9),
+    startPoint: buf.readUInt8(offset + 10),
+    modSpeed: buf.readUInt8(offset + 13),
+    modDepth: buf.readUInt8(offset + 14),
     steps,
   };
 }
@@ -924,8 +939,15 @@ function parseEsxAudioInPart(buf, offset) {
     gates.push(buf.readUInt8(offset + 28 + i));
   }
   return {
+    filterType: buf.readUInt8(offset + 0),
+    cutoff: buf.readUInt8(offset + 1),
+    resonance: buf.readUInt8(offset + 2),
+    egInt: buf.readUInt8(offset + 3),
     level: buf.readUInt8(offset + 4),
     pan: buf.readUInt8(offset + 5),
+    egTime: buf.readUInt8(offset + 6),
+    modSpeed: buf.readUInt8(offset + 9),
+    modDepth: buf.readUInt8(offset + 10),
     steps,
     gates,
   };
