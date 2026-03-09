@@ -310,6 +310,84 @@ ipcMain.handle('get-float-samples', async (ev, index) => {
 });
 
 // ═══════════════════════════════════════════════════════════
+//  AUDIO ANALYSIS — sample category detection
+// ═══════════════════════════════════════════════════════════
+function analyzeSampleCategory(s) {
+  if (!s || !s.pcmData || s.numFrames < 64) return 'OTHER';
+  const sr = s.sampleRate || 44100;
+  const frames = s.numFrames;
+  const duration = frames / sr;
+
+  // Peak detection
+  let peak = 0, peakFrame = 0;
+  for (let i = 0; i < frames; i++) {
+    const v = Math.abs(s.pcmData.readInt16BE(i * 2));
+    if (v > peak) { peak = v; peakFrame = i; }
+  }
+  const peakTimeMs = (peakFrame / sr) * 1000;
+
+  // Zero-crossing rate + energy distribution (first half vs second half)
+  let zeroCrossings = 0, energyFirst = 0, energySecond = 0;
+  const halfPoint = Math.floor(frames / 2);
+  for (let i = 1; i < frames; i++) {
+    const curr = s.pcmData.readInt16BE(i * 2);
+    const prev = s.pcmData.readInt16BE((i - 1) * 2);
+    if ((curr >= 0 && prev < 0) || (curr < 0 && prev >= 0)) zeroCrossings++;
+    const v = curr * curr;
+    if (i < halfPoint) energyFirst += v; else energySecond += v;
+  }
+  const zcRate = zeroCrossings / (frames / sr);
+  const energyRatio = energyFirst / (energySecond + 1);
+
+  // Classification heuristics
+  if (duration < 0.5 && peakTimeMs < 15 && zcRate < 3000 && energyRatio > 3) return 'KICK';
+  if (duration < 0.5 && peakTimeMs < 15 && zcRate >= 3000 && zcRate < 8000) return 'SNARE';
+  if (duration < 0.35 && zcRate > 5000) return 'HIHAT';
+  if (duration < 0.5 && peakTimeMs < 20 && zcRate >= 2000 && zcRate < 5000) return 'CLAP';
+  if (duration < 0.6 && peakTimeMs < 30 && energyRatio > 2) return 'PERC';
+  if (duration > 1.0 && energyRatio < 2) return 'LOOP';
+  if (duration > 0.2 && zcRate < 2000 && energyRatio < 5) return 'BASS';
+  if (duration > 0.3 && energyRatio < 3) return 'SYNTH';
+  if (duration > 0.3 && energyRatio > 5) return 'FX';
+  return 'OTHER';
+}
+
+safeIpcHandle('analyze-sample-category', async (ev, index) => {
+  if (index < 0 || index >= currentSamples.length) return { category: 'OTHER' };
+  return { category: analyzeSampleCategory(currentSamples[index]) };
+});
+
+safeIpcHandle('analyze-samples-batch', async (ev, indices) => {
+  const results = {};
+  for (const idx of indices) {
+    if (idx < 0 || idx >= currentSamples.length) { results[idx] = 'OTHER'; continue; }
+    results[idx] = analyzeSampleCategory(currentSamples[idx]);
+  }
+  return results;
+});
+
+// ═══════════════════════════════════════════════════════════
+//  SAMPLE TAG PERSISTENCE — .tags.json sidecar files
+// ═══════════════════════════════════════════════════════════
+safeIpcHandle('esx:save-tags', async (ev, { filePath, tags }) => {
+  if (!filePath || !tags) return { error: 'No file path or tags' };
+  try {
+    const tagPath = filePath + '.tags.json';
+    fs.writeFileSync(tagPath, JSON.stringify(tags, null, 2), 'utf-8');
+    return { ok: true, tagPath };
+  } catch (err) { return { error: err.message }; }
+});
+
+safeIpcHandle('esx:load-tags', async (ev, filePath) => {
+  if (!filePath) return null;
+  try {
+    const tagPath = filePath + '.tags.json';
+    if (!fs.existsSync(tagPath)) return null;
+    return JSON.parse(fs.readFileSync(tagPath, 'utf-8'));
+  } catch (err) { return null; }
+});
+
+// ═══════════════════════════════════════════════════════════
 //  BATCH PROCESSING (with undo)
 // ═══════════════════════════════════════════════════════════
 ipcMain.handle('normalize-all', async (ev, { targetDbFs }) => {

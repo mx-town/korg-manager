@@ -17,6 +17,9 @@ contextBridge.exposeInMainWorld('api', {
   getWaveform:      (i)             => ipcRenderer.invoke('get-waveform', i),
   getWavPreview:    (i)             => ipcRenderer.invoke('get-wav-preview', i),
   getFloatSamples:  (i)             => ipcRenderer.invoke('get-float-samples', i),
+  // Audio analysis
+  analyzeSampleCategory: (i)       => ipcRenderer.invoke('analyze-sample-category', i),
+  analyzeSamplesBatch: (indices)   => ipcRenderer.invoke('analyze-samples-batch', indices),
   // Undo/Redo
   undo:             (i)             => ipcRenderer.invoke('undo', i),
   redo:             (i)             => ipcRenderer.invoke('redo', i),
@@ -56,6 +59,8 @@ contextBridge.exposeInMainWorld('api', {
     openPatterns: ()            => ipcRenderer.invoke('esx:open-patterns'),
     getPatternSamples: (nums)   => ipcRenderer.invoke('esx:get-pattern-samples', nums),
     getPatternList: ()          => ipcRenderer.invoke('esx:get-pattern-list'),
+    saveTags: (fp, tags)        => ipcRenderer.invoke('esx:save-tags', { filePath: fp, tags }),
+    loadTags: (fp)              => ipcRenderer.invoke('esx:load-tags', fp),
   },
 
   // ═══ E2S ═══

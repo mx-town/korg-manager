@@ -509,11 +509,15 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
 #patBpmIn:focus{border-color:var(--led)}
 .pat-step-disp{font-family:var(--lcd);font-size:12px;color:var(--txt-x);margin-left:auto}
 .pat-step-disp span{color:var(--hi);font-size:14px}
-.auto-tag-badge{
-  display:inline-block;padding:1px 5px;font-family:var(--head);font-size:8px;
-  font-weight:700;letter-spacing:1px;color:#000;border-radius:2px;
-  vertical-align:middle;margin-left:4px;
-}
+.tag-dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:4px;vertical-align:middle;flex-shrink:0}
+.ctx-menu{display:none;position:fixed;z-index:20000;background:#0a0e1a;border:1px solid var(--brd-h);border-radius:4px;box-shadow:0 4px 20px rgba(0,0,0,.6);min-width:140px;padding:4px 0;font-family:var(--lcd);font-size:11px}
+.ctx-menu.show{display:block}
+.ctx-title{padding:4px 12px;color:var(--txt-x);font-size:8px;letter-spacing:2px;border-bottom:1px solid var(--brd);margin-bottom:2px}
+.ctx-item{display:flex;align-items:center;gap:8px;padding:5px 12px;cursor:pointer;color:var(--txt-d);transition:background .05s}
+.ctx-item:hover{background:rgba(255,255,255,.07);color:#fff}
+.ctx-item .ctx-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.ctx-item.ctx-active{color:var(--led);font-weight:bold}
+.ctx-divider{height:1px;background:var(--brd);margin:3px 0}
 .pat-badge{
   display:inline-flex;align-items:center;gap:4px;
   padding:3px 10px;background:rgba(30,80,160,.15);
@@ -761,7 +765,6 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
       <div class="hsep"></div>
       <button class="btn btn-hi" onclick="saveEsx()">💾 EXPORT .ESX</button>
       <button class="btn" onclick="openGuide()">📖 GUIDE</button>
-      <button class="btn btn-sm" onclick="bAutoTagAll()" title="Auto-tag all samples (Kick/Snare/HiHat/Melodic)">🏷 AUTO-TAG</button>
       <button class="btn btn-warn btn-sm btn-ghost" onclick="clearAll()">🗑</button>
     </div>
   </div>
@@ -1108,23 +1111,96 @@ function fmtTime(sec){if(sec<0)sec=0;const m=Math.floor(sec/60),s=sec-m*60;retur
 function updateState(s){if(!s)return;S=s;renderList();updateMem();updatePath();if(sel>=0)updateUndo()}
 
 // ═══ CATEGORY DETECTION ═══
+window._sampleTags={};  // manual category overrides via context menu
+window._autoTags={};    // audio analysis results (fallback for keyword matching)
+
 const CAT_MAP={
-  KICK:['kick','kck','kik','bd','bassdrum','bass_drum'],
-  SNARE:['snare','snr','sd','rimshot','rim'],
-  CLAP:['clap','clp','cp'],
-  HIHAT:['hat','hh','hihat','hi_hat'],
-  PERC:['perc','prc','tom','conga','bongo','shaker','tamb','cowbell','clave','wood'],
-  CYMBAL:['cymbal','cym','crash','ride'],
-  FX:['fx','rise','riser','impact','sweep','noise','down','siren'],
-  SYNTH:['synth','stab','bass','lead','pad','chord','arp','acid'],
-  VOCAL:['vox','vocal','voice']
+  KICK:[
+    'kick','kck','kik','bd','bassdrum','bass_drum','bass dr',
+    'bombo','bdr','bdrum','b drum',
+    'hard','thud','boom','stomp','punch','low kick',
+  ],
+  SNARE:[
+    'snare','snr','sd','rimshot','rim','snaredrum','snr drm',
+    'snar','crack','snap','whack','piccolo',
+    'rims','x stick','sidestick','side st',
+  ],
+  CLAP:['clap','clp','cp','handclap','hclap','h clap'],
+  HIHAT:[
+    'hat','hh','hihat','hi hat','hi_hat',
+    'hh cl','hh op','hhc','hho','h hat',
+    'closed h','open h','pedal h','ch','oh',
+  ],
+  PERC:[
+    'perc','prc','tom','conga','bongo','shaker','tamb','cowbell',
+    'clave','wood','block','timbale','timb','agogo','guiro',
+    'cabasa','maracas','bell','triangle','tabla','djembe',
+    'click','knock','tap','stick','tribal',
+  ],
+  CYMBAL:['cymbal','cym','crash','ride','splash','china','bell cy'],
+  BASS:[
+    'bass','bas','sub bas','808','reese','wobble',
+    'b line','bline','low end',
+  ],
+  FX:[
+    'fx','rise','riser','impact','sweep','noise','down','siren',
+    'laser','zap','glitch','rev','revrse','textur','atmo',
+    'whoosh','drop','hit','boom fx','sci','space',
+  ],
+  SYNTH:[
+    'synth','stab','lead','pad','chord','arp','acid',
+    'pluck','key','organ','piano','string','brass','horn',
+    'sub','sqr','saw','sine','wave','osc','ring',
+  ],
+  VOCAL:['vox','vocal','voice','sing','scream','shout','talk','word','speak','mc','rap'],
+  LOOP:['loop','break','beat','rhythm','groove','pattern','drm lp','drum lp'],
 };
-function detectCategory(name){
-  const n=name.toLowerCase().replace(/[^a-z0-9]/g,' ');
-  for(const[cat,keys]of Object.entries(CAT_MAP)){for(const k of keys){if(n.includes(k))return cat}}
+// Short keywords that must match as whole words only (avoid false positives)
+const CAT_SHORT_WORDS=new Set(['bd','sd','cp','hh','ch','oh','fx','mc','bas','sub','sqr','saw','rev','hit','rap','key','osc','tap']);
+
+function detectCategory(name,index){
+  // 1. Manual override (highest priority)
+  if(index!==undefined&&window._sampleTags&&window._sampleTags[index])return window._sampleTags[index];
+  // 2. Audio analysis result
+  if(index!==undefined&&window._autoTags&&window._autoTags[index])return window._autoTags[index];
+  // 3. Keyword matching
+  const n=name.toLowerCase().replace(/[^a-z0-9]/g,' ').replace(/\s+/g,' ').trim();
+  const words=n.split(' ');
+  for(const[cat,keys]of Object.entries(CAT_MAP)){
+    for(const k of keys){
+      if(CAT_SHORT_WORDS.has(k)){if(words.includes(k))return cat}
+      else{if(n.includes(k))return cat}
+    }
+  }
   return 'OTHER';
 }
-function toggleSort(){sortMode=(sortMode+1)%SORT_MODES.length;const btn=document.getElementById('sortBtn');btn.classList.toggle('act',sortMode>0);btn.textContent=sortMode?`⇅ ${SORT_MODES[sortMode]}`:'⇅ SORT';renderList()}
+async function toggleSort(){
+  sortMode=(sortMode+1)%SORT_MODES.length;
+  const btn=document.getElementById('sortBtn');
+  btn.classList.toggle('act',sortMode>0);
+  btn.textContent=sortMode?`⇅ ${SORT_MODES[sortMode]}`:'⇅ SORT';
+  if(SORT_MODES[sortMode]==='TYPE'&&S.samples&&S.samples.length&&window.api.analyzeSamplesBatch){
+    // Find samples that keyword matching can't classify and have no manual/auto tag
+    const otherIndices=S.samples.filter(s=>{
+      if(window._sampleTags[s.index])return false;
+      if(window._autoTags[s.index])return false;
+      return detectCategory(s.name)==='OTHER';
+    }).map(s=>s.index);
+    if(otherIndices.length>0){
+      try{
+        const results=await window.api.analyzeSamplesBatch(otherIndices);
+        if(results&&!results.error){
+          let tagged=0;
+          for(const[idx,cat]of Object.entries(results)){
+            if(cat&&cat!=='OTHER'){window._autoTags[parseInt(idx)]=cat;tagged++}
+          }
+          if(tagged>0)toast(`Auto-tagged ${tagged} samples by audio analysis`,'success');
+        }
+      }catch(e){console.warn('Audio analysis failed:',e)}
+    }
+  }
+  renderList();
+}
 function toggleCheck(i,ev){ev.stopPropagation();if(checked.has(i))checked.delete(i);else checked.add(i);updateSelBadge();renderList()}
 function toggleSelectAll(){if(checked.size===S.numSamples){checked.clear();document.getElementById('selAllBtn').textContent='☐ ALL'}else{S.samples.forEach(s=>checked.add(s.index));document.getElementById('selAllBtn').textContent='☑ NONE'}updateSelBadge();renderList()}
 function updateSelBadge(){const b=document.getElementById('selBadge');if(checked.size>0){b.style.display='inline';b.textContent=checked.size}else{b.style.display='none'}}
@@ -1136,8 +1212,8 @@ function renderList(){
   let samples=[...S.samples];
   const sm=SORT_MODES[sortMode];
   if(sm==='TYPE'){
-    const CAT_ORDER=['KICK','SNARE','CLAP','HIHAT','CYMBAL','PERC','FX','SYNTH','VOCAL','OTHER'];
-    samples.sort((a,b)=>{const ca=CAT_ORDER.indexOf(detectCategory(a.name)),cb=CAT_ORDER.indexOf(detectCategory(b.name));return ca!==cb?ca-cb:a.name.localeCompare(b.name)});
+    const CAT_ORDER=['KICK','SNARE','CLAP','HIHAT','CYMBAL','PERC','BASS','SYNTH','VOCAL','LOOP','FX','OTHER'];
+    samples.sort((a,b)=>{const ca=CAT_ORDER.indexOf(detectCategory(a.name,a.index)),cb=CAT_ORDER.indexOf(detectCategory(b.name,b.index));if(ca<0&&cb<0)return a.name.localeCompare(b.name);if(ca<0)return 1;if(cb<0)return-1;return ca!==cb?ca-cb:a.name.localeCompare(b.name)});
   }else if(sm==='NAME'){
     samples.sort((a,b)=>a.name.localeCompare(b.name));
   }else if(sm==='LENGTH'){
@@ -1147,88 +1223,33 @@ function renderList(){
   }
   let h='',lastCat=null;
   for(const s of samples){
-    if(sm==='TYPE'){const cat=detectCategory(s.name);if(cat!==lastCat){const cnt=samples.filter(x=>detectCategory(x.name)===cat).length;h+=`<div class="cat-div">▸ ${cat} (${cnt})</div>`;lastCat=cat}}
+    if(sm==='TYPE'){const cat=detectCategory(s.name,s.index);if(cat!==lastCat){const cnt=samples.filter(x=>detectCategory(x.name,x.index)===cat).length;h+=`<div class="cat-div">▸ ${cat} (${cnt})</div>`;lastCat=cat}}
     const a=s.index===sel,ck=checked.has(s.index),r=s.sampleRate>=1000?`${(s.sampleRate/1000).toFixed(1)}k`:s.sampleRate,d=s.duration<1?`${(s.duration*1000).toFixed(0)}ms`:`${s.duration.toFixed(2)}s`,z=s.sizeBytes>1048576?`${(s.sizeBytes/1048576).toFixed(1)}M`:`${(s.sizeBytes/1024).toFixed(0)}K`,f=s.folder||'—',fc=s.folder?'sf has':'sf';
-    const tag=window._sampleTags&&window._sampleTags[s.index];
-    const tagBadge=tag?`<span class="auto-tag-badge" style="background:${TAG_COLORS[tag]||'#444'}">${tag}</span>`:'';
-    h+=`<div class="ss ${a?'act':''} ${ck?'checked':''}" onclick="selS(${s.index})" ondblclick="startRen(${s.index})"><input type="checkbox" class="ss-chk" ${ck?'checked':''} onclick="toggleCheck(${s.index},event)"><div class="si">${String(s.index+1).padStart(3,'0')}</div><div class="sn">${esc(s.name)}${tagBadge}</div><div class="${fc}" title="${esc(f)}">${esc(f)}</div><div class="sr">${r}</div><div class="sd">${d}</div><div class="sz">${z}</div><button class="sx" onclick="event.stopPropagation();remS(${s.index})">✕</button></div>`}
+    const mt=window._sampleTags[s.index];
+    const tagDot=mt?`<span class="tag-dot" style="background:${CTX_COLORS[mt]||'#444'}" title="${mt}"></span>`:'';
+    h+=`<div class="ss ${a?'act':''} ${ck?'checked':''}" onclick="selS(${s.index})" ondblclick="startRen(${s.index})" oncontextmenu="showCtxMenu(event,${s.index})"><input type="checkbox" class="ss-chk" ${ck?'checked':''} onclick="toggleCheck(${s.index},event)"><div class="si">${String(s.index+1).padStart(3,'0')}</div><div class="sn">${tagDot}${esc(s.name)}</div><div class="${fc}" title="${esc(f)}">${esc(f)}</div><div class="sr">${r}</div><div class="sd">${d}</div><div class="sz">${z}</div><button class="sx" onclick="event.stopPropagation();remS(${s.index})">✕</button></div>`}
   l.innerHTML=h}
 function updateMem(){const b=document.getElementById('mB'),t=document.getElementById('mT'),p=parseFloat(S.usedPercent||0);b.style.width=`${p}%`;t.textContent=`${p}%`;b.classList.remove('w','c');if(p>90)b.classList.add('c');else if(p>70)b.classList.add('w');document.getElementById('mU').textContent=`${((S.totalSizeBytes||0)/1048576).toFixed(1)} MB`;document.getElementById('mD').textContent=(S.totalDuration||0).toFixed(1)}
 function updatePath(){const v=document.getElementById('pV'),s=document.getElementById('pS');if(!fp&&!S.numSamples){v.innerHTML='<span style="color:var(--txt-x)">// nichts geladen</span>';s.className='pbar-st em';s.textContent='LEER'}else if(!fp){v.innerHTML=`<span style="color:var(--yel)">NICHT GESPEICHERT</span> <span style="color:var(--txt-x)">(${S.numSamples})</span>`;s.className='pbar-st un';s.textContent='NEU'}else{const p=fp.replace(/\\/g,'/').split('/'),fn=p.pop(),fd=p.slice(-3).join('/');v.innerHTML=`<span class="fld">${esc(fd)}/</span><span class="fil">${esc(fn)}</span>`;s.className=dirty?'pbar-st un':'pbar-st sv';s.textContent=dirty?'MODIFIED':'SAVED'}}
 
-// ═══════════════════════════════════════════════════════════
-//  AUTO-TAGGING (meyda.js heuristics)
-// ═══════════════════════════════════════════════════════════
-const TAG_COLORS={
-  KICK:'#ff4444',SNARE:'#ff8844',HIHAT:'#ffdd44',
-  MELODIC:'#44ddff',NOISE:'#aaaaaa',LOOP:'#44ff88',OTHER:'#666666'
-};
-
-async function autoTagSample(index){
-  if(typeof Meyda==='undefined')return null;
-  try{
-    const data=await window.api.getFloatSamples(index);
-    if(!data||!data.floats||data.floats.length<512)return null;
-
-    const floats=new Float32Array(data.floats);
-    const bufSize=512;
-    const numFrames=Math.floor(floats.length/bufSize);
-    const frameCount=Math.min(numFrames,8);
-
-    let centroidSum=0,zcSum=0,energySum=0,flatSum=0,frames=0;
-    for(let f=0;f<frameCount;f++){
-      const slice=floats.slice(f*bufSize,(f+1)*bufSize);
-      try{
-        const features=Meyda.extract(['spectralCentroid','zcr','energy','spectralFlatness'],slice);
-        if(features&&features.energy>0.00001){
-          centroidSum+=features.spectralCentroid||0;
-          zcSum+=features.zcr||0;
-          energySum+=features.energy||0;
-          flatSum+=features.spectralFlatness||0;
-          frames++;
-        }
-      }catch(e){/* skip bad frame */}
-    }
-    if(frames===0)return 'OTHER';
-
-    const centroid=centroidSum/frames;
-    const zcr=zcSum/frames;
-    const flatness=flatSum/frames;
-    const normCentroid=centroid/(data.sampleRate/2);
-
-    let tag='OTHER';
-    if(normCentroid<0.08&&zcr<0.15)         tag='KICK';
-    else if(normCentroid<0.25&&zcr>0.15)    tag='SNARE';
-    else if(normCentroid>0.35&&flatness>0.3) tag='HIHAT';
-    else if(normCentroid>0.35&&flatness<0.3) tag='MELODIC';
-    else if(flatness>0.5)                    tag='NOISE';
-    else                                     tag='OTHER';
-
-    return tag;
-  }catch(err){
-    console.warn('autoTag error:',err);
-    return null;
-  }
-}
-
-async function bAutoTagAll(){
-  if(!S.numSamples||S.numSamples===0){toast('No samples loaded','error');return}
-  toast('Analysing samples...','info');
-  let tagged=0;
-  if(!window._sampleTags)window._sampleTags={};
-  for(let i=0;i<S.numSamples;i++){
-    const tag=await autoTagSample(i);
-    if(tag&&tag!=='OTHER'){
-      window._sampleTags[i]=tag;
-      tagged++;
-    }
-  }
-  renderList();
-  toast(`Tagged ${tagged}/${S.numSamples} samples`,'success');
-}
-
 // ═══ ACTIONS ═══
-async function openEsx(){const r=await window.api.openEsxFile();if(!r)return;if(r.error){toast(r.error,'error');return}fp=r.filePath;dirty=false;sel=-1;hideDet();updateState(await window.api.getState());toast(`LOADED: ${r.filePath.split(/[\\/]/).pop()}`,'success')}
+async function openEsx(){
+  const r=await window.api.openEsxFile();if(!r)return;if(r.error){toast(r.error,'error');return}
+  fp=r.filePath;dirty=false;sel=-1;window._sampleTags={};window._autoTags={};hideDet();
+  // Load persisted tags from sidecar file
+  if(window.api.esx&&window.api.esx.loadTags){
+    try{
+      const saved=await window.api.esx.loadTags(fp);
+      if(saved&&typeof saved==='object'){
+        for(const[k,v]of Object.entries(saved)){
+          const idx=parseInt(k);
+          if(!isNaN(idx)&&typeof v==='string')window._sampleTags[idx]=v;
+        }
+      }
+    }catch(e){console.warn('Tag load failed:',e)}
+  }
+  updateState(await window.api.getState());toast(`LOADED: ${r.filePath.split(/[\\/]/).pop()}`,'success');
+}
 async function importWav(){const r=await window.api.importWavFiles();if(!r||!r.imported)return;r.imported.filter(x=>x.error).forEach(x=>toast(`${x.originalName}: ${x.error}`,'error'));const ok=r.imported.filter(x=>x.ok).length;if(ok>0){dirty=true;toast(`${ok} IMPORTIERT`,'success')}updateState(r.state)}
 async function importZip(){const r=await window.api.importZip();if(!r||!r.imported)return;let ok=0,er=0;r.imported.forEach(x=>{if(x.error){er++;if(er<=3)toast(x.error,'error')}else if(x.ok)ok++});if(ok>0){dirty=true;toast(`${ok} AUS ${r.zipName||'ZIP'} EXTRAHIERT`,'success')}updateState(r.state)}
 async function remS(i){const s=await window.api.removeSample(i);dirty=true;if(sel===i){sel=-1;hideDet()}else if(sel>i)sel--;updateState(s)}
@@ -1253,7 +1274,7 @@ async function saveEsx(){
   prog.style.display='none';
   if(!r)return;if(r.error){toast(r.error,'error');return}fp=r.filePath;dirty=false;updatePath();toast(`GESPEICHERT → ${r.filePath.split(/[\\/]/).pop()} [${(r.size/1048576).toFixed(1)}MB]`,'success')}
 async function expWav(){if(sel<0)return;const f=await window.api.exportWav(sel);if(f)toast(`EXPORTED → ${f.split(/[\\/]/).pop()}`,'success')}
-async function clearAll(){if(!S.numSamples)return;if(!confirm('⚠ ALLES ZERSTÖREN?'))return;stopPlay();sel=-1;fp=null;dirty=false;hideDet();updateState(await window.api.clearAll());toast('ZERSTÖRT','info')}
+async function clearAll(){if(!S.numSamples)return;if(!confirm('⚠ ALLES ZERSTÖREN?'))return;stopPlay();sel=-1;fp=null;dirty=false;window._sampleTags={};window._autoTags={};hideDet();updateState(await window.api.clearAll());toast('ZERSTÖRT','info')}
 async function bNorm(){if(!S.numSamples)return;const r=await window.api.normalizeAll(-1);if(r){dirty=true;toast(`${r.normalized}/${r.total} NORMALIZED`,'success');updateState(r.state);if(sel>=0)reWf()}}
 async function bTrim(){if(!S.numSamples)return;const r=await window.api.trimAll(-40);if(r){dirty=true;toast(`${r.trimmed}/${r.total} GETRIMMT`,'success');updateState(r.state);if(sel>=0){showDet(sel);reWf()}}}
 async function dupSample(){if(sel<0)return;const r=await window.api.duplicateSample(sel);if(r){dirty=true;updateState(r);toast('DUPLIZIERT','success')}}
@@ -3038,6 +3059,52 @@ if(window.api&&window.api.onSdCardInserted){
     updateSdCardStatus(null,false);
   });
 }
+// ═══ TAG PERSISTENCE ═══
+function saveTagsToFile(){
+  if(!fp||!window._sampleTags)return;
+  if(window.api.esx&&window.api.esx.saveTags){
+    window.api.esx.saveTags(fp,window._sampleTags).catch(e=>console.warn('Tag save failed:',e));
+  }
+}
+
+// ═══ CONTEXT MENU — sample type override ═══
+const CTX_COLORS={KICK:'#c5305c',SNARE:'#e67e22',CLAP:'#e74c3c',HIHAT:'#f1c40f',CYMBAL:'#f39c12',PERC:'#9b59b6',BASS:'#1abc9c',SYNTH:'#3498db',VOCAL:'#e91e63',LOOP:'#00bcd4',FX:'#607d8b',OTHER:'#444'};
+const CTX_CATS=['KICK','SNARE','CLAP','HIHAT','CYMBAL','PERC','BASS','SYNTH','VOCAL','LOOP','FX','OTHER'];
+let ctxMenuTarget=-1;
+
+function showCtxMenu(e,idx){
+  e.preventDefault();
+  ctxMenuTarget=idx;
+  const menu=document.getElementById('ctxMenu'),items=document.getElementById('ctxItems');
+  const sample=S.samples.find(s=>s.index===idx);
+  const cur=sample?detectCategory(sample.name,idx):'OTHER';
+  const hasManual=!!(window._sampleTags&&window._sampleTags[idx]);
+  let h='';
+  for(const cat of CTX_CATS){
+    const act=cur===cat?' ctx-active':'';
+    h+=`<div class="ctx-item${act}" data-cat="${cat}"><span class="ctx-dot" style="background:${CTX_COLORS[cat]}"></span>${cat}</div>`;
+  }
+  if(hasManual){h+=`<div class="ctx-divider"></div><div class="ctx-item" data-cat="__clear">✕ CLEAR OVERRIDE</div>`}
+  items.innerHTML=h;
+  menu.classList.add('show');
+  const mw=menu.offsetWidth,mh=menu.offsetHeight;
+  let x=e.clientX,y=e.clientY;
+  if(x+mw>window.innerWidth)x=window.innerWidth-mw-4;
+  if(y+mh>window.innerHeight)y=window.innerHeight-mh-4;
+  menu.style.left=x+'px';menu.style.top=y+'px';
+  items.querySelectorAll('.ctx-item').forEach(it=>{
+    it.addEventListener('click',()=>{
+      const cat=it.dataset.cat;
+      if(cat==='__clear'){delete window._sampleTags[ctxMenuTarget]}
+      else{window._sampleTags[ctxMenuTarget]=cat}
+      hideCtxMenu();renderList();saveTagsToFile();
+    });
+  });
+}
+function hideCtxMenu(){document.getElementById('ctxMenu').classList.remove('show');ctxMenuTarget=-1}
+document.addEventListener('click',e=>{if(!e.target.closest('.ctx-menu'))hideCtxMenu()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')hideCtxMenu()});
 </script>
+<div class="ctx-menu" id="ctxMenu"><div class="ctx-title">SET TYPE</div><div class="ctx-items" id="ctxItems"></div></div>
 </body>
 </html>
