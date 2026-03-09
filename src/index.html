@@ -533,6 +533,38 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
 .ctx-item .ctx-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .ctx-item.ctx-active{color:var(--led);font-weight:bold}
 .ctx-divider{height:1px;background:var(--brd);margin:3px 0}
+
+/* ═══ SAMPLE PICKER OVERLAY ═══ */
+.sample-picker-bg{display:none;position:fixed;inset:0;background:rgba(2,4,12,.85);z-index:15000;backdrop-filter:blur(4px);align-items:center;justify-content:center}
+.sample-picker-bg.show{display:flex}
+.sample-picker{width:420px;max-height:70vh;background:#0a0e1a;border:1px solid var(--brd-h);border-radius:6px;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.6)}
+.smp-header{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--brd);flex-shrink:0}
+.smp-title{font-family:var(--head);font-size:11px;font-weight:bold;color:var(--txt-x);letter-spacing:2px}
+.smp-part-label{font-family:var(--lcd);font-size:12px;color:var(--led);margin-right:auto}
+.smp-search{width:120px;padding:4px 8px;background:rgba(255,255,255,.04);border:1px solid var(--brd-h);border-radius:3px;color:var(--txt);font-family:var(--lcd);font-size:11px;outline:none}
+.smp-search:focus{border-color:var(--led)}
+.smp-close{background:none;border:none;color:var(--txt-x);font-size:16px;cursor:pointer;padding:2px 6px}
+.smp-close:hover{color:#fff}
+.smp-list{flex:1;overflow-y:auto;padding:4px 0}
+.smp-list::-webkit-scrollbar{width:6px}
+.smp-list::-webkit-scrollbar-track{background:var(--void)}
+.smp-list::-webkit-scrollbar-thumb{background:var(--blue-d);border-radius:3px}
+.smp-cat{display:flex;align-items:center;gap:6px;padding:6px 14px;font-family:var(--head);font-size:9px;font-weight:bold;color:var(--txt-x);letter-spacing:1.5px;border-top:1px solid var(--brd);user-select:none}
+.smp-cat:first-child{border-top:none}
+.smp-cat-dot{width:6px;height:6px;border-radius:50%}
+.smp-cat-count{margin-left:auto;font-weight:normal;color:var(--txt-x);font-family:var(--lcd);font-size:9px}
+.smp-item{display:flex;align-items:center;gap:8px;padding:5px 14px 5px 24px;cursor:pointer;font-family:var(--lcd);font-size:11px;color:var(--txt-d);transition:background .05s}
+.smp-item:hover{background:rgba(255,255,255,.06);color:#fff}
+.smp-item.smp-active{background:rgba(0,204,255,.08);color:var(--led);border-left:2px solid var(--led);padding-left:22px}
+.smp-item.smp-playing{background:rgba(197,48,92,.1)}
+.smp-item .smp-idx{color:var(--txt-x);font-size:9px;width:28px;text-align:right;flex-shrink:0}
+.smp-item .smp-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.smp-item .smp-dur{color:var(--txt-x);font-size:9px;flex-shrink:0}
+.smp-item .smp-preview-btn{width:20px;height:20px;border:1px solid var(--brd-h);border-radius:50%;background:transparent;color:var(--txt-x);font-size:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .08s}
+.smp-item .smp-preview-btn:hover{border-color:var(--hi);color:var(--hi);background:rgba(197,48,92,.1)}
+.smp-footer{padding:8px 14px;border-top:1px solid var(--brd);flex-shrink:0}
+.smp-current{font-family:var(--lcd);font-size:10px;color:var(--txt-x)}
+
 .pat-badge{
   display:inline-flex;align-items:center;gap:4px;
   padding:3px 10px;background:rgba(30,80,160,.15);
@@ -584,43 +616,39 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
   color:var(--hi);font-weight:bold;
 }
 
-/* ── PARTS view: 16 part buttons ── */
-.parts-grid{
-  display:grid;grid-template-columns:repeat(8,1fr);
-  gap:6px;padding:12px 16px;
+/* ── PARTS view: two-row hardware layout ── */
+.parts-rows{display:flex;flex-direction:column;gap:8px;padding:12px 16px 8px}
+.parts-row-line{display:flex;align-items:flex-end;gap:0}
+.parts-group{display:flex;flex-direction:column;align-items:center;gap:0}
+.parts-group-label{
+  font-family:var(--lcd);font-size:7px;color:var(--txt-x);
+  letter-spacing:1.5px;text-align:center;padding-bottom:3px;white-space:nowrap;
 }
+.parts-group-row{display:flex;gap:3px}
+.parts-sep{width:1px;background:var(--brd);margin:0 6px;align-self:stretch;opacity:.5}
 .part-btn{
-  border:2px solid var(--brd-h);border-radius:6px;
-  background:rgba(255,255,255,.03);padding:8px 4px;
+  border:1.5px solid var(--brd-h);border-radius:5px;
+  background:rgba(255,255,255,.03);padding:10px 6px 6px;
   cursor:pointer;display:flex;flex-direction:column;
   align-items:center;gap:3px;position:relative;
-  min-height:72px;transition:border-color .1s,background .1s;
+  flex:1;min-width:0;
+  transition:border-color .1s,background .1s,opacity .15s;
 }
 .part-btn:hover{background:rgba(255,255,255,.06)}
 .part-btn.part-sel{border-width:2px}
-.part-btn.part-muted{opacity:0.3}
-.part-btn .part-type-lbl{
+.part-btn.part-empty{opacity:0.2}
+.part-btn.part-empty:hover{opacity:0.4}
+.part-type-lbl{
   font-family:var(--head);font-size:13px;font-weight:bold;
-  letter-spacing:1px;
+  letter-spacing:.5px;
 }
-.part-btn .part-sample-lbl{
+.part-sample-lbl{
   font-family:var(--lcd);font-size:9px;color:var(--txt-x);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
   max-width:100%;text-align:center;
 }
-.part-btn .part-ms{
-  display:flex;gap:2px;position:absolute;top:3px;right:3px;
-}
-.part-btn .part-ms-btn{
-  width:14px;height:12px;border:1px solid var(--brd-h);
-  background:rgba(255,255,255,.04);color:var(--txt-x);
-  font-family:var(--lcd);font-size:7px;cursor:pointer;
-  display:inline-flex;align-items:center;justify-content:center;
-  border-radius:2px;
-}
-.part-btn .part-ms-btn:hover{background:rgba(255,255,255,.12)}
-.part-btn .part-ms-btn.muted{background:rgba(197,48,92,.5);color:#fff;border-color:#c5305c}
-.part-btn .part-ms-btn.soloed{background:rgba(255,235,59,.5);color:#111;border-color:#ffeb3b}
+.part-sample-pick{cursor:pointer;transition:color .1s}
+.part-sample-pick:hover{color:var(--led)!important;text-decoration:underline}
 
 /* ── Parameter area ── */
 .part-params{
@@ -645,13 +673,12 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
 
 /* ── Mini step bar in part buttons ── */
 .part-step-bar{
-  display:flex;gap:1px;width:100%;max-width:100%;height:6px;margin-top:2px;
+  display:flex;gap:1px;width:100%;height:5px;margin-top:2px;
   padding:0 2px;box-sizing:border-box;
 }
 .part-step-bar .psb{flex:1;border-radius:1px;min-width:0}
 .part-activity{
   font-family:var(--lcd);font-size:7px;color:var(--txt-x);
-  letter-spacing:.5px;margin-top:1px;
 }
 
 /* ── STEPS part nav ── */
@@ -676,6 +703,8 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
 }
 .seq-part-name{font-family:var(--head);font-size:15px;font-weight:bold}
 .seq-sample-name{font-family:var(--lcd);font-size:12px;color:var(--led)}
+.seq-sample-pick{cursor:pointer;transition:color .1s}
+.seq-sample-pick:hover{color:var(--hi)!important;text-decoration:underline}
 .seq-steps{
   display:flex;flex-wrap:wrap;gap:6px;padding:16px;justify-content:center;
 }
@@ -1639,7 +1668,7 @@ async function openModify(){
   buildFxList();document.getElementById('modalBg').classList.add('show');
   if(!batch)drawModalWf();else drawModalWfStatic();
 }
-function closeModal(){document.getElementById('modalBg').classList.remove('show')}
+function closeModal(){document.getElementById('modalBg')?.classList.remove('show')}
 
 async function applyFxSingle(id,idx){
   let r;const gv=i=>+document.getElementById(i).value;
@@ -1719,8 +1748,8 @@ function setupDrop(){const d=document.getElementById('dZ');if(!d)return;d.addEve
 setupDrop();document.addEventListener('dragover',e=>e.preventDefault());document.addEventListener('drop',e=>{e.preventDefault();if(e.dataTransfer?.files?.length)importWav()});
 document.addEventListener('keydown',e=>{
   if(e.target.tagName==='INPUT')return;
-  if(e.key==='Escape'){closeModal();document.getElementById('guideBg').classList.remove('show');return}
-  if(document.getElementById('modalBg').classList.contains('show')||document.getElementById('guideBg').classList.contains('show')){if(e.key===' '&&sel>=0){e.preventDefault();togglePlay()}return}
+  if(e.key==='Escape'){closeModal();document.getElementById('guideBg')?.classList.remove('show');return}
+  if(document.getElementById('modalBg')?.classList.contains('show')||document.getElementById('guideBg')?.classList.contains('show')){if(e.key===' '&&sel>=0){e.preventDefault();togglePlay()}return}
   if(e.key==='Delete'&&sel>=0)remCur();
   if(e.key===' '&&sel>=0){e.preventDefault();togglePlay()}
   if(activeDevice==='esx1'&&e.key==='ArrowDown'&&sel<S.numSamples-1)selS(sel+1);
@@ -2077,6 +2106,7 @@ async function patOpenESX(){
   patFormat='ESX-1';
   patData=r.patterns||[];
   Object.keys(patSampleCache).forEach(k=>delete patSampleCache[k]);
+  smpDirectory=null;
   patSel=patData.length?0:-1;
   document.getElementById('patFormatBadge').textContent='ESX-1';
   patRenderList();
@@ -2413,62 +2443,79 @@ function partsRender(pat){
   const muteStatus=pat.muteStatus||0;
   const wrap=document.getElementById('partsGrid');
   if(!wrap)return;
+  const totalSteps=patStepCount(pat);
+  const stepsToShow=Math.min(totalSteps,16);
 
-  let h='<div class="parts-grid">';
-  for(let i=0;i<16;i++){
+  const row1Groups=[{label:'DRUM PART',indices:[0,1,2,3,4,5,6,7,8]}];
+  const row2Groups=[
+    {label:'KEYBOARD',indices:[9,10]},
+    {label:'STRETCH',indices:[11,12]},
+    {label:'SLICE',indices:[13]},
+    {label:'AUDIO IN',indices:[14]},
+    {label:'ACCENT',indices:[15]},
+  ];
+
+  function buildPartBtn(i){
     const p=parts[i];
     const pType=(p&&p.type)||'drum';
     const col=PAT_PX_LABEL[pType]||'#c5305c';
     const rgb=PAT_PX_COLORS[pType]||'197,48,92';
-    const isMuted=!!(muteStatus&(1<<i));
-    const isSoloed=patSoloActive===i;
     const isSelected=i===patSeqPart;
     const label=SEQ_PART_LABELS[i]||`P${i+1}`;
     const sName=(p&&p.sampleName)?esc(p.sampleName):'—';
     const selStyle=isSelected?`border-color:${col};background:rgba(${rgb},.15)`:'';
-
-    h+=`<div class="part-btn${isMuted?' part-muted':''}${isSelected?' part-sel':''}" data-part="${i}" style="${selStyle}">`;
-    h+=`<div class="part-ms">`;
-    h+=`<div class="part-ms-btn${isMuted?' muted':''}" data-action="mute" data-part="${i}">M</div>`;
-    h+=`<div class="part-ms-btn${isSoloed?' soloed':''}" data-action="solo" data-part="${i}">S</div>`;
-    h+=`</div>`;
+    const hasSample=p&&p.sampleNum!=null&&p.sampleNum!==0x8000&&p.sampleNum!==0xFFFF;
+    let hasSteps=false,activeCount=0;
+    if(p){for(let s=0;s<totalSteps;s++){if(patGetStep(p,s)){hasSteps=true;activeCount++}}}
+    const isEmpty=!hasSample&&!hasSteps;
+    let h=`<div class="part-btn${isSelected?' part-sel':''}${isEmpty?' part-empty':''}" data-part="${i}" style="${selStyle}">`;
     h+=`<div class="part-type-lbl" style="color:${col}">${label}</div>`;
-    h+=`<div class="part-sample-lbl">${sName}</div>`;
-    // Mini step bar (first 16 steps)
-    h+=`<div class="part-step-bar">`;
-    let activeCount=0;
-    for(let s=0;s<16;s++){
+    h+=`<div class="part-sample-lbl part-sample-pick" data-part="${i}" title="Click to change sample">${sName}</div>`;
+    h+='<div class="part-step-bar">';
+    for(let s=0;s<stepsToShow;s++){
       const on=patGetStep(p,s);
-      if(on)activeCount++;
       h+=`<div class="psb" style="background:${on?`rgba(${rgb},.7)`:'rgba(255,255,255,.06)'}"></div>`;
     }
-    h+=`</div>`;
-    h+=`<div class="part-activity">${activeCount}/16</div>`;
-    h+=`</div>`;
+    h+='</div>';
+    h+=`<div class="part-activity">${activeCount}/${totalSteps}</div>`;
+    h+='</div>';
+    return h;
   }
-  h+='</div>';
-  wrap.innerHTML=h;
 
-  // Event handlers
+  function buildRow(groups){
+    let h='<div class="parts-row-line">';
+    for(let g=0;g<groups.length;g++){
+      if(g>0)h+='<div class="parts-sep"></div>';
+      h+='<div class="parts-group">';
+      h+=`<div class="parts-group-label">${groups[g].label}</div>`;
+      h+='<div class="parts-group-row">';
+      for(const i of groups[g].indices)h+=buildPartBtn(i);
+      h+='</div></div>';
+    }
+    h+='</div>';
+    return h;
+  }
+
+  let html='<div class="parts-rows">';
+  html+=buildRow(row1Groups);
+  html+=buildRow(row2Groups);
+  html+='</div>';
+  wrap.innerHTML=html;
+
   wrap.querySelectorAll('.part-btn').forEach(btn=>{
     btn.addEventListener('click',(e)=>{
-      // Ignore if clicking M/S buttons
-      if(e.target.classList.contains('part-ms-btn'))return;
+      if(e.target.classList.contains('part-sample-pick'))return;
       patSeqPart=parseInt(btn.dataset.part);
       partsRender(pat);
     });
   });
-  wrap.querySelectorAll('.part-ms-btn').forEach(btn=>{
-    btn.addEventListener('click',(e)=>{
+  wrap.querySelectorAll('.part-sample-pick').forEach(el=>{
+    el.addEventListener('click',(e)=>{
       e.stopPropagation();
-      const idx=parseInt(btn.dataset.part);
-      const action=btn.dataset.action;
-      if(action==='mute')patToggleMute(idx);
-      else if(action==='solo')patToggleSolo(idx);
+      openSamplePicker(parseInt(el.dataset.part));
     });
   });
 
-  // Render parameter area for selected part
   partsRenderParams(pat, parts[patSeqPart]);
 }
 
@@ -2551,9 +2598,15 @@ function stepsRender(pat){
 
   // Info header
   const info=document.getElementById('seqInfo');
-  if(info)info.innerHTML=
-    `<span class="seq-part-name" style="color:${col}">${SEQ_PART_LABELS[patSeqPart]} — ${esc(partName)}</span>`+
-    (sampleName?`<span class="seq-sample-name">${esc(sampleName)}</span>`:'');
+  if(info){
+    info.innerHTML=
+      `<span class="seq-part-name" style="color:${col}">${SEQ_PART_LABELS[patSeqPart]} — ${esc(partName)}</span>`+
+      (sampleName
+        ?`<span class="seq-sample-name seq-sample-pick" title="Click to change sample">${esc(sampleName)}</span>`
+        :`<span class="seq-sample-name seq-sample-pick" title="Click to change sample">— no sample —</span>`);
+    const smpPick=info.querySelector('.seq-sample-pick');
+    if(smpPick)smpPick.addEventListener('click',()=>openSamplePicker(patSeqPart));
+  }
 
   stepsRenderButtons(pat,part,rgb);
   stepsRenderBarNav(pat);
@@ -2796,6 +2849,9 @@ let patPlaying=false;
 let patAudioCtx=null;
 const patSampleCache={};  // Map<sampleNum, AudioBuffer>
 const patActiveVoices={};  // Map<partIndex, AudioBufferSourceNode> — voice stealing
+let smpPickerPartIdx=-1;    // which part index the picker is for
+let smpDirectory=null;      // cached sample directory from main process
+let smpPreviewSource=null;  // currently playing preview AudioBufferSourceNode
 
 // Sequencer state
 let seqPattern=null;
@@ -3104,6 +3160,106 @@ function saveTagsToFile(){
   }
 }
 
+// ═══ SAMPLE PICKER — for pattern part sample assignment ═══
+async function openSamplePicker(partIdx){
+  smpPickerPartIdx=partIdx;
+  if(!smpDirectory&&window.api.esx&&window.api.esx.getSampleDirectory){
+    smpDirectory=await window.api.esx.getSampleDirectory();
+  }
+  if(!smpDirectory||!smpDirectory.length){toast('No samples loaded','error');return}
+  const pat=patData[patSel];if(!pat)return;
+  const part=pat.parts[partIdx];
+  const partLabel=SEQ_PART_LABELS[partIdx]||`Part ${partIdx+1}`;
+  const currentSampleNum=part?part.sampleNum:null;
+  const currentName=part?(part.sampleName||'—'):'—';
+  document.getElementById('smpPartLabel').textContent=`${partLabel} — ${part?part.name:''}`;
+  document.getElementById('smpCurrent').textContent=`Current: ${currentName} (#${currentSampleNum})`;
+  document.getElementById('smpSearch').value='';
+  smpRenderList(currentSampleNum);
+  document.getElementById('smpPickerBg').classList.add('show');
+  setTimeout(()=>document.getElementById('smpSearch').focus(),50);
+}
+function closeSamplePicker(){
+  const bg=document.getElementById('smpPickerBg');
+  if(bg)bg.classList.remove('show');
+  smpStopPreview();smpPickerPartIdx=-1;
+}
+function smpRenderList(activeSampleNum){
+  const list=document.getElementById('smpList');
+  const query=(document.getElementById('smpSearch')?.value||'').toLowerCase().trim();
+  const grouped={};
+  for(const s of smpDirectory){
+    if(query&&!s.name.toLowerCase().includes(query)&&!String(s.index).includes(query))continue;
+    const cat=detectCategory(s.name);
+    if(!grouped[cat])grouped[cat]=[];
+    grouped[cat].push(s);
+  }
+  let h='';
+  for(const cat of CAT_ORDER){
+    const samples=grouped[cat];if(!samples||!samples.length)continue;
+    const dotColor=CTX_COLORS[cat]||'#444';
+    h+=`<div class="smp-cat"><span class="smp-cat-dot" style="background:${dotColor}"></span>${cat}<span class="smp-cat-count">${samples.length}</span></div>`;
+    for(const s of samples){
+      const isActive=s.index===activeSampleNum;
+      const dur=s.duration<1?`${(s.duration*1000).toFixed(0)}ms`:`${s.duration.toFixed(2)}s`;
+      h+=`<div class="smp-item${isActive?' smp-active':''}" data-idx="${s.index}"><span class="smp-idx">${String(s.index+1).padStart(3,'0')}</span><span class="smp-name">${s.name}</span><span class="smp-dur">${dur}</span><button class="smp-preview-btn" onclick="event.stopPropagation();smpPreview(${s.index})" title="Preview">&#9654;</button></div>`;
+    }
+  }
+  if(!h)h='<div style="padding:20px;text-align:center;color:var(--txt-x);font-family:var(--lcd);font-size:11px">No samples found</div>';
+  list.innerHTML=h;
+  list.querySelectorAll('.smp-item').forEach(item=>{
+    item.addEventListener('click',()=>{smpAssign(parseInt(item.dataset.idx))});
+  });
+  const activeEl=list.querySelector('.smp-active');
+  if(activeEl)activeEl.scrollIntoView({block:'center',behavior:'instant'});
+}
+function smpFilterList(){
+  const pat=patData[patSel];const part=pat?pat.parts[smpPickerPartIdx]:null;
+  smpRenderList(part?part.sampleNum:null);
+}
+function smpStopPreview(){
+  if(smpPreviewSource){try{smpPreviewSource.stop()}catch(e){}smpPreviewSource=null}
+}
+async function smpPreview(sampleNum){
+  smpStopPreview();
+  const ctx=getPatAudioCtx();if(!ctx)return;
+  if(!patSampleCache[sampleNum]){
+    if(window.api.esx&&window.api.esx.getPatternSamples){
+      try{const wavMap=await window.api.esx.getPatternSamples([sampleNum]);
+        if(wavMap&&wavMap[sampleNum]){const buf=await b64ToAudioBuffer(wavMap[sampleNum],ctx);if(buf&&buf instanceof AudioBuffer)patSampleCache[sampleNum]=buf}
+      }catch(e){console.warn('Preview load failed:',e);return}
+    }
+  }
+  const buf=patSampleCache[sampleNum];
+  if(!buf||!(buf instanceof AudioBuffer)){delete patSampleCache[sampleNum];toast('Sample not available','error');return}
+  try{
+    const src=ctx.createBufferSource();src.buffer=buf;src.connect(ctx.destination);src.start();
+    smpPreviewSource=src;src.onended=()=>{if(smpPreviewSource===src)smpPreviewSource=null};
+  }catch(e){console.error('smpPreview playback error:',e);delete patSampleCache[sampleNum];toast('Preview failed — try again','error');return}
+  document.querySelectorAll('.smp-item.smp-playing').forEach(el=>el.classList.remove('smp-playing'));
+  const el=document.querySelector(`.smp-item[data-idx="${sampleNum}"]`);
+  if(el){el.classList.add('smp-playing');setTimeout(()=>el.classList.remove('smp-playing'),300)}
+}
+async function smpAssign(sampleNum){
+  if(smpPickerPartIdx<0||patSel<0)return;
+  const pat=patData[patSel];if(!pat||!pat.parts)return;
+  const part=pat.parts[smpPickerPartIdx];if(!part)return;
+  part.sampleNum=sampleNum;
+  const dirEntry=smpDirectory?smpDirectory.find(s=>s.index===sampleNum):null;
+  part.sampleName=dirEntry?dirEntry.name:`Sample ${sampleNum}`;
+  const ctx=getPatAudioCtx();
+  if(ctx&&!patSampleCache[sampleNum]){
+    if(window.api.esx&&window.api.esx.getPatternSamples){
+      try{const wavMap=await window.api.esx.getPatternSamples([sampleNum]);
+        if(wavMap&&wavMap[sampleNum]){const buf=await b64ToAudioBuffer(wavMap[sampleNum],ctx);if(buf&&buf instanceof AudioBuffer)patSampleCache[sampleNum]=buf}
+      }catch(e){console.warn('Sample cache load failed:',e)}
+    }
+  }
+  closeSamplePicker();
+  patRenderCurrentView(pat);
+  toast(`${SEQ_PART_LABELS[smpPickerPartIdx]}: ${part.sampleName}`,'success');
+}
+
 // ═══ CONTEXT MENU — sample type override ═══
 const CTX_COLORS={KICK:'#c5305c',SNARE:'#e67e22',CLAP:'#e74c3c',HIHAT:'#f1c40f',CYMBAL:'#f39c12',PERC:'#9b59b6',BASS:'#1abc9c',SYNTH:'#3498db',VOCAL:'#e91e63',LOOP:'#00bcd4',FX:'#607d8b',OTHER:'#444'};
 const CTX_CATS=['KICK','SNARE','CLAP','HIHAT','CYMBAL','PERC','BASS','SYNTH','VOCAL','LOOP','FX','OTHER'];
@@ -3138,10 +3294,11 @@ function showCtxMenu(e,idx){
     });
   });
 }
-function hideCtxMenu(){document.getElementById('ctxMenu').classList.remove('show');ctxMenuTarget=-1}
+function hideCtxMenu(){const menu=document.getElementById('ctxMenu');if(menu)menu.classList.remove('show');ctxMenuTarget=-1}
 document.addEventListener('click',e=>{if(!e.target.closest('.ctx-menu'))hideCtxMenu()});
-document.addEventListener('keydown',e=>{if(e.key==='Escape')hideCtxMenu()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){const pickerBg=document.getElementById('smpPickerBg');if(pickerBg&&pickerBg.classList.contains('show')){closeSamplePicker();return}hideCtxMenu()}});
 </script>
 <div class="ctx-menu" id="ctxMenu"><div class="ctx-title">SET TYPE</div><div class="ctx-items" id="ctxItems"></div></div>
+<div class="sample-picker-bg" id="smpPickerBg" onclick="closeSamplePicker()"><div class="sample-picker" onclick="event.stopPropagation()"><div class="smp-header"><span class="smp-title">SELECT SAMPLE</span><span class="smp-part-label" id="smpPartLabel">DRUM 1</span><input type="text" class="smp-search" id="smpSearch" placeholder="Search..." oninput="smpFilterList()"><button class="smp-close" onclick="closeSamplePicker()">&#10005;</button></div><div class="smp-list" id="smpList"></div><div class="smp-footer" id="smpFooter"><span class="smp-current" id="smpCurrent">Current: —</span></div></div></div>
 </body>
 </html>

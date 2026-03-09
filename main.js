@@ -1294,6 +1294,23 @@ safeIpcHandle('esx:get-pattern-samples', async (ev, patternIndex) => {
   return null;
 });
 
+// Return all non-empty sample slots with names (for sample picker)
+safeIpcHandle('esx:get-sample-directory', async () => {
+  if (!esxPatternSamples) return null;
+  const directory = [];
+  for (let i = 0; i < esxPatternSamples.length; i++) {
+    const s = esxPatternSamples[i];
+    if (!s || !s.pcmData || !s.pcmData.length) continue;
+    directory.push({
+      index: i,
+      name: (s.name || '').trim() || `Sample ${i}`,
+      duration: s.duration || s.numFrames / (s.sampleRate || 44100),
+      sampleRate: s.sampleRate || 44100,
+    });
+  }
+  return directory;
+});
+
 // Return list of all 256 pattern names + BPMs (lightweight)
 safeIpcHandle('esx:get-pattern-list', async () => {
   if (!esxPatternSamples) return null;

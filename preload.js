@@ -61,6 +61,7 @@ contextBridge.exposeInMainWorld('api', {
     getPatternList: ()          => ipcRenderer.invoke('esx:get-pattern-list'),
     saveTags: (fp, tags)        => ipcRenderer.invoke('esx:save-tags', { filePath: fp, tags }),
     loadTags: (fp)              => ipcRenderer.invoke('esx:load-tags', fp),
+    getSampleDirectory: ()      => ipcRenderer.invoke('esx:get-sample-directory'),
   },
 
   // ═══ E2S ═══
