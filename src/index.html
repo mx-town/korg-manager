@@ -616,69 +616,88 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
   color:var(--hi);font-weight:bold;
 }
 
-/* ── PARTS view: two-row hardware layout ── */
-.parts-rows{display:flex;flex-direction:column;gap:8px;padding:12px 16px 8px}
+/* ── PARTS view: premium hardware emulation ── */
+.parts-rows{display:flex;flex-direction:column;gap:10px;padding:14px 16px 10px}
 .parts-row-line{display:flex;align-items:flex-end;gap:0}
-.parts-group{display:flex;flex-direction:column;align-items:center;gap:0}
+.parts-group{display:flex;flex-direction:column;align-items:stretch;gap:0;flex:1;min-width:0}
 .parts-group-label{
-  font-family:var(--lcd);font-size:7px;color:var(--txt-x);
-  letter-spacing:1.5px;text-align:center;padding-bottom:3px;white-space:nowrap;
+  font-family:var(--head);font-size:7px;color:var(--txt-x);
+  letter-spacing:2.5px;text-align:center;padding-bottom:4px;white-space:nowrap;
+  text-transform:uppercase;position:relative;
 }
-.parts-group-row{display:flex;gap:3px}
-.parts-sep{width:1px;background:var(--brd);margin:0 6px;align-self:stretch;opacity:.5}
+.parts-group-label::after{
+  content:'';display:block;height:1px;margin-top:3px;
+  background:linear-gradient(90deg,transparent 5%,var(--brd-h) 30%,var(--brd-h) 70%,transparent 95%);
+  opacity:.5;
+}
+.parts-group-row{display:flex;gap:4px}
+.parts-sep{
+  width:1px;margin:0 8px;align-self:stretch;flex-shrink:0;
+  background:linear-gradient(180deg,transparent 10%,var(--brd-h) 40%,var(--brd-h) 60%,transparent 90%);
+}
 .part-btn{
   border:1.5px solid var(--brd-h);border-radius:5px;
-  background:rgba(255,255,255,.03);padding:10px 6px 6px;
+  background:linear-gradient(180deg,rgba(8,12,22,.9) 0%,rgba(16,22,40,.7) 100%);
+  padding:10px 6px 7px;
   cursor:pointer;display:flex;flex-direction:column;
   align-items:center;gap:3px;position:relative;
   flex:1;min-width:0;
-  transition:border-color .1s,background .1s,opacity .15s;
+  transition:border-color .12s ease,background .12s ease,opacity .12s ease,box-shadow .12s ease;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.04),inset 0 -1px 0 rgba(0,0,0,.3);
 }
-.part-btn:hover{background:rgba(255,255,255,.06)}
+.part-btn:hover{
+  background:linear-gradient(180deg,rgba(14,18,30,.9) 0%,rgba(22,28,48,.75) 100%);
+  border-color:var(--brd-h);
+}
 .part-btn.part-sel{border-width:2px}
-.part-btn.part-empty{opacity:0.2}
-.part-btn.part-empty:hover{opacity:0.4}
+.part-btn.part-empty{opacity:0.18}
+.part-btn.part-empty:hover{opacity:0.35}
 .part-type-lbl{
-  font-family:var(--head);font-size:13px;font-weight:bold;
-  letter-spacing:.5px;
+  font-family:var(--head);font-size:13px;font-weight:700;
+  letter-spacing:.5px;line-height:1;
 }
 .part-sample-lbl{
-  font-family:var(--lcd);font-size:9px;color:var(--txt-x);
+  font-family:var(--lcd);font-size:8px;color:var(--txt-x);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-  max-width:100%;text-align:center;
+  max-width:100%;text-align:center;height:13px;line-height:13px;
 }
-.part-sample-pick{cursor:pointer;transition:color .1s}
+.part-sample-pick{cursor:pointer;transition:color .1s,text-decoration .1s}
 .part-sample-pick:hover{color:var(--led)!important;text-decoration:underline}
 
-/* ── Parameter area ── */
+/* ── Parameter area: recessed hardware panel ── */
 .part-params{
-  padding:12px 16px;border-top:1px solid var(--brd);
+  padding:14px 16px;border-top:1px solid var(--brd);
 }
 .part-params-hdr{
-  font-family:var(--head);font-size:13px;font-weight:bold;
-  margin-bottom:8px;display:flex;align-items:center;gap:8px;
+  font-family:var(--head);font-size:13px;font-weight:700;
+  margin-bottom:10px;display:flex;align-items:center;gap:8px;
+  letter-spacing:1px;
+}
+.part-params-hdr::after{
+  content:'';flex:1;height:1px;background:linear-gradient(90deg,var(--brd-h),transparent);
 }
 .part-params-grid{
   display:grid;grid-template-columns:repeat(4,1fr);gap:6px 8px;
 }
 .param-cell{
   display:flex;flex-direction:column;align-items:center;
-  padding:6px 4px;border:1px solid var(--brd);border-radius:4px;
-  background:rgba(255,255,255,.02);min-height:44px;
-  justify-content:center;
+  padding:8px 4px 6px;border:1px solid var(--brd);border-radius:4px;
+  background:linear-gradient(180deg,rgba(8,12,22,.9) 0%,rgba(16,22,40,.7) 100%);
+  min-height:48px;justify-content:center;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.04),inset 0 -1px 0 rgba(0,0,0,.3);
 }
-.param-lbl{font-family:var(--lcd);font-size:7px;color:var(--txt-x);letter-spacing:.5px;text-transform:uppercase;white-space:nowrap}
-.param-val{font-family:var(--lcd);font-size:15px;color:var(--led);margin-top:2px}
-.param-cell.param-empty{border-color:transparent;background:transparent}
+.param-lbl{font-family:var(--lcd);font-size:7px;color:var(--txt-x);letter-spacing:1px;text-transform:uppercase;white-space:nowrap}
+.param-val{font-family:var(--head);font-size:16px;color:var(--led);margin-top:3px;font-weight:500}
+.param-cell.param-empty{border-color:transparent;background:transparent;box-shadow:none}
 
 /* ── Mini step bar in part buttons ── */
 .part-step-bar{
-  display:flex;gap:1px;width:100%;height:5px;margin-top:2px;
+  display:flex;gap:1px;width:100%;height:6px;margin-top:3px;
   padding:0 2px;box-sizing:border-box;
 }
 .part-step-bar .psb{flex:1;border-radius:1px;min-width:0}
 .part-activity{
-  font-family:var(--lcd);font-size:7px;color:var(--txt-x);
+  font-family:var(--lcd);font-size:7px;color:var(--txt-x);margin-top:1px;
 }
 
 /* ── STEPS part nav ── */
@@ -2463,18 +2482,25 @@ function partsRender(pat){
     const isSelected=i===patSeqPart;
     const label=SEQ_PART_LABELS[i]||`P${i+1}`;
     const sName=(p&&p.sampleName)?esc(p.sampleName):'—';
-    const selStyle=isSelected?`border-color:${col};background:rgba(${rgb},.15)`:'';
     const hasSample=p&&p.sampleNum!=null&&p.sampleNum!==0x8000&&p.sampleNum!==0xFFFF;
     let hasSteps=false,activeCount=0;
     if(p){for(let s=0;s<totalSteps;s++){if(patGetStep(p,s)){hasSteps=true;activeCount++}}}
     const isEmpty=!hasSample&&!hasSteps;
-    let h=`<div class="part-btn${isSelected?' part-sel':''}${isEmpty?' part-empty':''}" data-part="${i}" style="${selStyle}">`;
+    // Build hardware-style inline style
+    let style='';
+    if(isSelected){
+      style=`border-color:${col};background:linear-gradient(180deg,rgba(${rgb},.12) 0%,rgba(${rgb},.06) 100%);`;
+      style+=`box-shadow:inset 0 1px 0 rgba(255,255,255,.06),inset 0 -1px 0 rgba(0,0,0,.3),0 0 16px rgba(${rgb},.2);`;
+    } else if(!isEmpty&&hasSteps){
+      style=`box-shadow:inset 0 1px 0 rgba(255,255,255,.04),inset 0 -1px 0 rgba(0,0,0,.3),0 2px 12px rgba(${rgb},.15);`;
+    }
+    let h=`<div class="part-btn${isSelected?' part-sel':''}${isEmpty?' part-empty':''}" data-part="${i}" style="${style}">`;
     h+=`<div class="part-type-lbl" style="color:${col}">${label}</div>`;
     h+=`<div class="part-sample-lbl part-sample-pick" data-part="${i}" title="Click to change sample">${sName}</div>`;
     h+='<div class="part-step-bar">';
     for(let s=0;s<stepsToShow;s++){
       const on=patGetStep(p,s);
-      h+=`<div class="psb" style="background:${on?`rgba(${rgb},.7)`:'rgba(255,255,255,.06)'}"></div>`;
+      h+=`<div class="psb" style="background:${on?`rgba(${rgb},.7)`:'rgba(255,255,255,.04)'}"></div>`;
     }
     h+='</div>';
     h+=`<div class="part-activity">${activeCount}/${totalSteps}</div>`;
@@ -2571,7 +2597,7 @@ function partsRenderParams(pat, part){
   }
 
   let h=`<div class="part-params">`;
-  h+=`<div class="part-params-hdr"><span style="color:${col}">${label}</span> <span style="color:var(--txt-x);font-weight:normal;font-size:11px">${esc(partName)}${sName}</span></div>`;
+  h+=`<div class="part-params-hdr"><span style="color:${col};font-family:var(--head);font-weight:700">${label}</span> <span style="color:var(--txt-d);font-weight:normal;font-size:11px;font-family:var(--lcd);letter-spacing:1px">${esc(partName)}${sName}</span></div>`;
   h+=`<div class="part-params-grid">`;
   for(const p of grid){
     if(!p.l){h+=`<div class="param-cell param-empty"></div>`;continue;}

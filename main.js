@@ -68,6 +68,7 @@ function safeIpcHandle(channel, handler) {
 //  SAMPLE STORE + UNDO SYSTEM
 // ═══════════════════════════════════════════════════════════
 let currentSamples = [];
+let esxOriginalBuffer = null; // Original .esx buffer for pattern-preserving rebuild
 let esxPatternSamples = null; // Parsed mono samples from pattern-loaded ESX (for playback)
 const MAX_UNDO = 50;
 
@@ -154,6 +155,7 @@ ipcMain.handle('open-esx-file', async () => {
   if (result.canceled) return null;
   try {
     const buffer = fs.readFileSync(result.filePaths[0]);
+    esxOriginalBuffer = Buffer.from(buffer); // preserve for pattern-safe rebuild
     const parsed = esx.parseEsxFile(buffer);
     currentSamples = [];
     for (const s of parsed.monoSamples) {
@@ -225,7 +227,9 @@ ipcMain.handle('save-esx-file', async (ev, defaultName) => {
   if (result.canceled) return null;
   try {
     mainWindow.webContents.send('export-progress', { phase: 'building', percent: 10 });
-    const buf = esx.buildEsxFile(currentSamples);
+    const buf = esxOriginalBuffer
+      ? esx.rebuildEsxFile(esxOriginalBuffer, currentSamples)
+      : esx.buildEsxFile(currentSamples);
     mainWindow.webContents.send('export-progress', { phase: 'writing', percent: 50 });
     fs.writeFileSync(result.filePath, buf);
     mainWindow.webContents.send('export-progress', { phase: 'verifying', percent: 90 });
@@ -258,7 +262,7 @@ ipcMain.handle('rename-sample', async (ev, { index, name }) => {
     currentSamples[index].name = name.substring(0, 8).toUpperCase().replace(/[^A-Z0-9 _\-\.]/g, '');
   return getSamplesInfo();
 });
-ipcMain.handle('clear-all', async () => { currentSamples = []; return getSamplesInfo(); });
+ipcMain.handle('clear-all', async () => { currentSamples = []; esxOriginalBuffer = null; return getSamplesInfo(); });
 ipcMain.handle('get-state', async () => getSamplesInfo());
 
 ipcMain.handle('get-waveform', async (ev, index) => {

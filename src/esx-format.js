@@ -1281,11 +1281,94 @@ function pcmToWav(pcmDataBE, sampleRate, numChannels = 1) {
   return wav;
 }
 
+/**
+ * Rebuild an ESX file from an original buffer, preserving patterns/songs/globals.
+ * Only rewrites sample headers, slice data, and PCM sample data.
+ *
+ * @param {Buffer} originalBuffer - The original .esx file buffer
+ * @param {Array} samples - Array of { name, pcmData, sampleRate, numFrames, loopStart, sampleTune, playLevel }
+ * @returns {Buffer} Complete .esx file with original patterns/songs preserved
+ */
+function rebuildEsxFile(originalBuffer, samples) {
+  // Start from a copy of the original file (preserving patterns, songs, globals)
+  const headerBuffer = Buffer.alloc(ADDR.SAMPLE_DATA + 0x10, 0);
+  originalBuffer.copy(headerBuffer, 0, 0, Math.min(originalBuffer.length, headerBuffer.length));
+
+  // Clear sample headers (mono + stereo) and slice data — we'll rewrite them
+  headerBuffer.fill(0, ADDR.SAMPLE_HDR_MONO, ADDR.SAMPLE_HDR_MONO + NUM.MONO_SAMPLES * SIZE.SAMPLE_HDR_MONO);
+  headerBuffer.fill(0, ADDR.SAMPLE_HDR_STEREO, ADDR.SAMPLE_HDR_STEREO + NUM.STEREO_SAMPLES * SIZE.SAMPLE_HDR_STEREO);
+  headerBuffer.fill(0, ADDR.SLICE_DATA, ADDR.SAMPLE_DATA);
+
+  // Build sample data blocks
+  const dataBlocks = [];
+  let currentOffset = 0;
+  let monoCount = 0;
+
+  for (let i = 0; i < samples.length && i < NUM.MONO_SAMPLES; i++) {
+    const sample = samples[i];
+    if (!sample || !sample.pcmData || sample.pcmData.length === 0) continue;
+
+    const blockSize = 16 + sample.pcmData.length;
+    const block = buildSampleDataBlock(sample.pcmData, monoCount, currentOffset);
+
+    // Update mono sample header
+    const hdrOff = ADDR.SAMPLE_HDR_MONO + monoCount * SIZE.SAMPLE_HDR_MONO;
+
+    encodeSampleName(sample.name).copy(headerBuffer, hdrOff);
+    headerBuffer.writeUInt32BE(currentOffset, hdrOff + 8);
+    headerBuffer.writeUInt32BE(currentOffset + blockSize, hdrOff + 12);
+    headerBuffer.writeUInt32BE(0, hdrOff + 16);
+    headerBuffer.writeUInt32BE(sample.numFrames - 1, hdrOff + 20);
+
+    const loopVal = (sample.loopStart != null) ? sample.loopStart : 0xFFFFFFFF;
+    headerBuffer.writeUInt32BE(loopVal, hdrOff + 24);
+    headerBuffer.writeUInt32BE(sample.sampleRate, hdrOff + 28);
+    headerBuffer.writeUInt16BE(sample.sampleTune || 0x0000, hdrOff + 32);
+    headerBuffer.writeUInt8(sample.playLevel || 0x00, hdrOff + 34);
+    headerBuffer.writeUInt8(0xFF, hdrOff + 35); // stretch step off
+
+    dataBlocks.push(block);
+    currentOffset += blockSize;
+
+    const nextAligned = (currentOffset + 4) & ~3;
+    const padSize = nextAligned - currentOffset;
+    if (padSize > 0) {
+      dataBlocks.push(Buffer.alloc(padSize, 0));
+      currentOffset = nextAligned;
+    }
+
+    monoCount++;
+  }
+
+  // Update counters
+  headerBuffer.writeUInt32BE(monoCount, ADDR.NUM_MONO_SAMPLES);
+  headerBuffer.writeUInt32BE(0, ADDR.NUM_STEREO_SAMPLES);
+  headerBuffer.writeUInt32BE(currentOffset, ADDR.CURRENT_OFFSET);
+
+  // Compute BPS checksum
+  let checksum = 0;
+  for (const block of dataBlocks) {
+    for (let i = 0; i < block.length; i++) checksum = (checksum + block[i]) >>> 0;
+  }
+  headerBuffer.writeUInt32BE(checksum, ADDR.BPS_HEADER + 0x0C);
+
+  // Combine header + sample data
+  const sampleDataBuffer = Buffer.concat(dataBlocks);
+  const totalSize = ADDR.SAMPLE_DATA + 0x10 + sampleDataBuffer.length;
+
+  const finalBuffer = Buffer.alloc(totalSize, 0);
+  headerBuffer.copy(finalBuffer, 0);
+  sampleDataBuffer.copy(finalBuffer, ADDR.SAMPLE_DATA);
+
+  return finalBuffer;
+}
+
 module.exports = {
   parseWavFile,
   convertTo16BitMono,
   createEmptyEsx,
   buildEsxFile,
+  rebuildEsxFile,
   parseEsxFile,
   pcmToWav,
   parseEsxPatterns,

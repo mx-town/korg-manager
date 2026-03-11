@@ -11,6 +11,7 @@ const {
   parseEsxPattern,
   createEmptyEsx,
   buildEsxFile,
+  rebuildEsxFile,
   ADDR,
   SIZE,
   NUM,
@@ -742,5 +743,93 @@ describe('ESX Patterns - Custom filter param byte injection', () => {
     expect(kb.startPoint).toBe(55);
     expect(kb.modSpeed).toBe(66);
     expect(kb.modDepth).toBe(77);
+  });
+});
+
+// ── rebuildEsxFile — pattern preservation ────────────────
+
+describe('ESX rebuildEsxFile - Pattern preservation', () => {
+  it('should preserve pattern data when rebuilding with samples', () => {
+    // Create an original ESX with a named pattern and active steps
+    const original = generateMinimalESX();
+    const patOff = ADDR.PATTERN_DATA;
+
+    // Write a custom pattern name
+    original.fill(0x20, patOff, patOff + 8);
+    original.write('MYBEAT', patOff, 'ascii');
+
+    // Write tempo 120 BPM (120 * 128 = 15360)
+    original.writeUInt16BE(Math.round(120 * 128), patOff + 8);
+
+    // Set active drum steps on part 0 (four-on-the-floor)
+    const drumOff = patOff + 24;
+    original.writeUInt8(0x11, drumOff + 18 + 0); // steps 0,4
+    original.writeUInt8(0x11, drumOff + 18 + 1); // steps 8,12
+
+    // Rebuild with a single sample
+    const samples = [{
+      name: 'KICK',
+      pcmData: Buffer.alloc(1000, 0x42),
+      sampleRate: 44100,
+      numFrames: 500,
+    }];
+
+    const rebuilt = rebuildEsxFile(original, samples);
+
+    // Verify patterns are preserved
+    const patterns = parseEsxPatterns(rebuilt);
+    expect(patterns[0].name).toBe('MYBEAT');
+    expect(patterns[0].tempo).toBe(120.0);
+
+    // Verify drum steps are preserved
+    const drum0 = patterns[0].parts[0];
+    expect(drum0.steps[0]).toBe(true);
+    expect(drum0.steps[4]).toBe(true);
+    expect(drum0.steps[8]).toBe(true);
+    expect(drum0.steps[12]).toBe(true);
+    expect(drum0.steps[1]).toBe(false);
+  });
+
+  it('should write correct sample headers when rebuilding', () => {
+    const original = generateMinimalESX();
+    const samples = [{
+      name: 'SNARE',
+      pcmData: Buffer.alloc(2000, 0x33),
+      sampleRate: 44100,
+      numFrames: 1000,
+    }];
+
+    const rebuilt = rebuildEsxFile(original, samples);
+
+    // Check mono sample count
+    expect(rebuilt.readUInt32BE(ADDR.NUM_MONO_SAMPLES)).toBe(1);
+
+    // Check sample header name
+    const hdrOff = ADDR.SAMPLE_HDR_MONO;
+    const name = rebuilt.slice(hdrOff, hdrOff + 8).toString('ascii').trim();
+    expect(name).toBe('SNARE');
+
+    // Check sample rate
+    expect(rebuilt.readUInt32BE(hdrOff + 28)).toBe(44100);
+
+    // Check numFrames - 1 at end frame offset
+    expect(rebuilt.readUInt32BE(hdrOff + 20)).toBe(999);
+  });
+
+  it('should preserve song data when rebuilding', () => {
+    const original = generateMinimalESX();
+
+    // Write some recognizable data into song area
+    original.writeUInt8(0xAB, ADDR.SONG_DATA + 0);
+    original.writeUInt8(0xCD, ADDR.SONG_DATA + 1);
+
+    const rebuilt = rebuildEsxFile(original, [{
+      name: 'TEST', pcmData: Buffer.alloc(100, 0x11),
+      sampleRate: 44100, numFrames: 50,
+    }]);
+
+    // Song data should be preserved
+    expect(rebuilt.readUInt8(ADDR.SONG_DATA + 0)).toBe(0xAB);
+    expect(rebuilt.readUInt8(ADDR.SONG_DATA + 1)).toBe(0xCD);
   });
 });
