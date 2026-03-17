@@ -1394,6 +1394,45 @@ ipcMain.handle('e2pat:split-save', async () => {
 // ═══════════════════════════════════════════════════════════
 const EMX_BEAT_NAMES = ['16th', '32nd', '8th', '8-tri'];
 
+/** Convert an EMX pattern to unified UI format. */
+function emxPatternToUI(emxPat, index) {
+  if (emxPat.error) {
+    return {
+      index, name: '', bpm: 120, swing: 0, steps: 16, beat: '16th',
+      format: 'EMX-1', deviceId: 'emx', parts: [],
+    };
+  }
+  const h = emxPat.header || {};
+  const parts = [];
+  for (let i = 0; i < (emxPat.synthParts || []).length; i++) {
+    const sp = emxPat.synthParts[i];
+    const steps = sp.steps || new Array(128).fill(0);
+    parts.push({
+      type: 'synth', name: `Synth ${i + 1}`,
+      oscType: sp.oscType != null ? sp.oscType : 0,
+      level: sp.level || 0, pan: sp.pan,
+      steps: steps.map(s => s > 0),
+      velocities: steps.map(s => s > 0 ? (sp.level || 100) : 0),
+    });
+  }
+  for (let i = 0; i < (emxPat.drumParts || []).length; i++) {
+    const dp = emxPat.drumParts[i];
+    const steps = dp.steps || new Array(128).fill(0);
+    parts.push({
+      type: 'drum', name: `Drum ${i + 1}`,
+      oscType: dp.samplePtr != null ? dp.samplePtr : 0,
+      level: dp.level || 0, pan: dp.pan,
+      steps: steps.map(s => s > 0),
+      velocities: steps.map(s => s > 0 ? (dp.level || 100) : 0),
+    });
+  }
+  return {
+    index, name: h.name || '', bpm: h.tempo || 120, swing: h.swing || 0,
+    steps: (h.lastStep || 15) + 1, beat: EMX_BEAT_NAMES[h.beat] || '16th',
+    deviceId: 'emx', format: 'EMX-1', parts,
+  };
+}
+
 ipcMain.handle('emx:open-file', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     title: 'Open EMX-1 File',
@@ -1404,23 +1443,24 @@ ipcMain.handle('emx:open-file', async () => {
   try {
     const buffer = fs.readFileSync(result.filePaths[0]);
     const data = emxFormat.parseEmxDump(buffer);
-    // Transform to UI-friendly format
-    const patterns = data.patterns.map((p, i) => {
-      if (p.error) return { index: i, name: '', bpm: 120, swing: 0, steps: 16, beat: '16th', parts: [] };
-      const h = p.header || {};
-      const parts = [];
-      for (const sp of (p.synthParts || [])) {
-        parts.push({ name: `Synth`, oscType: `Type ${sp.oscType || 0}`, level: sp.level || 0 });
-      }
-      for (const dp of (p.drumParts || [])) {
-        parts.push({ name: `Drum`, oscType: `Smp ${dp.samplePtr || 0}`, level: dp.level || 0 });
-      }
-      return {
-        index: i, name: h.name || '', bpm: h.tempo || 120, swing: h.swing || 0,
-        steps: (h.lastStep || 15) + 1, beat: EMX_BEAT_NAMES[h.beat] || '16th', parts,
-      };
-    });
+    const patterns = data.patterns.map((p, i) => emxPatternToUI(p, i));
     return { filePath: result.filePaths[0], patterns };
+  } catch (err) { return { error: err.message }; }
+});
+
+ipcMain.handle('emx:open-patterns', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Open EMX-1 File (Patterns)',
+    filters: [{ name: 'EMX-1 Files', extensions: ['emx'] }, { name: 'All Files', extensions: ['*'] }],
+    properties: ['openFile']
+  });
+  if (result.canceled) return { canceled: true };
+  try {
+    const buffer = fs.readFileSync(result.filePaths[0]);
+    const data = emxFormat.parseEmxDump(buffer);
+    const patterns = data.patterns.map((p, i) => emxPatternToUI(p, i));
+    const filename = path.basename(result.filePaths[0]);
+    return { canceled: false, filename, format: 'EMX-1', patterns };
   } catch (err) { return { error: err.message }; }
 });
 

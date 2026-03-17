@@ -1,24 +1,27 @@
 /**
  * EMX Format Parser (READ-ONLY)
- * Parses Korg Electribe EMX-1 memory dump files (1,728,000 bytes).
- * Extracts 256 patterns with part parameters.
- * Includes SysEx 7-bit pack/unpack utilities for future MIDI use.
+ * Parses Korg Electribe EMX-1 memory dump files.
+ * Supports two formats:
+ *   - SysEx dump:   1,728,000 bytes (MIDI data dump)
+ *   - SmartCard:    1,736,704 bytes (hardware SmartCard .emx)
  *
- * EMX-1 dump layout (1,728,000 bytes = 0x1A5E00):
+ * SysEx dump layout (1,728,000 bytes = 0x1A5E00):
  *   [0x000000 – 0x00001F]  Header (32 bytes)
  *   [0x000020 – 0x00011F]  Global parameters (256 bytes)
  *   [0x000120 – 0x19DFFF]  256 patterns × 6750 bytes each
  *   [0x19E000 – 0x1A5DFF]  Song data, etc.
  *
- * Pattern layout (6750 bytes):
- *   [0x0000 – 0x001F]  Pattern header (32 bytes): name, tempo, etc.
- *   [0x0020 – 0x1A5D]  Part data: 5 synth + 4 drum + accent
+ * SmartCard layout (1,736,704 bytes = 0x1A8000):
+ *   [0x000000 – 0x0001FF]  File header (512 bytes)
+ *   [0x000200 – 0x12C7FF]  256 patterns × 4806 bytes each
+ *   [0x12C800 – 0x1A7FFF]  Song data + global params
  */
 
 'use strict';
 
 // ── Constants ──────────────────────────────────────────────
 
+// Legacy top-level constants (SysEx format — kept for backward compat)
 const DUMP_SIZE          = 1728000;     // 0x1A5E00
 const NUM_PATTERNS       = 256;
 
@@ -30,13 +33,64 @@ const ADDR = {
 
 const HEADER_SIZE        = 32;
 const GLOBAL_PARAMS_SIZE = 256;
-const PATTERN_SIZE       = 6750;       // (DUMP_SIZE - HEADER_SIZE - GLOBAL_PARAMS_SIZE - tail) / 256
+const PATTERN_SIZE       = 6750;       // SysEx: (DUMP_SIZE - HEADER_SIZE - GLOBAL_PARAMS_SIZE - tail) / 256
 
 const NUM_SYNTH_PARTS    = 5;
 const NUM_DRUM_PARTS     = 4;
 const NUM_TOTAL_PARTS    = NUM_SYNTH_PARTS + NUM_DRUM_PARTS + 1; // +1 for accent
 const NUM_STEPS          = 16;         // EMX uses 16-step patterns (repeatable)
 const NAME_LEN           = 8;
+
+// ── SmartCard format constants ────────────────────────────
+
+const SMARTCARD = {
+  DUMP_SIZE:       1736704,    // 0x1A8000
+  HEADER_SIZE:     512,        // 0x200
+  PATTERN_SIZE:    4806,
+  PATTERN_DATA:    0x000200,
+  NUM_PATTERNS:    256,
+  SONG_DATA:       0x12C800,   // post-pattern area
+};
+
+// SmartCard pattern header offsets (24 bytes, within each 4806-byte block)
+const SC_PAT = {
+  NAME:            0x00,       // char[8], ASCII space-padded
+  TEMPO:           0x08,       // uint16BE, BPM = value / 128
+  SWING:           0x0A,       // uint8, 0-25
+  LENGTH_ETC:      0x0B,       // bitfield: [7]=flag, [6:5]=fxChain, [4:3]=roll, [2:0]=bars-1
+  BEAT:            0x0C,       // uint8, 0=16th, 1=32nd, 2=8tri, 3=16tri
+  LAST_STEP:       0x0D,       // uint8, 0-based (0x0F = 16 steps)
+  FX_TYPES:        0x0E,       // packed nibbles: hi=FX1, lo=FX2
+  ACCENT_LVL:      0x0F,       // uint8
+  MUTE_STATUS:     0x10,       // uint16BE bitmask
+  MOTION_SEQ_STAT: 0x12,       // uint16BE
+  SWING_STATUS:    0x14,       // uint16BE (always 0x3FFF)
+  BUS_STATUS:      0x16,       // uint16BE
+};
+
+const SC_PAT_HEADER_SIZE = 24; // 0x18
+
+// SmartCard per-part layout: 9 parts × 26 bytes (10 params + 16 step bytes)
+const SC_NUM_PARTS       = 9;  // 5 synth + 4 drum
+const SC_PART_SIZE       = 26;
+const SC_PART_PARAMS     = 10;
+const SC_STEP_BYTES      = 16; // 128 steps bit-packed
+
+const SC_PART_START      = 0x18; // first part offset within pattern
+
+// SmartCard per-part parameter offsets (within 10-byte param block)
+const SC_PART = {
+  OSC_TYPE:        0,          // synth: 0x00-0x0F; drum: ROM PCM index
+  PAN:             1,          // 0x40 = center
+  LEVEL:           2,          // 0-127
+  CUTOFF:          3,          // filter cutoff
+  RESONANCE:       4,          // filter resonance/EG
+  MOD:             5,          // mod type/depth
+  FILT_TYPE:       6,          // filter type
+  EG:              7,          // EG/pitch
+  PITCH:           8,          // pitch/glide
+  FX_SEND:         9,          // FX send/roll
+};
 
 // EMX SysEx constants
 const SYSEX = {
@@ -192,10 +246,134 @@ function sysexUnpack7bit(packed, expectedLen) {
   return out.slice(0, outPos);
 }
 
-// ── Parsing ───────────────────────────────────────────────
+// ── Format detection ──────────────────────────────────────
 
 /**
- * Parse a synth part at the given offset. Returns parameter object.
+ * Detect which EMX dump format a buffer is.
+ * @param {Buffer} buf
+ * @returns {'smartcard'|'sysex'|null}
+ */
+function detectEmxFormat(buf) {
+  if (!buf || buf.length < 512) return null;
+  const magic = buf.toString('ascii', 0, 4);
+  if (magic !== 'KORG') return null;
+
+  if (buf.length === SMARTCARD.DUMP_SIZE) {
+    // SmartCard: check for "EMX" at bytes 8-10
+    if (buf.toString('ascii', 8, 11) === 'EMX') return 'smartcard';
+    return 'smartcard'; // size match is strong enough
+  }
+  if (buf.length === DUMP_SIZE) return 'sysex';
+
+  return null;
+}
+
+// ── SmartCard parsing ─────────────────────────────────────
+
+/**
+ * Parse a SmartCard part (26 bytes: 10 params + 16 step trigger bytes).
+ * Used for both synth and drum parts in SmartCard format.
+ */
+function parseSmartCardPart(buf, offset, partIndex) {
+  const isSynth = partIndex < NUM_SYNTH_PARTS;
+
+  // 10 parameter bytes
+  const oscType    = buf.readUInt8(offset + SC_PART.OSC_TYPE);
+  const pan        = buf.readUInt8(offset + SC_PART.PAN);
+  const level      = buf.readUInt8(offset + SC_PART.LEVEL);
+  const cutoff     = buf.readUInt8(offset + SC_PART.CUTOFF);
+  const resonance  = buf.readUInt8(offset + SC_PART.RESONANCE);
+  const mod        = buf.readUInt8(offset + SC_PART.MOD);
+  const filtType   = buf.readUInt8(offset + SC_PART.FILT_TYPE);
+  const eg         = buf.readUInt8(offset + SC_PART.EG);
+  const pitch      = buf.readUInt8(offset + SC_PART.PITCH);
+  const fxSend     = buf.readUInt8(offset + SC_PART.FX_SEND);
+
+  // 16 step trigger bytes (128 steps bit-packed, MSB-first)
+  const stepData = buf.slice(offset + SC_PART_PARAMS, offset + SC_PART_PARAMS + SC_STEP_BYTES);
+  const steps = [];
+  for (let byteIdx = 0; byteIdx < SC_STEP_BYTES; byteIdx++) {
+    for (let bit = 7; bit >= 0; bit--) {
+      steps.push((stepData[byteIdx] >> bit) & 1);
+    }
+  }
+
+  const base = {
+    pan, level, filterCutoff: cutoff, filterRes: resonance,
+    mod, filterType: filtType, eg, pitch, fxSend, steps,
+  };
+
+  if (isSynth) {
+    return { type: 'synth', oscType, ...base };
+  }
+  return { type: 'drum', samplePtr: oscType, ...base };
+}
+
+/**
+ * Parse a single SmartCard pattern (4806 bytes).
+ */
+function parseSmartCardPattern(buf, offset) {
+  // Name (8 bytes, ASCII space-padded)
+  const nameRaw = buf.slice(offset + SC_PAT.NAME, offset + SC_PAT.NAME + NAME_LEN);
+  let name = '';
+  for (let i = 0; i < NAME_LEN; i++) {
+    if (nameRaw[i] === 0) break;
+    name += String.fromCharCode(nameRaw[i]);
+  }
+
+  // Tempo: uint16BE / 128
+  const tempoRaw = buf.readUInt16BE(offset + SC_PAT.TEMPO);
+  const tempo = tempoRaw / 128;
+
+  // Bitfield at +0x0B
+  const bf = buf.readUInt8(offset + SC_PAT.LENGTH_ETC);
+  const bars    = (bf & 0x07) + 1;        // bits 2:0
+  const roll    = (bf >> 3) & 0x03;        // bits 4:3
+  const fxChain = (bf >> 5) & 0x03;        // bits 6:5
+
+  // FX types packed nibbles
+  const fxByte = buf.readUInt8(offset + SC_PAT.FX_TYPES);
+  const fx1Type = (fxByte >> 4) & 0x0F;
+  const fx2Type = fxByte & 0x0F;
+
+  const header = {
+    name:          name.trim(),
+    tempo,
+    swing:         buf.readUInt8(offset + SC_PAT.SWING),
+    bars,
+    beat:          buf.readUInt8(offset + SC_PAT.BEAT),
+    rollType:      roll,
+    fxChain,
+    lastStep:      buf.readUInt8(offset + SC_PAT.LAST_STEP),
+    fx1Type,
+    fx2Type,
+    accentLevel:   buf.readUInt8(offset + SC_PAT.ACCENT_LVL),
+    muteStatus:    buf.readUInt16BE(offset + SC_PAT.MUTE_STATUS),
+    motionSeqStat: buf.readUInt16BE(offset + SC_PAT.MOTION_SEQ_STAT),
+    swingStatus:   buf.readUInt16BE(offset + SC_PAT.SWING_STATUS),
+    busStatus:     buf.readUInt16BE(offset + SC_PAT.BUS_STATUS),
+  };
+
+  // Parse 9 parts (5 synth + 4 drum), each 26 bytes
+  const synthParts = [];
+  const drumParts  = [];
+  for (let i = 0; i < SC_NUM_PARTS; i++) {
+    const partOff = offset + SC_PART_START + i * SC_PART_SIZE;
+    const part = parseSmartCardPart(buf, partOff, i);
+    if (i < NUM_SYNTH_PARTS) {
+      synthParts.push(part);
+    } else {
+      drumParts.push(part);
+    }
+  }
+
+  return { header, synthParts, drumParts };
+}
+
+// ── SysEx parsing ─────────────────────────────────────────
+
+/**
+ * Parse a synth part at the given offset (SysEx format). Returns parameter object.
  */
 function parseSynthPart(buf, offset) {
   return {
@@ -290,8 +468,9 @@ function parsePattern(buf, offset) {
 }
 
 /**
- * Parse a complete EMX-1 memory dump (1,728,000 bytes).
- * Returns { header, globalParams, patterns[] }.
+ * Parse a complete EMX-1 memory dump.
+ * Auto-detects SysEx (1,728,000 bytes) or SmartCard (1,736,704 bytes) format.
+ * Returns { format, fileSize, numPatterns, globalParams, patterns[] }.
  */
 function parseEmxDump(buf) {
   if (buf.length < DUMP_SIZE) {
@@ -304,10 +483,15 @@ function parseEmxDump(buf) {
     throw new Error('Invalid EMX dump (missing KORG signature)');
   }
 
-  // Global params (raw buffer for now)
+  const fmt = detectEmxFormat(buf) || 'sysex';
+
+  if (fmt === 'smartcard') {
+    return parseSmartCardDump(buf);
+  }
+
+  // SysEx format (original path)
   const globalParams = buf.slice(ADDR.GLOBAL_PARAMS, ADDR.GLOBAL_PARAMS + GLOBAL_PARAMS_SIZE);
 
-  // Parse all patterns
   const patterns = [];
   for (let i = 0; i < NUM_PATTERNS; i++) {
     const offset = ADDR.PATTERN_DATA + i * PATTERN_SIZE;
@@ -319,8 +503,34 @@ function parseEmxDump(buf) {
   }
 
   return {
+    format:       'sysex',
     fileSize:     buf.length,
     numPatterns:  NUM_PATTERNS,
+    globalParams,
+    patterns,
+  };
+}
+
+/**
+ * Parse a SmartCard EMX dump (1,736,704 bytes).
+ */
+function parseSmartCardDump(buf) {
+  const globalParams = buf.slice(0x20, 0x20 + GLOBAL_PARAMS_SIZE);
+
+  const patterns = [];
+  for (let i = 0; i < SMARTCARD.NUM_PATTERNS; i++) {
+    const offset = SMARTCARD.PATTERN_DATA + i * SMARTCARD.PATTERN_SIZE;
+    try {
+      patterns.push(parseSmartCardPattern(buf, offset));
+    } catch (err) {
+      patterns.push({ index: i, error: err.message });
+    }
+  }
+
+  return {
+    format:       'smartcard',
+    fileSize:     buf.length,
+    numPatterns:  SMARTCARD.NUM_PATTERNS,
     globalParams,
     patterns,
   };
@@ -338,7 +548,7 @@ function listPatterns(dump) {
 // ── Exports ───────────────────────────────────────────────
 
 module.exports = {
-  // Constants
+  // Constants (SysEx format — legacy)
   DUMP_SIZE,
   NUM_PATTERNS,
   PATTERN_SIZE,
@@ -351,6 +561,17 @@ module.exports = {
   SYNTH,
   DRUM,
 
+  // SmartCard constants
+  SMARTCARD,
+  SC_PAT,
+  SC_PART,
+  SC_PART_SIZE,
+  SC_NUM_PARTS,
+  SC_STEP_BYTES,
+
+  // Format detection
+  detectEmxFormat,
+
   // SysEx utilities
   sysexPack7bit,
   sysexUnpack7bit,
@@ -359,6 +580,8 @@ module.exports = {
   parseSynthPart,
   parseDrumPart,
   parsePattern,
+  parseSmartCardPart,
+  parseSmartCardPattern,
   parseEmxDump,
   listPatterns,
 };
@@ -426,6 +649,35 @@ if (require.main === module) {
   console.assert(nonEmpty.length === 1, `Non-empty patterns: ${nonEmpty.length}`);
   console.assert(nonEmpty[0].header.name === 'TESTPAT', 'Listed pattern name');
   console.log(`  Non-empty patterns: ${nonEmpty.length} ✓`);
+
+  // 5. SmartCard format detection
+  const scBuf = Buffer.alloc(SMARTCARD.DUMP_SIZE, 0);
+  scBuf.write('KORG', 0, 'ascii');
+  scBuf.writeUInt32BE(0x00000069, 4);
+  scBuf.write('EMX', 8, 'ascii');
+  console.assert(detectEmxFormat(scBuf) === 'smartcard', 'SmartCard detection');
+  console.assert(detectEmxFormat(dump) === 'sysex', 'SysEx detection');
+  console.log('  Format detection ✓');
+
+  // 6. SmartCard pattern parse
+  const scPatOff = SMARTCARD.PATTERN_DATA;
+  scBuf.write('SCTEST', scPatOff + SC_PAT.NAME, 'ascii');
+  scBuf.writeUInt16BE(Math.round(135.0 * 128), scPatOff + SC_PAT.TEMPO);
+  scBuf.writeUInt8(5, scPatOff + SC_PAT.SWING);
+  scBuf.writeUInt8(15, scPatOff + SC_PAT.LAST_STEP);
+  // Write synth part 0: level=100, pan=0x40
+  const scPartOff = scPatOff + 0x18;
+  scBuf.writeUInt8(2, scPartOff + 0);   // oscType
+  scBuf.writeUInt8(0x40, scPartOff + 1); // pan
+  scBuf.writeUInt8(100, scPartOff + 2);  // level
+
+  const scParsed = parseEmxDump(scBuf);
+  console.assert(scParsed.format === 'smartcard', 'SmartCard format tag');
+  console.assert(scParsed.patterns[0].header.name === 'SCTEST', 'SC pattern name');
+  console.assert(scParsed.patterns[0].header.tempo === 135.0, `SC tempo: ${scParsed.patterns[0].header.tempo}`);
+  console.assert(scParsed.patterns[0].synthParts[0].level === 100, 'SC synth level');
+  console.assert(scParsed.patterns[0].synthParts[0].pan === 0x40, 'SC synth pan');
+  console.log(`  SmartCard parse: ${scParsed.numPatterns} patterns ✓`);
 
   console.log('  All assertions passed ✓');
 }

@@ -89,10 +89,15 @@ function detectFormat(buffer, filename) {
     return 'e2pat';
   }
 
-  // EMX: starts with "KORG" and exact size 1,728,000
-  if (buffer.length === 1728000 &&
+  // EMX: starts with "KORG" and exact size 1,728,000 (SysEx) or 1,736,704 (SmartCard)
+  if ((buffer.length === 1728000 || buffer.length === 1736704) &&
       buffer.toString('ascii', 0, 4) === 'KORG') {
-    return 'emx';
+    // SmartCard has "EMX" at bytes 8-10; SysEx has different type marker
+    if (buffer.length === 1736704 && buffer.toString('ascii', 8, 11) !== 'EMX') {
+      // Not an EMX SmartCard — fall through
+    } else {
+      return 'emx';
+    }
   }
 
   // ── 2. File size ──
@@ -102,8 +107,8 @@ function detectFormat(buffer, filename) {
     return 'e2pat';
   }
 
-  // EMX dump: exactly 1,728,000 bytes
-  if (buffer.length === 1728000) {
+  // EMX dump: exactly 1,728,000 (SysEx) or 1,736,704 (SmartCard) bytes
+  if (buffer.length === 1728000 || buffer.length === 1736704) {
     return 'emx';
   }
 

@@ -14,7 +14,7 @@ const {
 } = require('../../src/file-io');
 const { generateMinimalESX, generateESXWithSample } = require('../fixtures/generators/minimal-esx');
 const { generateEmptyE2S, generateE2SWithSample } = require('../fixtures/generators/minimal-e2s');
-const { generateMinimalEMX } = require('../fixtures/generators/minimal-emx');
+const { generateMinimalEMX, generateMinimalEMXSmartCard } = require('../fixtures/generators/minimal-emx');
 const { buildAllPatterns, createDefaultPattern, DEVICE_E2, ALL_FILE_SIZE } = require('../../src/e2pat-format');
 
 // ── Magic byte detection ─────────────────────────────────
@@ -41,6 +41,11 @@ describe('File I/O - Magic byte detection', () => {
     const buf = generateMinimalEMX();
     expect(detectFormat(buf)).toBe('emx');
   });
+
+  it('should detect EMX SmartCard from magic + size 1736704', () => {
+    const buf = generateMinimalEMXSmartCard();
+    expect(detectFormat(buf)).toBe('emx');
+  });
 });
 
 // ── Size-based detection ─────────────────────────────────
@@ -53,6 +58,11 @@ describe('File I/O - Size-based detection', () => {
 
   it('should detect EMX by exact size (1728000 bytes)', () => {
     const buf = Buffer.alloc(1728000, 0);
+    expect(detectFormat(buf)).toBe('emx');
+  });
+
+  it('should detect EMX SmartCard by exact size (1736704 bytes)', () => {
+    const buf = Buffer.alloc(1736704, 0);
     expect(detectFormat(buf)).toBe('emx');
   });
 });

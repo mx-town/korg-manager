@@ -85,7 +85,8 @@ contextBridge.exposeInMainWorld('api', {
 
   // ═══ EMX ═══
   emx: {
-    openFile:   ()              => ipcRenderer.invoke('emx:open-file'),
+    openFile:     ()            => ipcRenderer.invoke('emx:open-file'),
+    openPatterns: ()            => ipcRenderer.invoke('emx:open-patterns'),
   },
 
   // ═══ Universal ═══

@@ -13,6 +13,7 @@ const {
   parseDrumPart,
   sysexPack7bit,
   sysexUnpack7bit,
+  detectEmxFormat,
   DUMP_SIZE,
   NUM_PATTERNS,
   PATTERN_SIZE,
@@ -22,10 +23,15 @@ const {
   PAT,
   SYNTH,
   DRUM,
+  SMARTCARD,
+  SC_PAT,
+  SC_PART,
 } = require('../../src/emx-format');
 const {
   generateMinimalEMX,
   generateEMXWithPattern,
+  generateMinimalEMXSmartCard,
+  generateEMXSmartCardWithPattern,
 } = require('../fixtures/generators/minimal-emx');
 
 // ── SysEx 7-bit pack/unpack ──────────────────────────────
@@ -182,5 +188,110 @@ describe('EMX - Edge cases', () => {
 
     expect(dump.globalParams).toBeInstanceOf(Buffer);
     expect(dump.globalParams.length).toBe(256);
+  });
+});
+
+// ── SmartCard format ────────────────────────────────────
+
+describe('EMX - SmartCard format detection', () => {
+  it('should detect SmartCard format by size 1736704', () => {
+    const buf = generateMinimalEMXSmartCard();
+    expect(detectEmxFormat(buf)).toBe('smartcard');
+  });
+
+  it('should detect SysEx format by size 1728000', () => {
+    const buf = generateMinimalEMX();
+    expect(detectEmxFormat(buf)).toBe('sysex');
+  });
+
+  it('should return null for unknown sizes', () => {
+    const buf = Buffer.alloc(100000, 0);
+    buf.write('KORG', 0, 'ascii');
+    expect(detectEmxFormat(buf)).toBe(null);
+  });
+
+  it('should return null for non-KORG buffers', () => {
+    const buf = Buffer.alloc(SMARTCARD.DUMP_SIZE, 0);
+    buf.write('NOPE', 0, 'ascii');
+    expect(detectEmxFormat(buf)).toBe(null);
+  });
+});
+
+describe('EMX - SmartCard parsing', () => {
+  it('should parse a minimal SmartCard dump', () => {
+    const buf = generateMinimalEMXSmartCard();
+    const dump = parseEmxDump(buf);
+
+    expect(dump.format).toBe('smartcard');
+    expect(dump.fileSize).toBe(SMARTCARD.DUMP_SIZE);
+    expect(dump.numPatterns).toBe(256);
+    expect(dump.patterns).toHaveLength(256);
+  });
+
+  it('should parse SmartCard pattern name and tempo', () => {
+    const buf = generateEMXSmartCardWithPattern('MYSC', 135.0);
+    const dump = parseEmxDump(buf);
+
+    expect(dump.patterns[0].header.name).toBe('MYSC');
+    expect(dump.patterns[0].header.tempo).toBe(135.0);
+  });
+
+  it('should parse SmartCard synth part parameters', () => {
+    const buf = generateEMXSmartCardWithPattern();
+    const dump = parseEmxDump(buf);
+
+    expect(dump.patterns[0].synthParts).toHaveLength(5);
+    expect(dump.patterns[0].synthParts[0].oscType).toBe(5);
+    expect(dump.patterns[0].synthParts[0].filterCutoff).toBe(80);
+    expect(dump.patterns[0].synthParts[0].level).toBe(100);
+    expect(dump.patterns[0].synthParts[0].pan).toBe(0x40);
+  });
+
+  it('should parse SmartCard drum part parameters', () => {
+    const buf = generateEMXSmartCardWithPattern();
+    const dump = parseEmxDump(buf);
+
+    expect(dump.patterns[0].drumParts).toHaveLength(4);
+    expect(dump.patterns[0].drumParts[0].samplePtr).toBe(0x42);
+    expect(dump.patterns[0].drumParts[0].level).toBe(127);
+  });
+
+  it('should parse SmartCard step triggers', () => {
+    const buf = generateEMXSmartCardWithPattern();
+    const dump = parseEmxDump(buf);
+
+    const steps = dump.patterns[0].synthParts[0].steps;
+    expect(steps).toHaveLength(128);
+    // 4-on-the-floor: steps 0,4,8,12 active
+    expect(steps[0]).toBe(1);
+    expect(steps[1]).toBe(0);
+    expect(steps[4]).toBe(1);
+    expect(steps[8]).toBe(1);
+    expect(steps[12]).toBe(1);
+  });
+
+  it('should parse SmartCard pattern header bitfield', () => {
+    const buf = generateEMXSmartCardWithPattern();
+    const dump = parseEmxDump(buf);
+
+    expect(dump.patterns[0].header.bars).toBe(3);    // 0x02 & 0x07 + 1 = 3
+    expect(dump.patterns[0].header.swing).toBe(5);
+    expect(dump.patterns[0].header.lastStep).toBe(15);
+    expect(dump.patterns[0].header.beat).toBe(0);     // 16th
+  });
+
+  it('should list non-empty SmartCard patterns', () => {
+    const buf = generateEMXSmartCardWithPattern('SCPAT');
+    const dump = parseEmxDump(buf);
+    const nonEmpty = listPatterns(dump);
+
+    expect(nonEmpty).toHaveLength(1);
+    expect(nonEmpty[0].header.name).toBe('SCPAT');
+  });
+
+  it('should return format tag in SysEx dump too', () => {
+    const buf = generateEMXWithPattern();
+    const dump = parseEmxDump(buf);
+    expect(dump.format).toBe('sysex');
   });
 });
