@@ -676,6 +676,57 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
 .param-val{font-family:var(--head);font-size:16px;color:var(--led);margin-top:3px;font-weight:500}
 .param-cell.param-empty{border-color:transparent;background:transparent;box-shadow:none}
 
+/* ── EMX Visual Synth Panel ── */
+.emx-panel{padding:14px 16px;border-top:1px solid var(--brd)}
+.emx-panel-hdr{
+  display:flex;align-items:center;gap:10px;margin-bottom:12px;
+  font-family:var(--head);font-size:13px;font-weight:700;
+}
+.emx-panel-hdr .emx-part-id{color:var(--led)}
+.emx-panel-hdr .emx-part-name{color:var(--txt-d);font-weight:normal;font-size:11px;font-family:var(--lcd);letter-spacing:1px}
+.emx-panel-hdr .emx-osc-tag{
+  margin-left:auto;font-family:var(--lcd);font-size:10px;letter-spacing:1.5px;
+  color:#00ccff;background:rgba(0,204,255,.08);border:1px solid rgba(0,204,255,.2);
+  border-radius:3px;padding:2px 8px;
+}
+.emx-sections{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.emx-bot-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.emx-section{
+  background:linear-gradient(180deg,rgba(8,12,22,.9) 0%,rgba(12,16,32,.7) 100%);
+  border:1px solid var(--brd);border-radius:6px;padding:10px 12px;
+}
+.emx-sec-label{
+  font-size:9px;color:var(--hi);letter-spacing:2.5px;font-family:var(--head);
+  margin-bottom:8px;text-transform:uppercase;
+}
+.emx-sec-label.clr-cyan{color:#00ccff}
+.emx-sec-label.clr-pink{color:var(--hi)}
+.emx-sec-label.clr-green{color:#00ff88}
+.emx-sec-label.clr-purple{color:#aa66ff}
+.emx-sec-label.clr-dim{color:var(--txt-x)}
+.emx-viz{
+  border-radius:4px;background:rgba(4,6,12,.7);overflow:hidden;
+  border:1px solid rgba(26,32,53,.6);margin-bottom:8px;
+}
+.emx-viz svg{display:block;width:100%;height:auto}
+.emx-knobs{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.emx-knob{display:flex;flex-direction:column;align-items:center;min-width:36px}
+.emx-knob-lbl{font-size:7px;color:var(--txt-x);letter-spacing:1px;font-family:var(--lcd);text-transform:uppercase}
+.emx-knob-val{font-size:12px;color:#00ccff;font-weight:500;font-family:var(--lcd);margin-top:1px}
+.emx-knob-val.clr-pink{color:var(--hi)}
+.emx-knob-val.clr-green{color:#00ff88}
+.emx-knob-val.clr-purple{color:#aa66ff}
+.emx-knob-val.clr-dim{color:var(--txt-d)}
+.emx-steps-row{
+  margin-top:10px;display:flex;gap:3px;align-items:flex-end;height:28px;
+  padding:8px 12px;background:linear-gradient(180deg,rgba(8,12,22,.9) 0%,rgba(12,16,32,.7) 100%);
+  border:1px solid var(--brd);border-radius:6px;
+}
+.emx-step{flex:1;min-width:0;border-radius:2px 2px 0 0;transition:background .05s}
+.emx-step.on{background:rgba(0,204,255,.65);box-shadow:0 0 4px rgba(0,204,255,.3)}
+.emx-step.off{background:rgba(255,255,255,.04)}
+.emx-step.accent{background:rgba(197,48,92,.75);box-shadow:0 0 4px rgba(197,48,92,.3)}
+
 /* ── Mini step bar in part buttons ── */
 .part-step-bar{
   display:flex;gap:1px;width:100%;height:6px;margin-top:3px;
@@ -1983,6 +2034,8 @@ let patSeqBar=0;         // bar 0-7 in steps view
 let patSoloActive=-1;    // -1 = no solo, 0-15 = soloed part
 let patMuteSaved=0;      // saved muteStatus before solo
 const SEQ_PART_LABELS=['D1','D2','D3','D4','D5','D6','D7','D8','D9','KB1','KB2','ST1','ST2','SLC','AIN','ACC'];
+const EMX_PART_LABELS_GLOBAL=['S1','S2','S3','S4','S5','D1','D2','D3','D4'];
+function getPartLabel(i){return patFormat==='EMX-1'?(EMX_PART_LABELS_GLOBAL[i]||`P${i+1}`):(SEQ_PART_LABELS[i]||`P${i+1}`);}
 const PAT_CELL_MIN=12,PAT_CELL_MAX=48,PAT_CELL_BASE=28;
 let PAT_CELL=PAT_CELL_BASE; // mutable — zoom changes this
 const PAT_ROWS=16,PAT_COLS=32;
@@ -2192,6 +2245,7 @@ function patSelectPat(i){
 // Part-type color map for the step grid
 const PAT_TYPE_COLORS={
   drum:     {r:197,g:48,b:92},   // pink
+  synth:    {r:0,g:204,b:255},   // cyan
   keyboard: {r:0,g:204,b:255},   // cyan
   stretch:  {r:0,g:230,b:118},   // green
   slice:    {r:0,g:230,b:118},   // green
@@ -2199,7 +2253,7 @@ const PAT_TYPE_COLORS={
   accent:   {r:255,g:235,b:59},  // yellow
 };
 const PAT_TYPE_LABEL_COLORS={
-  drum:'#c5305c',keyboard:'#00ccff',stretch:'#00e676',slice:'#00e676',audioin:'#ffb74d',accent:'#ffeb3b',
+  drum:'#c5305c',synth:'#00ccff',keyboard:'#00ccff',stretch:'#00e676',slice:'#00e676',audioin:'#ffb74d',accent:'#ffeb3b',
 };
 
 // ── Hex geometry (flat-top orientation) ──
@@ -2224,11 +2278,11 @@ function drawHexCell(ctx,cx,cy,r,fill,stroke,glow){
 let patPlayStep=-1;
 
 const PAT_PX_COLORS={
-  drum:'197,48,92', keyboard:'0,204,255', stretch:'0,230,118',
+  drum:'197,48,92', synth:'0,204,255', keyboard:'0,204,255', stretch:'0,230,118',
   slice:'0,230,118', audioin:'255,183,77', accent:'255,235,59',
 };
 const PAT_PX_LABEL={
-  drum:'#c5305c',keyboard:'#00ccff',stretch:'#00e676',
+  drum:'#c5305c',synth:'#00ccff',keyboard:'#00ccff',stretch:'#00e676',
   slice:'#00e676',audioin:'#ffb74d',accent:'#ffeb3b',
 };
 
@@ -2386,14 +2440,23 @@ function partsRender(pat){
   const totalSteps=patStepCount(pat);
   const stepsToShow=Math.min(totalSteps,16);
 
-  const row1Groups=[{label:'DRUM PART',indices:[0,1,2,3,4,5,6,7,8]}];
-  const row2Groups=[
-    {label:'KEYBOARD',indices:[9,10]},
-    {label:'STRETCH',indices:[11,12]},
-    {label:'SLICE',indices:[13]},
-    {label:'AUDIO IN',indices:[14]},
-    {label:'ACCENT',indices:[15]},
-  ];
+  // EMX-1: 5 synth + 4 drum (9 parts). ESX/E2: 16 parts.
+  const isEMX=patFormat==='EMX-1';
+  let row1Groups,row2Groups;
+  if(isEMX){
+    row1Groups=[{label:'SYNTH',indices:[0,1,2,3,4]}];
+    row2Groups=[{label:'DRUM',indices:[5,6,7,8]}];
+  } else {
+    row1Groups=[{label:'DRUM PART',indices:[0,1,2,3,4,5,6,7,8]}];
+    row2Groups=[
+      {label:'KEYBOARD',indices:[9,10]},
+      {label:'STRETCH',indices:[11,12]},
+      {label:'SLICE',indices:[13]},
+      {label:'AUDIO IN',indices:[14]},
+      {label:'ACCENT',indices:[15]},
+    ];
+  }
+  const EMX_PART_LABELS=['S1','S2','S3','S4','S5','D1','D2','D3','D4'];
 
   function buildPartBtn(i){
     const p=parts[i];
@@ -2401,9 +2464,9 @@ function partsRender(pat){
     const col=PAT_PX_LABEL[pType]||'#c5305c';
     const rgb=PAT_PX_COLORS[pType]||'197,48,92';
     const isSelected=i===patSeqPart;
-    const label=SEQ_PART_LABELS[i]||`P${i+1}`;
-    const sName=(p&&p.sampleName)?esc(p.sampleName):'—';
-    const hasSample=p&&p.sampleNum!=null&&p.sampleNum!==0x8000&&p.sampleNum!==0xFFFF;
+    const label=isEMX?(EMX_PART_LABELS[i]||`P${i+1}`):(SEQ_PART_LABELS[i]||`P${i+1}`);
+    const sName=(p&&p.sampleName)?esc(p.sampleName):(isEMX?(p&&p.name?esc(p.name):'—'):'—');
+    const hasSample=isEMX?!!(p&&(p.oscType||p.samplePtr)):p&&p.sampleNum!=null&&p.sampleNum!==0x8000&&p.sampleNum!==0xFFFF;
     let hasSteps=false,activeCount=0;
     if(p){for(let s=0;s<totalSteps;s++){if(patGetStep(p,s)){hasSteps=true;activeCount++}}}
     const isEmpty=!hasSample&&!hasSteps;
@@ -2470,10 +2533,363 @@ function partsRender(pat){
 const ESX_FILTER_NAMES=['LPF','HPF','BPF','BPF+'];
 function esxFilterName(v){return ESX_FILTER_NAMES[v]||String(v);}
 
+// ═══════════════════════════════════════════════════════════
+//  EMX-1 VISUAL SYNTH PANEL
+// ═══════════════════════════════════════════════════════════
+
+const EMX_OSC_NAMES={
+  0:'SIN',1:'TRI',2:'SAW',3:'SQR',4:'FORMANT',5:'NOISE',6:'PCM/DWG',
+  7:'UNISON',8:'CHORD',9:'CROSS',10:'AIR',11:'DECAY',12:'FEEDBACK',
+  13:'RESO',14:'RING',15:'SYNC',
+};
+const EMX_FILTER_NAMES=['LPF','HPF','BPF','BPF+'];
+const EMX_MOD_NAMES={
+  0:'NONE',1:'CHO/FLG',2:'PHASER',3:'RING MOD',4:'COMP',
+  5:'DISTORT',6:'DECIM',7:'GRAIN',
+};
+
+function emxOscName(v){return EMX_OSC_NAMES[v]||`TYPE ${v}`;}
+function emxFilterName(v){return EMX_FILTER_NAMES[v]||`F${v}`;}
+function emxModName(v){return EMX_MOD_NAMES[v]||`MOD ${v}`;}
+function emxPanStr(v){
+  if(v===64||v===0x40)return 'C';
+  return v<64?`L${64-v}`:`R${v-64}`;
+}
+function emxPitchStr(v){
+  const s=v-64;
+  return s===0?'0':s>0?`+${s}`:String(s);
+}
+
+// ── SVG path generators ──
+
+function emxSvgSinePath(w,h,cycles){
+  const cy=h/2,amp=cy-4;
+  let d=`M 0 ${cy}`;
+  const pts=cycles*32;
+  for(let i=1;i<=pts;i++){
+    const x=(i/pts)*w;
+    const y=cy-Math.sin((i/pts)*cycles*2*Math.PI)*amp;
+    d+=` L ${x.toFixed(1)} ${y.toFixed(1)}`;
+  }
+  return d;
+}
+
+function emxSvgTriPath(w,h,cycles){
+  const cy=h/2,amp=cy-4;
+  let d='';
+  for(let c=0;c<cycles;c++){
+    const x0=(c/cycles)*w,x1=((c+0.25)/cycles)*w,x2=((c+0.75)/cycles)*w,x3=((c+1)/cycles)*w;
+    d+=(c===0?`M ${x0} ${cy}`:'');
+    d+=` L ${x1.toFixed(1)} ${cy-amp} L ${x2.toFixed(1)} ${cy+amp} L ${x3.toFixed(1)} ${cy}`;
+  }
+  return d;
+}
+
+function emxSvgSawPath(w,h,cycles){
+  const cy=h/2,amp=cy-4;
+  let d='';
+  for(let c=0;c<cycles;c++){
+    const x0=(c/cycles)*w,x1=((c+0.98)/cycles)*w,x2=((c+1)/cycles)*w;
+    d+=(c===0?`M ${x0.toFixed(1)} ${(cy+amp).toFixed(1)}`:'');
+    d+=` L ${x1.toFixed(1)} ${(cy-amp).toFixed(1)} L ${x2.toFixed(1)} ${(cy+amp).toFixed(1)}`;
+  }
+  return d;
+}
+
+function emxSvgSqrPath(w,h,cycles,pw){
+  const cy=h/2,amp=cy-4,duty=Math.max(0.1,Math.min(0.9,pw));
+  let d='';
+  for(let c=0;c<cycles;c++){
+    const x0=(c/cycles)*w,x1=((c+duty)/cycles)*w,x2=((c+duty)/cycles)*w,x3=((c+1)/cycles)*w;
+    if(c===0)d+=`M ${x0} ${cy-amp}`;
+    else d+=` L ${x0.toFixed(1)} ${(cy-amp).toFixed(1)}`;
+    d+=` L ${x1.toFixed(1)} ${(cy-amp).toFixed(1)} L ${x2.toFixed(1)} ${(cy+amp).toFixed(1)} L ${x3.toFixed(1)} ${(cy+amp).toFixed(1)}`;
+  }
+  return d;
+}
+
+function emxSvgNoisePath(w,h){
+  const cy=h/2,amp=cy-4;
+  let d=`M 0 ${cy}`;
+  const seeded=[0.2,-0.7,0.5,-0.3,0.8,-0.6,0.1,-0.9,0.4,-0.2,0.7,-0.5,0.3,-0.8,0.6,-0.1,0.9,-0.4];
+  const step=w/seeded.length;
+  for(let i=0;i<seeded.length;i++){
+    d+=` L ${(i*step+step/2).toFixed(1)} ${(cy-seeded[i]*amp).toFixed(1)}`;
+  }
+  d+=` L ${w} ${cy}`;
+  return d;
+}
+
+function emxOscWaveformSvg(oscType,edit1,w,h){
+  w=w||180;h=h||48;
+  const pw=edit1!=null?edit1/127:0.5;
+  const cycles=4;
+  let d;
+  const t=oscType%16;
+  if(t===0) d=emxSvgSinePath(w,h,cycles);
+  else if(t===1) d=emxSvgTriPath(w,h,cycles);
+  else if(t===2) d=emxSvgSawPath(w,h,cycles);
+  else if(t===3) d=emxSvgSqrPath(w,h,cycles,pw);
+  else if(t===5) d=emxSvgNoisePath(w,h);
+  else d=emxSvgSinePath(w,h,cycles); // fallback
+  // Ghost line offset for depth
+  const ghost=`<path d="${d}" fill="none" stroke="rgba(0,204,255,.15)" stroke-width="3" transform="translate(2,2)"/>`;
+  const main=`<path d="${d}" fill="none" stroke="#00ccff" stroke-width="1.5"/>`;
+  return `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">${ghost}${main}</svg>`;
+}
+
+function emxFilterCurveSvg(type,cutoff,res,w,h){
+  w=w||200;h=h||56;
+  const cutX=Math.max(8,Math.min(w-8,(cutoff/127)*w));
+  const resPk=Math.max(0,(res/127)*h*0.7);
+  const base=h-4, flat=h*0.35;
+  let d;
+  if(type===0){ // LPF
+    d=`M 0 ${flat} L ${(cutX-20).toFixed(1)} ${flat}`;
+    d+=` Q ${cutX.toFixed(1)} ${(flat-resPk).toFixed(1)}, ${cutX.toFixed(1)} ${flat.toFixed(1)}`;
+    d+=` Q ${(cutX+15).toFixed(1)} ${(flat+10).toFixed(1)}, ${(cutX+40).toFixed(1)} ${base}`;
+    d+=` L ${w} ${base}`;
+  } else if(type===1){ // HPF
+    d=`M 0 ${base} L ${(cutX-40).toFixed(1)} ${base}`;
+    d+=` Q ${(cutX-15).toFixed(1)} ${(flat+10).toFixed(1)}, ${cutX.toFixed(1)} ${flat.toFixed(1)}`;
+    d+=` Q ${cutX.toFixed(1)} ${(flat-resPk).toFixed(1)}, ${(cutX+20).toFixed(1)} ${flat}`;
+    d+=` L ${w} ${flat}`;
+  } else { // BPF / BPF+
+    const bw=type===3?15:25;
+    d=`M 0 ${base} L ${(cutX-bw-20).toFixed(1)} ${base}`;
+    d+=` Q ${(cutX-bw).toFixed(1)} ${base}, ${cutX.toFixed(1)} ${(flat-resPk).toFixed(1)}`;
+    d+=` Q ${(cutX+bw).toFixed(1)} ${base}, ${(cutX+bw+20).toFixed(1)} ${base}`;
+    d+=` L ${w} ${base}`;
+  }
+  // Filled area under curve
+  const fillD=d+` L ${w} ${h} L 0 ${h} Z`;
+  const fill=`<path d="${fillD}" fill="rgba(197,48,92,.08)"/>`;
+  const line=`<path d="${d}" fill="none" stroke="#ff0088" stroke-width="1.5"/>`;
+  // Cutoff line
+  const cutLine=`<line x1="${cutX}" y1="2" x2="${cutX}" y2="${h-2}" stroke="rgba(255,0,136,.25)" stroke-width="1" stroke-dasharray="3,3"/>`;
+  return `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">${fill}${cutLine}${line}</svg>`;
+}
+
+function emxEnvelopeSvg(attack,decay,w,h){
+  w=w||200;h=h||50;
+  const pad=4;
+  const atkNorm=attack/127;
+  const decNorm=decay/127;
+  const atkX=pad+atkNorm*w*0.4;
+  const peak=pad;
+  const decEnd=atkX+decNorm*w*0.5;
+  const bottom=h-pad;
+  // Attack: exponential-ish curve
+  let d=`M ${pad} ${bottom}`;
+  d+=` Q ${(pad+atkX*0.3).toFixed(1)} ${bottom}, ${atkX.toFixed(1)} ${peak}`;
+  // Decay: exponential falloff
+  d+=` Q ${(atkX+(decEnd-atkX)*0.3).toFixed(1)} ${peak}, ${decEnd.toFixed(1)} ${bottom}`;
+  // Extend flat
+  d+=` L ${w-pad} ${bottom}`;
+  const fillD=d+` L ${pad} ${bottom} Z`;
+  const fill=`<path d="${fillD}" fill="rgba(0,255,136,.06)"/>`;
+  const line=`<path d="${d}" fill="none" stroke="#00ff88" stroke-width="1.5"/>`;
+  // Attack/Decay labels
+  const atkLbl=`<text x="${(pad+atkX)/2}" y="${h-1}" fill="rgba(0,255,136,.35)" font-size="7" font-family="var(--lcd)" text-anchor="middle">ATK</text>`;
+  const decLbl=`<text x="${(atkX+decEnd)/2}" y="${h-1}" fill="rgba(0,255,136,.35)" font-size="7" font-family="var(--lcd)" text-anchor="middle">DEC</text>`;
+  return `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">${fill}${line}${atkLbl}${decLbl}</svg>`;
+}
+
+function emxLfoSvg(modType,speed,depth,w,h){
+  w=w||200;h=h||36;
+  const cycles=Math.max(1,Math.round((speed/127)*6)+1);
+  const amp=Math.max(2,(depth/127)*(h/2-3));
+  const cy=h/2;
+  let d;
+  const t=modType%8;
+  if(t<=1) d=emxSvgSinePath(w,h,cycles); // sine
+  else if(t===2) d=emxSvgTriPath(w,h,cycles);
+  else if(t===3) d=emxSvgSqrPath(w,h,cycles,0.5);
+  else if(t===4) d=emxSvgSawPath(w,h,cycles);
+  else { // S&H / random steps
+    d=`M 0 ${cy}`;
+    const stepW=w/(cycles*4);
+    const vals=[0.6,-0.4,0.8,-0.7,0.2,-0.9,0.5,-0.3,1,-0.6,0.3,-0.8,0.7,-0.5,0.4,-0.2,0.9,-0.1,0.6,-0.7,0.1,-0.5,0.8,-0.4];
+    for(let i=0;i<cycles*4&&i<vals.length;i++){
+      const x=i*stepW,x2=(i+1)*stepW;
+      const y=cy-vals[i]*amp;
+      d+=` L ${x.toFixed(1)} ${y.toFixed(1)} L ${x2.toFixed(1)} ${y.toFixed(1)}`;
+    }
+  }
+  // Scale amplitude visually
+  const scaleY=amp/(h/2-3);
+  const ghost=`<path d="${d}" fill="none" stroke="rgba(170,102,255,.15)" stroke-width="3" transform="translate(1,1)"/>`;
+  const line=`<path d="${d}" fill="none" stroke="#aa66ff" stroke-width="1.5"/>`;
+  return `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">${ghost}${line}</svg>`;
+}
+
+function emxKnob(label,value,colorClass){
+  const cls=colorClass?` ${colorClass}`:'';
+  return `<div class="emx-knob"><span class="emx-knob-lbl">${label}</span><span class="emx-knob-val${cls}">${value}</span></div>`;
+}
+
+function emxSynthPanel(part,partIndex){
+  const isSynth=part.type==='synth';
+  const isEMX=true;
+  const EMX_PL=['S1','S2','S3','S4','S5','D1','D2','D3','D4'];
+  const partLabel=EMX_PL[partIndex]||`P${partIndex+1}`;
+  const partName=part.name||`Part ${partIndex+1}`;
+
+  let h=`<div class="emx-panel">`;
+  // Header
+  h+=`<div class="emx-panel-hdr">`;
+  h+=`<span class="emx-part-id">${partLabel}</span>`;
+  h+=`<span class="emx-part-name">${esc(partName)}</span>`;
+  if(isSynth){
+    h+=`<span class="emx-osc-tag">OSC: ${emxOscName(part.oscType)}</span>`;
+  } else {
+    h+=`<span class="emx-osc-tag" style="color:var(--hi);border-color:rgba(197,48,92,.25);background:rgba(197,48,92,.08)">PCM: ${part.samplePtr!=null?part.samplePtr:'—'}</span>`;
+  }
+  h+=`</div>`;
+
+  if(isSynth){
+    // ── 3-column top row: OSC | FILTER | AMP/ENVELOPE ──
+    h+=`<div class="emx-sections">`;
+
+    // OSCILLATOR
+    h+=`<div class="emx-section">`;
+    h+=`<div class="emx-sec-label clr-cyan">OSCILLATOR</div>`;
+    h+=`<div class="emx-viz">${emxOscWaveformSvg(part.oscType,part.oscEdit1)}</div>`;
+    h+=`<div class="emx-knobs">`;
+    h+=emxKnob('TYPE',emxOscName(part.oscType));
+    h+=emxKnob('ED1',part.oscEdit1!=null?part.oscEdit1:'—');
+    h+=emxKnob('ED2',part.oscEdit2!=null?part.oscEdit2:'—');
+    h+=`</div></div>`;
+
+    // FILTER
+    h+=`<div class="emx-section">`;
+    h+=`<div class="emx-sec-label clr-pink">FILTER</div>`;
+    h+=`<div class="emx-viz">${emxFilterCurveSvg(part.filterType||0,part.filterCutoff||0,part.filterRes||0)}</div>`;
+    h+=`<div class="emx-knobs">`;
+    h+=emxKnob('TYPE',emxFilterName(part.filterType),'clr-pink');
+    h+=emxKnob('CUT',part.filterCutoff!=null?part.filterCutoff:'—','clr-pink');
+    h+=emxKnob('RES',part.filterRes!=null?part.filterRes:'—','clr-pink');
+    h+=emxKnob('EG',part.filterEG!=null?part.filterEG:'—','clr-pink');
+    h+=`</div></div>`;
+
+    // AMP / ENVELOPE
+    h+=`<div class="emx-section">`;
+    h+=`<div class="emx-sec-label clr-green">AMP / ENVELOPE</div>`;
+    h+=`<div class="emx-viz">${emxEnvelopeSvg(part.egAttack||part.eg||0,part.egDecay||part.eg||0)}</div>`;
+    h+=`<div class="emx-knobs">`;
+    h+=emxKnob('LVL',part.level!=null?part.level:'—','clr-green');
+    h+=emxKnob('PAN',emxPanStr(part.pan!=null?part.pan:64),'clr-green');
+    h+=emxKnob('ATK',part.egAttack!=null?part.egAttack:(part.eg!=null?part.eg:'—'),'clr-green');
+    h+=emxKnob('DEC',part.egDecay!=null?part.egDecay:(part.eg!=null?part.eg:'—'),'clr-green');
+    h+=`</div></div>`;
+
+    h+=`</div>`; // end emx-sections
+
+    // ── 2-column bottom row: MOD | FX/PITCH ──
+    h+=`<div class="emx-bot-row">`;
+
+    // MODULATION
+    h+=`<div class="emx-section">`;
+    h+=`<div class="emx-sec-label clr-purple">MODULATION</div>`;
+    h+=`<div class="emx-viz">${emxLfoSvg(part.modType||part.mod||0,part.modSpeed||part.mod||0,part.modDepth||part.mod||0)}</div>`;
+    h+=`<div class="emx-knobs">`;
+    h+=emxKnob('TYPE',emxModName(part.modType||part.mod||0),'clr-purple');
+    h+=emxKnob('SPD',part.modSpeed!=null?part.modSpeed:(part.mod!=null?part.mod:'—'),'clr-purple');
+    h+=emxKnob('DEPTH',part.modDepth!=null?part.modDepth:(part.mod!=null?part.mod:'—'),'clr-purple');
+    h+=`</div></div>`;
+
+    // FX / PITCH
+    h+=`<div class="emx-section">`;
+    h+=`<div class="emx-sec-label clr-dim">FX / PITCH</div>`;
+    h+=`<div class="emx-knobs" style="margin-top:12px">`;
+    h+=emxKnob('SEND',part.fxSend!=null?part.fxSend:'—','clr-dim');
+    h+=emxKnob('PITCH',emxPitchStr(part.pitch!=null?part.pitch:64),'clr-dim');
+    h+=emxKnob('GLIDE',part.glide!=null?part.glide:'—','clr-dim');
+    h+=emxKnob('ROLL',part.roll!=null?part.roll:'—','clr-dim');
+    h+=`</div></div>`;
+
+    h+=`</div>`; // end emx-bot-row
+
+  } else {
+    // ── DRUM PART: 2-column layout ──
+    h+=`<div class="emx-sections" style="grid-template-columns:1fr 1fr">`;
+
+    // FILTER
+    h+=`<div class="emx-section">`;
+    h+=`<div class="emx-sec-label clr-pink">FILTER</div>`;
+    h+=`<div class="emx-viz">${emxFilterCurveSvg(part.filterType||0,part.filterCutoff||0,part.filterRes||0)}</div>`;
+    h+=`<div class="emx-knobs">`;
+    h+=emxKnob('TYPE',emxFilterName(part.filterType),'clr-pink');
+    h+=emxKnob('CUT',part.filterCutoff!=null?part.filterCutoff:'—','clr-pink');
+    h+=emxKnob('RES',part.filterRes!=null?part.filterRes:'—','clr-pink');
+    h+=emxKnob('EG',part.filterEG!=null?part.filterEG:'—','clr-pink');
+    h+=`</div></div>`;
+
+    // ENVELOPE / AMP
+    h+=`<div class="emx-section">`;
+    h+=`<div class="emx-sec-label clr-green">ENVELOPE / AMP</div>`;
+    h+=`<div class="emx-viz">${emxEnvelopeSvg(0,part.egTime||part.eg||0)}</div>`;
+    h+=`<div class="emx-knobs">`;
+    h+=emxKnob('LVL',part.level!=null?part.level:'—','clr-green');
+    h+=emxKnob('PAN',emxPanStr(part.pan!=null?part.pan:64),'clr-green');
+    h+=emxKnob('EG',part.egTime!=null?part.egTime:(part.eg!=null?part.eg:'—'),'clr-green');
+    h+=emxKnob('PITCH',emxPitchStr(part.pitch!=null?part.pitch:64),'clr-green');
+    h+=`</div></div>`;
+
+    h+=`</div>`;
+
+    // ── Bottom row: MOD | FX ──
+    h+=`<div class="emx-bot-row">`;
+
+    // MOD
+    h+=`<div class="emx-section">`;
+    h+=`<div class="emx-sec-label clr-purple">MODULATION</div>`;
+    h+=`<div class="emx-viz">${emxLfoSvg(part.modType||part.mod||0,part.modSpeed||part.mod||0,part.modDepth||part.mod||0)}</div>`;
+    h+=`<div class="emx-knobs">`;
+    h+=emxKnob('TYPE',emxModName(part.modType||part.mod||0),'clr-purple');
+    h+=emxKnob('SPD',part.modSpeed!=null?part.modSpeed:(part.mod!=null?part.mod:'—'),'clr-purple');
+    h+=emxKnob('DEPTH',part.modDepth!=null?part.modDepth:(part.mod!=null?part.mod:'—'),'clr-purple');
+    h+=`</div></div>`;
+
+    // FX
+    h+=`<div class="emx-section">`;
+    h+=`<div class="emx-sec-label clr-dim">FX</div>`;
+    h+=`<div class="emx-knobs" style="margin-top:12px">`;
+    h+=emxKnob('SEND',part.fxSend!=null?part.fxSend:'—','clr-dim');
+    h+=emxKnob('ROLL',part.roll!=null?part.roll:'—','clr-dim');
+    h+=`</div></div>`;
+
+    h+=`</div>`;
+  }
+
+  // ── Step sequence row ──
+  const steps=part.steps||[];
+  const vels=part.velocities||[];
+  const nSteps=Math.min(steps.length,16);
+  h+=`<div class="emx-steps-row">`;
+  for(let s=0;s<nSteps;s++){
+    const on=steps[s];
+    const vel=vels[s]||0;
+    const ht=on?Math.max(4,Math.round((vel/127)*24)):2;
+    const cls=on?(vel>110?'accent':'on'):'off';
+    h+=`<div class="emx-step ${cls}" style="height:${ht}px"></div>`;
+  }
+  h+=`</div>`;
+
+  h+=`</div>`; // end emx-panel
+  return h;
+}
+
 function partsRenderParams(pat, part){
   const wrap=document.getElementById('partParams');
   if(!wrap)return;
   if(!part){wrap.innerHTML='';return;}
+
+  // EMX-1: Use visual synth panel
+  if(patFormat==='EMX-1'){
+    wrap.innerHTML=emxSynthPanel(part,patSeqPart);
+    return;
+  }
 
   const pType=(part.type)||'drum';
   const col=PAT_PX_LABEL[pType]||'#c5305c';
@@ -2547,7 +2963,7 @@ function stepsRender(pat){
   const info=document.getElementById('seqInfo');
   if(info){
     info.innerHTML=
-      `<span class="seq-part-name" style="color:${col}">${SEQ_PART_LABELS[patSeqPart]} — ${esc(partName)}</span>`+
+      `<span class="seq-part-name" style="color:${col}">${getPartLabel(patSeqPart)} — ${esc(partName)}</span>`+
       (sampleName
         ?`<span class="seq-sample-name seq-sample-pick" title="Click to change sample">${esc(sampleName)}</span>`
         :`<span class="seq-sample-name seq-sample-pick" title="Click to change sample">— no sample —</span>`);
@@ -2565,7 +2981,8 @@ function stepsRenderPartNav(pat){
   const muteStatus=pat.muteStatus||0;
   const parts=pat.parts||[];
   let h='';
-  for(let i=0;i<16;i++){
+  const nParts=patFormat==='EMX-1'?Math.min(parts.length,9):16;
+  for(let i=0;i<nParts;i++){
     const p=parts[i];
     const pType=(p&&p.type)||'drum';
     const col=PAT_PX_LABEL[pType]||'#c5305c';
@@ -2574,7 +2991,7 @@ function stepsRenderPartNav(pat){
     const isMuted=!!(muteStatus&(1<<i));
     const cls='seq-part-btn'+(isActive?' seq-part-act':'')+(isMuted?' seq-part-muted':'');
     const style=isActive?`border-color:${col};color:${col};background:rgba(${rgb},.15)`:``;
-    h+=`<button class="${cls}" data-part="${i}" style="${style}">${SEQ_PART_LABELS[i]}</button>`;
+    h+=`<button class="${cls}" data-part="${i}" style="${style}">${getPartLabel(i)}</button>`;
   }
   wrap.innerHTML=h;
   wrap.querySelectorAll('.seq-part-btn').forEach(btn=>{

@@ -1410,7 +1410,17 @@ function emxPatternToUI(emxPat, index) {
     parts.push({
       type: 'synth', name: `Synth ${i + 1}`,
       oscType: sp.oscType != null ? sp.oscType : 0,
-      level: sp.level || 0, pan: sp.pan,
+      oscEdit1: sp.oscEdit1 || 0, oscEdit2: sp.oscEdit2 || 0,
+      filterType: sp.filterType != null ? sp.filterType : 0,
+      filterCutoff: sp.filterCutoff || 0, filterRes: sp.filterRes || 0,
+      filterEG: sp.filterEG || 0,
+      modType: sp.modType || 0, modSpeed: sp.modSpeed || 0, modDepth: sp.modDepth || 0,
+      mod: sp.mod || 0,
+      egAttack: sp.egAttack || 0, egDecay: sp.egDecay || 0,
+      eg: sp.eg || 0,
+      pitch: sp.pitch != null ? sp.pitch : 64, glide: sp.glide || 0,
+      level: sp.level || 0, pan: sp.pan != null ? sp.pan : 64,
+      ampEG: sp.ampEG || 0, roll: sp.roll || 0, fxSend: sp.fxSend || 0,
       steps: steps.map(s => s > 0),
       velocities: steps.map(s => s > 0 ? (sp.level || 100) : 0),
     });
@@ -1420,8 +1430,17 @@ function emxPatternToUI(emxPat, index) {
     const steps = dp.steps || new Array(128).fill(0);
     parts.push({
       type: 'drum', name: `Drum ${i + 1}`,
+      samplePtr: dp.samplePtr != null ? dp.samplePtr : 0,
       oscType: dp.samplePtr != null ? dp.samplePtr : 0,
-      level: dp.level || 0, pan: dp.pan,
+      filterType: dp.filterType != null ? dp.filterType : 0,
+      filterCutoff: dp.filterCutoff || 0, filterRes: dp.filterRes || 0,
+      filterEG: dp.filterEG || 0,
+      modType: dp.modType || 0, modSpeed: dp.modSpeed || 0, modDepth: dp.modDepth || 0,
+      mod: dp.mod || 0,
+      pitch: dp.pitch != null ? dp.pitch : 64,
+      egTime: dp.egTime || 0, eg: dp.eg || 0,
+      level: dp.level || 0, pan: dp.pan != null ? dp.pan : 64,
+      roll: dp.roll || 0, fxSend: dp.fxSend || 0,
       steps: steps.map(s => s > 0),
       velocities: steps.map(s => s > 0 ? (dp.level || 100) : 0),
     });
