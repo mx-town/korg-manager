@@ -356,34 +356,6 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
 /* ═══ PATTERN VIEW ═══ */
 .pat-main{display:grid;grid-template-columns:260px 1fr;overflow:hidden;flex:1}
 .pat-list-panel{display:flex;flex-direction:column;overflow:hidden;border-right:2px solid var(--brd);background:var(--dark)}
-.pat-search{position:relative;padding:6px 10px 2px}
-.pat-search input{width:100%;padding:6px 28px 6px 10px;background:var(--void);border:1px solid var(--brd);color:var(--led);font-family:var(--lcd);font-size:11px;border-radius:3px;outline:none;box-sizing:border-box}
-.pat-search input:focus{border-color:var(--led);box-shadow:0 0 8px var(--led-g)}
-.pat-search input::placeholder{color:#444}
-.pat-search-x{position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;color:#666;font-size:16px;cursor:pointer;padding:0;line-height:1;display:none}
-.pat-search-x:hover{color:var(--hi)}
-.pat-filter-bar{
-  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
-  padding:4px 10px 6px;border-bottom:1px solid var(--brd);
-  background:var(--void);
-}
-.pat-filter-chk{
-  display:flex;align-items:center;gap:4px;cursor:pointer;
-  font-family:var(--lcd);font-size:10px;color:var(--txt-x);
-  letter-spacing:1px;
-}
-.pat-filter-chk input{accent-color:var(--hi)}
-.pat-filter-chk:hover{color:var(--txt-d)}
-.pat-bpm-range{
-  display:flex;align-items:center;gap:4px;margin-left:auto;
-  font-family:var(--lcd);font-size:10px;color:var(--txt-x);
-}
-.pat-bpm-range input{
-  background:var(--void);border:1px solid var(--brd);
-  color:var(--led);font-family:var(--lcd);font-size:10px;
-  padding:2px 4px;outline:none;text-align:center;
-}
-.pat-bpm-range input:focus{border-color:var(--led)}
 .pat-list{flex:1;overflow-y:auto}
 .pat-list::-webkit-scrollbar{width:6px} .pat-list::-webkit-scrollbar-track{background:var(--void)} .pat-list::-webkit-scrollbar-thumb{background:var(--blue-d);border-radius:3px}
 .pat-item{display:grid;grid-template-columns:40px 1fr 60px;gap:6px;align-items:center;padding:8px 12px;cursor:pointer;transition:background 50ms,border-color 50ms;border-left:3px solid transparent;border-bottom:1px solid rgba(255,255,255,.02);font-family:var(--lcd);font-size:12px}
@@ -592,7 +564,9 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
 
 /* ── Three-mode pattern editor ── */
 .pat-mode-view{flex:1;overflow:auto;display:none}
-.pat-mode-view.active{display:block;animation:viewFadeIn 150ms ease}
+.pat-mode-view.active{display:flex;flex-direction:column;animation:viewFadeIn 150ms ease}
+#patPartsWrap.active{align-items:stretch}
+#partsGrid{flex:1;display:flex;flex-direction:column}
 @keyframes viewFadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
 
 /* Mode toggle buttons in transport bar */
@@ -610,63 +584,72 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
 }
 
 /* ── PARTS view: premium hardware emulation ── */
-.parts-rows{display:flex;flex-direction:column;gap:10px;padding:14px 16px 10px}
-.parts-row-line{display:flex;align-items:flex-end;gap:0}
+.parts-rows{
+  display:flex;flex-direction:column;gap:24px;
+  padding:0 32px;flex:1;
+  justify-content:center;align-items:center;
+  width:100%;margin:0 auto;
+}
+.parts-row-line{display:flex;align-items:stretch;gap:0;width:100%}
 .parts-group{display:flex;flex-direction:column;align-items:stretch;gap:0;flex:1;min-width:0}
 .parts-group-label{
-  font-family:var(--head);font-size:7px;color:#95a5b5;
-  letter-spacing:2.5px;text-align:center;padding-bottom:4px;white-space:nowrap;
+  font-family:var(--head);font-size:9px;color:#7a8ea0;
+  letter-spacing:3.5px;text-align:center;padding-bottom:8px;white-space:nowrap;
   text-transform:uppercase;position:relative;
 }
 .parts-group-label::after{
-  content:'';display:block;height:1px;margin-top:3px;
+  content:'';display:block;height:1px;margin-top:5px;
   background:linear-gradient(90deg,transparent 5%,var(--brd-h) 30%,var(--brd-h) 70%,transparent 95%);
-  opacity:.5;
+  opacity:.4;
 }
-.parts-group-row{display:flex;gap:4px}
+.parts-group-row{display:flex;gap:8px}
 .parts-sep{
-  width:1px;margin:0 8px;align-self:stretch;flex-shrink:0;
+  width:1px;margin:0 14px;align-self:stretch;flex-shrink:0;
   background:linear-gradient(180deg,transparent 10%,var(--brd-h) 40%,var(--brd-h) 60%,transparent 90%);
+  opacity:.6;
 }
 .part-btn{
-  border:1.5px solid var(--brd-h);border-radius:5px;
-  background:linear-gradient(180deg,rgba(8,12,22,.9) 0%,rgba(16,22,40,.7) 100%);
-  padding:10px 6px 7px;
+  border:1.5px solid var(--brd-h);border-radius:7px;
+  background:linear-gradient(180deg,rgba(8,12,22,.92) 0%,rgba(14,20,36,.75) 100%);
+  padding:20px 10px 14px;
   cursor:pointer;display:flex;flex-direction:column;
-  align-items:center;gap:3px;position:relative;
+  align-items:center;gap:8px;position:relative;
   flex:1;min-width:0;
-  transition:border-color .12s ease,background .12s ease,opacity .12s ease,box-shadow .12s ease;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.04),inset 0 -1px 0 rgba(0,0,0,.3);
+  transition:border-color .15s ease,background .15s ease,opacity .15s ease,box-shadow .15s ease,transform .1s ease;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05),inset 0 -1px 0 rgba(0,0,0,.4),0 2px 8px rgba(0,0,0,.3);
 }
 .part-btn:hover{
-  background:linear-gradient(180deg,rgba(14,18,30,.9) 0%,rgba(22,28,48,.75) 100%);
+  background:linear-gradient(180deg,rgba(14,18,30,.95) 0%,rgba(22,28,48,.8) 100%);
   border-color:var(--brd-h);
+  transform:translateY(-1px);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.06),inset 0 -1px 0 rgba(0,0,0,.4),0 4px 16px rgba(0,0,0,.4);
 }
 .part-btn.part-sel{border-width:2px}
-.part-btn.part-empty{opacity:0.18}
+.part-btn.part-empty{opacity:0.15}
 .part-btn.part-empty:hover{opacity:0.35}
-.part-btn.part-muted{opacity:0.25}
+.part-btn.part-muted{opacity:0.22}
 .part-btn.part-muted .part-type-lbl{text-decoration:line-through}
 .part-gear-icon{
-  position:absolute;top:3px;right:3px;
-  font-size:11px;color:var(--txt-d);cursor:pointer;
-  opacity:0.5;transition:opacity .15s,color .15s;
+  position:absolute;top:5px;right:5px;
+  font-size:13px;color:var(--txt-d);cursor:pointer;
+  opacity:0;transition:opacity .15s,color .15s;
 }
 .part-btn:hover .part-gear-icon,
-.part-btn.part-sel .part-gear-icon{opacity:0.85}
+.part-btn.part-sel .part-gear-icon{opacity:0.7}
 .part-gear-icon:hover{opacity:1 !important;color:var(--hi)}
 .part-mute-toggle{cursor:pointer}
 .part-mute-toggle:hover{text-decoration:line-through}
 .part-type-lbl{
-  font-family:var(--head);font-size:13px;font-weight:700;
-  letter-spacing:.5px;line-height:1;
+  font-family:var(--head);font-size:20px;font-weight:700;
+  letter-spacing:1px;line-height:1;
 }
 .part-sample-lbl{
-  font-family:var(--lcd);font-size:8px;color:#8898aa;
+  font-family:var(--lcd);font-size:12px;color:#8a9aac;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-  max-width:100%;text-align:center;height:13px;line-height:13px;
+  max-width:100%;text-align:center;
+  padding:6px 2px;flex:1;display:flex;align-items:center;justify-content:center;
 }
-.part-sample-pick{cursor:pointer;transition:color .1s,text-decoration .1s}
+.part-sample-pick{cursor:pointer;transition:color .12s,text-decoration .12s}
 .part-sample-pick:hover{color:var(--led)!important;text-decoration:underline}
 
 /* ── Parameter area: recessed hardware panel ── */
@@ -834,55 +817,60 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
 
 /* ── Mini step bar in part buttons ── */
 .part-step-bar{
-  display:flex;gap:1px;width:100%;height:6px;margin-top:3px;
+  display:flex;gap:2px;width:100%;height:10px;margin-top:auto;
   padding:0 2px;box-sizing:border-box;
 }
-.part-step-bar .psb{flex:1;border-radius:1px;min-width:0}
+.part-step-bar .psb{flex:1;border-radius:2px;min-width:0}
 .part-activity{
-  font-family:var(--lcd);font-size:7px;color:#7888a0;margin-top:1px;
+  font-family:var(--lcd);font-size:9px;color:#5a6a7c;margin-top:3px;letter-spacing:.5px;
 }
 
 /* ── Step sequencer (in PARTS view) ── */
 .seq-steps{
-  display:flex;flex-wrap:wrap;gap:6px;padding:16px;justify-content:center;
+  display:flex;flex-wrap:wrap;gap:10px;padding:24px 32px 14px;justify-content:center;
+  margin:0 auto;width:100%;
 }
 .seq-step{
-  width:52px;height:52px;border:2px solid var(--brd-h);
-  border-radius:4px;background:rgba(255,255,255,.03);
-  font-family:var(--lcd);font-size:14px;color:var(--txt-x);
+  width:60px;height:60px;border:2px solid var(--brd-h);
+  border-radius:6px;background:rgba(255,255,255,.025);
+  font-family:var(--lcd);font-size:16px;color:var(--txt-x);
   cursor:pointer;display:inline-flex;align-items:center;justify-content:center;
-  transition:background .08s,border-color .08s;
+  transition:background .1s,border-color .1s,transform .08s,box-shadow .1s;
+  box-shadow:0 2px 6px rgba(0,0,0,.25);
 }
-.seq-step:hover{border-color:rgba(255,255,255,.2)}
+.seq-step:hover{border-color:rgba(255,255,255,.18);transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.35)}
 .seq-step.seq-step-on{color:#fff}
 .seq-step.seq-step-playing{outline:2px solid #fff;outline-offset:-2px;animation:seq-pulse .2s ease-out}
 @keyframes seq-pulse{from{outline-width:4px;outline-offset:-4px}to{outline-width:2px;outline-offset:-2px}}
 .seq-bar-nav{
   display:flex;align-items:center;justify-content:center;
-  gap:6px;padding:10px 16px;border-top:1px solid var(--brd);
+  gap:8px;padding:12px 16px 5vh;
+  border-top:1px solid rgba(255,255,255,.04);
 }
 .seq-bar-nav-label{
   font-family:var(--lcd);font-size:9px;color:var(--txt-x);
-  letter-spacing:2px;margin-right:2px;
+  letter-spacing:2.5px;margin-right:2px;
 }
 .seq-bar-arrow{
-  width:26px;height:22px;padding:0;border:1px solid var(--brd-h);
+  width:28px;height:24px;padding:0;border:1px solid var(--brd-h);border-radius:3px;
   background:rgba(255,255,255,.04);color:var(--txt-d);
   font-family:var(--lcd);font-size:12px;cursor:pointer;
   display:inline-flex;align-items:center;justify-content:center;
+  transition:background .1s,color .1s;
 }
 .seq-bar-arrow:hover{background:rgba(0,204,255,.12);color:var(--led)}
 .seq-bar-arrow:disabled{opacity:.2;cursor:default;background:none}
 .seq-bar-disp{
-  font-family:var(--lcd);font-size:12px;color:var(--hi);
-  min-width:40px;text-align:center;letter-spacing:1px;
+  font-family:var(--lcd);font-size:13px;color:var(--hi);
+  min-width:44px;text-align:center;letter-spacing:1.5px;
 }
-.seq-bar-sep{width:1px;height:16px;background:var(--brd-h);margin:0 4px}
+.seq-bar-sep{width:1px;height:16px;background:var(--brd-h);margin:0 6px;opacity:.5}
 .seq-bar-btn{
-  width:22px;height:18px;padding:0;border:1px solid var(--brd-h);
+  width:24px;height:20px;padding:0;border:1px solid var(--brd-h);border-radius:2px;
   background:rgba(255,255,255,.04);color:var(--txt-x);
   font-family:var(--lcd);font-size:9px;cursor:pointer;
   display:inline-flex;align-items:center;justify-content:center;
+  transition:background .1s,color .1s;
 }
 .seq-bar-btn:hover{background:rgba(0,204,255,.12);color:var(--led)}
 .seq-bar-btn.seq-bar-act{
@@ -1101,28 +1089,10 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
     <div class="pat-main">
       <div class="pat-list-panel">
         <div class="sl-hdr"><h2>▸ PATTERNS</h2><span class="sc" id="patPC">0</span></div>
-        <div class="pat-search">
-          <input type="text" id="patSearchIn" placeholder="Search name / BPM / index..." />
-          <button class="pat-search-x" id="patSearchX" onclick="patSearchClear()">×</button>
-        </div>
-        <div class="pat-filter-bar" id="patFilterBar">
-          <label class="pat-filter-chk" title="Show only patterns with custom names">
-            <input type="checkbox" id="patFilterOccupied" onchange="patRenderList()">
-            <span>Named only</span>
-          </label>
-          <div class="pat-bpm-range">
-            <span>BPM</span>
-            <input type="number" id="patBpmMin" placeholder="min" min="40" max="300"
-                   onchange="patRenderList()" style="width:44px">
-            <span>–</span>
-            <input type="number" id="patBpmMax" placeholder="max" min="40" max="300"
-                   onchange="patRenderList()" style="width:44px">
-          </div>
-        </div>
         <div class="pat-list" id="patList">
           <div class="es"><div class="dz" onclick="patOpenESX()"><i>⚡</i><p><strong>PATTERN LADEN</strong><br><br>.esx / .e2pat / .e2allpat / .emx</p></div></div>
         </div>
-        <div class="pat-keys-hint">←/→ nav | ↑/↓ ×10 | Home/End | / search | Esc clear | +/− zoom</div>
+        <div class="pat-keys-hint">←/→ nav | ↑/↓ ×10 | Home/End | +/− zoom</div>
       </div>
       <div class="pat-grid-panel">
         <div class="pat-info-bar" id="patInfoBar">
@@ -2135,7 +2105,6 @@ function cacheDom(){
   DOM.patPC=document.getElementById('patPC');
   DOM.patInfoBar=document.getElementById('patInfoBar');
   DOM.patBpmIn=document.getElementById('patBpmIn');
-  DOM.patSearchIn=document.getElementById('patSearchIn');
   DOM.patSearchX=document.getElementById('patSearchX');
   DOM.paramPopup=document.getElementById('paramPopup');
   DOM.paramPopupBody=document.getElementById('paramPopupBody');
@@ -2145,7 +2114,7 @@ function cacheDom(){
 }
 cacheDom();
 
-let patData=[],patSel=-1,patFilePath=null,patFormat=null,patSearchQ='';
+let patData=[],patSel=-1,patFilePath=null,patFormat=null;
 let patBarCount=1; // selected bar count (1-8), controls grid columns and playback loop
 let patViewMode='parts'; // 'parts' | 'grid'
 let patSeqPart=0;        // selected part index 0-15
@@ -2491,29 +2460,13 @@ function patRenderList(){
   if(!patData.length){DOM.patList.innerHTML=`<div class="es"><div class="dz" onclick="patOpenESX()"><i>⚡</i><p><strong>PATTERN LADEN</strong><br><br>.esx / .e2pat / .e2allpat / .emx</p></div></div>`;_patListItems=[];return}
   // Rebuild cached DOM if count changed
   if(_patListItems.length!==patData.length)patBuildListDOM();
-  const q=patSearchQ.toLowerCase().trim();
-  const occupiedOnly=document.getElementById('patFilterOccupied')?.checked||false;
-  const bpmMin=parseFloat(document.getElementById('patBpmMin')?.value)||0;
-  const bpmMax=parseFloat(document.getElementById('patBpmMax')?.value)||9999;
-  let shown=0;
   for(let i=0;i<patData.length;i++){
     const p=patData[i];
     const name=p.name||'Pattern';
     const el=_patListItems[i];
-    let show=true;
-    if(q){
-      const num=parseFloat(q);
-      show=name.toLowerCase().includes(q)||(!isNaN(num)&&Math.abs((p.bpm||120)-num)<5)||(!isNaN(num)&&i===Math.floor(num));
-    }
-    if(show&&occupiedOnly){show=!/^pattern\s*\d*$/i.test(name.trim())&&name.trim()!==''}
-    if(show&&bpmMin>0&&(p.bpm||120)<bpmMin)show=false;
-    if(show&&bpmMax<9999&&(p.bpm||120)>bpmMax)show=false;
-    el.style.display=show?'':'none';
-    if(!show)continue;
-    shown++;
+    el.style.display='';
     const a=i===patSel;
     el.classList.toggle('act',a);
-    // Update text content
     el.children[1].textContent=name;
     let activeCount=0;
     if(p.parts){for(const pt of p.parts){
@@ -2522,15 +2475,6 @@ function patRenderList(){
     }}
     el.children[2].textContent=activeCount>0?'●'.repeat(Math.min(activeCount,8))+(activeCount>8?'+':''):'';
     el.children[3].textContent=(p.bpm||120).toFixed(0);
-  }
-  if(!shown&&(q||occupiedOnly||bpmMin>0||bpmMax<9999)){
-    // Show "no results" but keep cached items hidden
-    let noRes=DOM.patList.querySelector('.pat-no-results');
-    if(!noRes){noRes=document.createElement('div');noRes.className='pat-no-results';noRes.style.cssText='padding:16px;color:#555;font-family:var(--lcd);font-size:11px;text-align:center';DOM.patList.appendChild(noRes)}
-    noRes.textContent='No patterns match filters';noRes.style.display='';
-  } else {
-    const noRes=DOM.patList.querySelector('.pat-no-results');
-    if(noRes)noRes.style.display='none';
   }
 }
 
@@ -3453,25 +3397,6 @@ function patHighlightStep(step){
 //  PATTERN SEARCH / KEYBOARD / ZOOM
 // ═══════════════════════════════════════════════════════════
 
-// ── Search ──
-function patSearchClear(){
-  const inp=document.getElementById('patSearchIn');
-  inp.value='';patSearchQ='';
-  document.getElementById('patSearchX').style.display='none';
-  patRenderList();
-  inp.blur();
-}
-let _patSearchTimer=0;
-document.getElementById('patSearchIn').addEventListener('input',function(){
-  patSearchQ=this.value;
-  document.getElementById('patSearchX').style.display=this.value?'block':'none';
-  clearTimeout(_patSearchTimer);
-  _patSearchTimer=setTimeout(patRenderList,150);
-});
-document.getElementById('patSearchIn').addEventListener('keydown',function(e){
-  if(e.key==='Escape'){e.stopPropagation();patSearchClear()}
-  if(e.key==='Enter'){e.preventDefault();this.blur()}
-});
 
 // ── Zoom ──
 function patZoom(dir){
@@ -3497,24 +3422,8 @@ function patZoom(dir){
 
 // ── Keyboard Navigation ──
 function patGetVisibleIndices(){
-  const q=patSearchQ.toLowerCase().trim();
-  const occupiedOnly=document.getElementById('patFilterOccupied')?.checked||false;
-  const bpmMin=parseFloat(document.getElementById('patBpmMin')?.value)||0;
-  const bpmMax=parseFloat(document.getElementById('patBpmMax')?.value)||9999;
   const vis=[];
-  for(let i=0;i<patData.length;i++){
-    const p=patData[i];
-    const name=p.name||'Pattern';
-    let show=true;
-    if(q){
-      const num=parseFloat(q);
-      show=name.toLowerCase().includes(q)||(!isNaN(num)&&Math.abs((p.bpm||120)-num)<5)||(!isNaN(num)&&i===Math.floor(num));
-    }
-    if(show&&occupiedOnly){show=!/^pattern\s*\d*$/i.test(name.trim())&&name.trim()!==''}
-    if(show&&bpmMin>0&&(p.bpm||120)<bpmMin)show=false;
-    if(show&&bpmMax<9999&&(p.bpm||120)>bpmMax)show=false;
-    if(show)vis.push(i);
-  }
+  for(let i=0;i<patData.length;i++) vis.push(i);
   return vis;
 }
 function patHandleKeyboard(e){
@@ -3552,15 +3461,8 @@ case 'ArrowUp':{
       if(vis.length)patSelectPat(vis[vis.length-1]);
       patScrollToSel();
       break;
-    case '/':{
-      e.preventDefault();
-      const inp=document.getElementById('patSearchIn');
-      inp.focus();inp.select();
-      break;
-    }
     case 'Escape':
       if(patViewMode!=='parts'){patSetMode('parts');break;}
-      if(patSearchQ)patSearchClear();
       break;
     case ' ':
       e.preventDefault();
