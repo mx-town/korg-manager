@@ -598,9 +598,9 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
   text-transform:uppercase;position:relative;
 }
 .parts-group-label::after{
-  content:'';display:block;height:1px;margin-top:5px;
+  content:'';display:block;height:1px;margin-top:3px;
   background:linear-gradient(90deg,transparent 5%,var(--brd-h) 30%,var(--brd-h) 70%,transparent 95%);
-  opacity:.4;
+  opacity:.5;
 }
 .parts-group-row{display:flex;gap:8px}
 .parts-sep{
@@ -625,9 +625,9 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
   box-shadow:inset 0 1px 0 rgba(255,255,255,.06),inset 0 -1px 0 rgba(0,0,0,.4),0 4px 16px rgba(0,0,0,.4);
 }
 .part-btn.part-sel{border-width:2px}
-.part-btn.part-empty{opacity:0.15}
+.part-btn.part-empty{opacity:0.18}
 .part-btn.part-empty:hover{opacity:0.35}
-.part-btn.part-muted{opacity:0.22}
+.part-btn.part-muted{opacity:0.25}
 .part-btn.part-muted .part-type-lbl{text-decoration:line-through}
 .part-gear-icon{
   position:absolute;top:5px;right:5px;
@@ -646,8 +646,7 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
 .part-sample-lbl{
   font-family:var(--lcd);font-size:12px;color:#8a9aac;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-  max-width:100%;text-align:center;
-  padding:6px 2px;flex:1;display:flex;align-items:center;justify-content:center;
+  max-width:100%;text-align:center;padding:6px 2px;
 }
 .part-sample-pick{cursor:pointer;transition:color .12s,text-decoration .12s}
 .part-sample-pick:hover{color:var(--led)!important;text-decoration:underline}
@@ -764,6 +763,31 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
   border-color:transparent;background:transparent;box-shadow:none;
 }
 
+/* ── EMX Inline Synth Analyzer ── */
+#patPartsWrap.emx-active .parts-rows{flex:none;gap:12px;padding:8px 20px 0}
+#patPartsWrap.emx-active .part-btn{padding:8px 6px 6px;gap:3px;border-radius:5px}
+#patPartsWrap.emx-active .part-type-lbl{font-size:13px}
+#patPartsWrap.emx-active .part-sample-lbl{font-size:8px;padding:2px 2px}
+#patPartsWrap.emx-active .part-step-bar{height:5px}
+#patPartsWrap.emx-active .part-activity{font-size:7px;margin-top:1px}
+#patPartsWrap.emx-active .parts-group-label{font-size:7px;padding-bottom:4px;letter-spacing:2.5px}
+#patPartsWrap.emx-active .parts-group-row{gap:4px}
+#patPartsWrap.emx-active .parts-sep{margin:0 6px}
+#patPartsWrap.emx-active .seq-steps{padding:10px 20px 8px;gap:6px}
+#patPartsWrap.emx-active .seq-step{width:44px;height:44px;font-size:12px;border-radius:4px}
+#patPartsWrap.emx-active .seq-bar-nav{padding:6px 16px 8px}
+#emxSynthInline{overflow:auto;flex:1;min-height:0}
+#emxSynthInline .emx-panel{padding:8px 20px 6px;border-top:none}
+#emxSynthInline .emx-sections{gap:8px}
+#emxSynthInline .emx-bot-row{gap:8px;margin-top:8px}
+#emxSynthInline .emx-section{padding:8px 10px}
+#emxSynthInline .emx-viz svg{height:80px}
+.emx-inline-hdr{
+  padding:6px 20px;font-family:var(--lcd);font-size:12px;color:var(--led);
+  border-top:1px solid var(--brd);letter-spacing:1px;
+}
+.emx-inline-label{font-family:var(--head);font-weight:700;font-size:13px;margin-right:8px}
+
 /* ── EMX Visual Synth Panel ── */
 .emx-panel{padding:14px 16px;border-top:1px solid var(--brd)}
 .emx-panel-hdr{
@@ -849,28 +873,26 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
 }
 .seq-bar-nav-label{
   font-family:var(--lcd);font-size:9px;color:var(--txt-x);
-  letter-spacing:2.5px;margin-right:2px;
+  letter-spacing:2px;margin-right:2px;
 }
 .seq-bar-arrow{
-  width:28px;height:24px;padding:0;border:1px solid var(--brd-h);border-radius:3px;
+  width:26px;height:22px;padding:0;border:1px solid var(--brd-h);
   background:rgba(255,255,255,.04);color:var(--txt-d);
   font-family:var(--lcd);font-size:12px;cursor:pointer;
   display:inline-flex;align-items:center;justify-content:center;
-  transition:background .1s,color .1s;
 }
 .seq-bar-arrow:hover{background:rgba(0,204,255,.12);color:var(--led)}
 .seq-bar-arrow:disabled{opacity:.2;cursor:default;background:none}
 .seq-bar-disp{
-  font-family:var(--lcd);font-size:13px;color:var(--hi);
-  min-width:44px;text-align:center;letter-spacing:1.5px;
+  font-family:var(--lcd);font-size:12px;color:var(--hi);
+  min-width:40px;text-align:center;letter-spacing:1px;
 }
-.seq-bar-sep{width:1px;height:16px;background:var(--brd-h);margin:0 6px;opacity:.5}
+.seq-bar-sep{width:1px;height:16px;background:var(--brd-h);margin:0 4px}
 .seq-bar-btn{
-  width:24px;height:20px;padding:0;border:1px solid var(--brd-h);border-radius:2px;
+  width:22px;height:18px;padding:0;border:1px solid var(--brd-h);
   background:rgba(255,255,255,.04);color:var(--txt-x);
   font-family:var(--lcd);font-size:9px;cursor:pointer;
   display:inline-flex;align-items:center;justify-content:center;
-  transition:background .1s,color .1s;
 }
 .seq-bar-btn:hover{background:rgba(0,204,255,.12);color:var(--led)}
 .seq-bar-btn.seq-bar-act{
@@ -1117,6 +1139,7 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
         <!-- PARTS view (merged with step sequencer) -->
         <div class="pat-mode-view active" id="patPartsWrap">
           <div id="partsGrid"></div>
+          <div id="emxSynthInline"></div>
           <div class="seq-steps" id="seqSteps"></div>
           <div class="seq-bar-nav" id="seqBarNav"></div>
         </div>
@@ -2680,6 +2703,9 @@ function partsRender(pat){
   const muteStatus=pat.muteStatus||0;
   const wrap=DOM.partsGrid;
   if(!wrap)return;
+  // Toggle EMX compact mode on wrapper
+  const partsWrap=document.getElementById('patPartsWrap');
+  if(partsWrap)partsWrap.classList.toggle('emx-active',patFormat==='EMX-1');
   const totalSteps=patStepCount(pat);
   const stepsToShow=Math.min(totalSteps,16);
 
@@ -2763,6 +2789,18 @@ function partsRender(pat){
   const selRgb=PAT_PX_COLORS[selPType]||'197,48,92';
   stepsRenderButtons(pat,selPart,selRgb);
   stepsRenderBarNav(pat);
+
+  // EMX-1: render inline synth analyzer
+  const emxWrap=document.getElementById('emxSynthInline');
+  if(emxWrap){
+    if(isEMX&&selPart){
+      const label=EMX_PART_LABELS[patSeqPart]||`P${patSeqPart+1}`;
+      const pName=selPart.name||`Part ${patSeqPart+1}`;
+      emxWrap.innerHTML=`<div class="emx-inline-hdr"><span class="emx-inline-label">${label}</span> ${esc(pName)}</div>`+emxSynthPanel(selPart,patSeqPart);
+    } else {
+      emxWrap.innerHTML='';
+    }
+  }
 }
 
 // ESX-1 filter type names
@@ -3397,7 +3435,6 @@ function patHighlightStep(step){
 //  PATTERN SEARCH / KEYBOARD / ZOOM
 // ═══════════════════════════════════════════════════════════
 
-
 // ── Zoom ──
 function patZoom(dir){
   if(dir===0){
@@ -3861,6 +3898,7 @@ async function openSamplePicker(partIdx){
   document.getElementById('smpCurrent').textContent=`Current: ${currentName} (#${currentSampleNum})`;
   document.getElementById('smpSearch').value='';
   smpRenderList(currentSampleNum);
+  if(!DOM.smpPickerBg)DOM.smpPickerBg=document.getElementById('smpPickerBg');
   DOM.smpPickerBg.classList.add('show');
   setTimeout(()=>document.getElementById('smpSearch').focus(),50);
 }
