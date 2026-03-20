@@ -70,6 +70,8 @@ function safeIpcHandle(channel, handler) {
 let currentSamples = [];
 let esxOriginalBuffer = null; // Original .esx buffer for pattern-preserving rebuild
 let esxPatternSamples = null; // Parsed mono samples from pattern-loaded ESX (for playback)
+let esxPatternBuffer = null;  // Raw .esx buffer for pattern editing (write-back)
+let esxPatternFilePath = null; // File path of the currently loaded pattern file
 const MAX_UNDO = 50;
 
 function pushUndo(index) {
@@ -1217,6 +1219,8 @@ ipcMain.handle('esx:open-patterns', async () => {
   if (result.canceled) return { canceled: true };
   try {
     const buf = fs.readFileSync(result.filePaths[0]);
+    esxPatternBuffer = Buffer.from(buf); // store copy for write-back
+    esxPatternFilePath = result.filePaths[0];
 
     const rawPatterns = esx.parseEsxPatterns(buf);
     const patterns = rawPatterns.map(p => esxPatternToUI(p));
@@ -1320,6 +1324,37 @@ safeIpcHandle('esx:get-pattern-list', async () => {
   if (!esxPatternSamples) return null;
   // Pattern list is already sent via open-patterns; this is for refresh
   return { available: true };
+});
+
+// ── ESX Pattern Param Editing ──────────────────────────────
+ipcMain.handle('esx:update-pattern-param', (ev, { patIdx, partIdx, paramKey, value }) => {
+  if (!esxPatternBuffer) return { error: 'No ESX file loaded' };
+  try {
+    esx.writePartParam(esxPatternBuffer, patIdx, partIdx, paramKey, value);
+    return { ok: true };
+  } catch (err) {
+    return { error: err.message };
+  }
+});
+
+ipcMain.handle('esx:save-pattern-file', async () => {
+  if (!esxPatternBuffer) return { error: 'No ESX file loaded' };
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: 'Save ESX File',
+    defaultPath: esxPatternFilePath || 'patterns.esx',
+    filters: [
+      { name: 'ESX Files', extensions: ['esx'] },
+      { name: 'All Files', extensions: ['*'] }
+    ]
+  });
+  if (result.canceled) return { canceled: true };
+  try {
+    fs.writeFileSync(result.filePath, esxPatternBuffer);
+    esxPatternFilePath = result.filePath;
+    return { ok: true, filePath: result.filePath };
+  } catch (err) {
+    return { error: err.message };
+  }
 });
 
 ipcMain.handle('e2pat:open-file', async () => {

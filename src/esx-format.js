@@ -1363,6 +1363,84 @@ function rebuildEsxFile(originalBuffer, samples) {
   return finalBuffer;
 }
 
+// ── Part parameter offset maps (relative to part start) ──────
+// Maps paramKey → byte offset within each part type.
+// sampleNum is uint16BE at +0 for drum/kb/stretch (handled separately).
+const PARAM_OFFSETS = {
+  drum: {
+    filterType: 4, cutoff: 5, resonance: 6, egInt: 7, pitch: 8,
+    level: 9, pan: 10, egTime: 11, startPoint: 12, modSpeed: 15, modDepth: 16,
+  },
+  keyboard: {
+    glide: 4, filterType: 5, cutoff: 6, resonance: 7, egInt: 8,
+    level: 9, pan: 10, egTime: 11, startPoint: 12, modSpeed: 15, modDepth: 16,
+  },
+  stretch: {
+    filterType: 2, cutoff: 3, resonance: 4, egInt: 5, pitch: 6,
+    level: 7, pan: 8, egTime: 9, startPoint: 10, modSpeed: 13, modDepth: 14,
+  },
+  slice: {  // same layout as stretch
+    filterType: 2, cutoff: 3, resonance: 4, egInt: 5, pitch: 6,
+    level: 7, pan: 8, egTime: 9, startPoint: 10, modSpeed: 13, modDepth: 14,
+  },
+  audioin: {
+    filterType: 0, cutoff: 1, resonance: 2, egInt: 3,
+    level: 4, pan: 5, egTime: 6, modSpeed: 9, modDepth: 10,
+  },
+  accent: {
+    level: 0,
+  },
+};
+
+/**
+ * Resolve the absolute byte offset for a part within a pattern.
+ * partIdx: 0-8 = drums, 9 = KB1, 10 = KB2, 11 = Stretch1, 12 = Stretch2, 13 = Slice, 14 = AudioIn, 15 = Accent
+ */
+function getPartOffset(patIdx, partIdx) {
+  const patBase = ADDR.PATTERN_DATA + patIdx * PATTERN_SIZE;
+  if (partIdx < 9) return patBase + PATTERN_OFFSETS.DRUM_START + partIdx * DRUM_PART_SIZE;
+  if (partIdx === 9) return patBase + PATTERN_OFFSETS.KB1;
+  if (partIdx === 10) return patBase + PATTERN_OFFSETS.KB2;
+  if (partIdx === 11) return patBase + PATTERN_OFFSETS.STRETCH1;
+  if (partIdx === 12) return patBase + PATTERN_OFFSETS.STRETCH2;
+  if (partIdx === 13) return patBase + PATTERN_OFFSETS.SLICE;
+  if (partIdx === 14) return patBase + PATTERN_OFFSETS.AUDIOIN;
+  if (partIdx === 15) return patBase + PATTERN_OFFSETS.ACCENT;
+  throw new Error(`Invalid partIdx: ${partIdx}`);
+}
+
+/**
+ * Determine the part type string from a part index.
+ */
+function getPartType(partIdx) {
+  if (partIdx < 9) return 'drum';
+  if (partIdx <= 10) return 'keyboard';
+  if (partIdx <= 12) return 'stretch';
+  if (partIdx === 13) return 'slice';
+  if (partIdx === 14) return 'audioin';
+  if (partIdx === 15) return 'accent';
+  throw new Error(`Invalid partIdx: ${partIdx}`);
+}
+
+/**
+ * Write a single part parameter to the raw ESX buffer.
+ * @param {Buffer} buf - Raw .esx file buffer
+ * @param {number} patIdx - Pattern index (0-255)
+ * @param {number} partIdx - Part index (0-15)
+ * @param {string} paramKey - Parameter name (e.g. 'level', 'cutoff')
+ * @param {number} value - Value to write (0-127 for most params)
+ */
+function writePartParam(buf, patIdx, partIdx, paramKey, value) {
+  const pType = getPartType(partIdx);
+  const offsets = PARAM_OFFSETS[pType];
+  if (!offsets || offsets[paramKey] === undefined) {
+    throw new Error(`Unknown param "${paramKey}" for part type "${pType}"`);
+  }
+  const partBase = getPartOffset(patIdx, partIdx);
+  const paramOff = offsets[paramKey];
+  buf.writeUInt8(value & 0xFF, partBase + paramOff);
+}
+
 module.exports = {
   parseWavFile,
   convertTo16BitMono,
@@ -1375,10 +1453,12 @@ module.exports = {
   parseEsxPattern,
   parsePatternBlock,
   packStepBits,
+  writePartParam,
   ADDR,
   SIZE,
   NUM,
   PATTERN_SIZE,
   PATTERN_COUNT,
   PATTERN_OFFSETS,
+  PARAM_OFFSETS,
 };

@@ -675,6 +675,12 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
 .param-lbl{font-family:var(--lcd);font-size:7px;color:#a0b0c0;letter-spacing:1px;text-transform:uppercase;white-space:nowrap}
 .param-val{font-family:var(--head);font-size:16px;color:var(--led);margin-top:3px;font-weight:500}
 .param-cell.param-empty{border-color:transparent;background:transparent;box-shadow:none}
+.param-cell.param-edit{cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.param-cell.param-edit:hover{border-color:var(--hi);box-shadow:0 0 6px rgba(0,170,255,.25)}
+.param-cell.param-editing{border-color:var(--hi);box-shadow:0 0 8px rgba(0,170,255,.35)}
+.param-slider{width:100%;height:6px;-webkit-appearance:none;appearance:none;background:linear-gradient(90deg,var(--brd),var(--hi));border-radius:3px;outline:none;margin-top:4px;cursor:pointer}
+.param-slider::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--led);border:2px solid var(--hi);cursor:pointer;box-shadow:0 0 4px rgba(0,170,255,.5)}
+.param-slider::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--led);border:2px solid var(--hi);cursor:pointer}
 
 /* ── EMX Visual Synth Panel ── */
 .emx-panel{padding:14px 16px;border-top:1px solid var(--brd)}
@@ -991,6 +997,7 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
       <button class="btn" onclick="patOpenEMX()">◉ EMX-1</button>
       <div class="hsep"></div>
       <button class="btn btn-hi" onclick="patSave()">💾 SAVE</button>
+      <button class="btn" id="esxSaveBtn" onclick="esxSavePatternFile()" style="display:none;border-color:#0af">💾 SAVE ESX</button>
       <button class="btn" onclick="patSplitAll()">✂ SPLIT ALL</button>
       <div class="hsep"></div>
       <span id="patFormatBadge" style="font-family:var(--lcd);font-size:11px;color:var(--txt-d);padding:0 8px">No file loaded</span>
@@ -2030,6 +2037,7 @@ let patData=[],patSel=-1,patFilePath=null,patFormat=null,patSearchQ='';
 let patBarCount=1; // selected bar count (1-8), controls grid columns and playback loop
 let patViewMode='parts'; // 'parts' | 'steps' | 'grid'
 let patSeqPart=0;        // selected part index 0-15
+let patDirty=false;      // true when any param has been edited
 let patSeqBar=0;         // bar 0-7 in steps view
 let patSoloActive=-1;    // -1 = no solo, 0-15 = soloed part
 let patMuteSaved=0;      // saved muteStatus before solo
@@ -2083,12 +2091,29 @@ async function patOpenESX(){
   patData=r.patterns||[];
   Object.keys(patSampleCache).forEach(k=>delete patSampleCache[k]);
   smpDirectory=null;
+  patDirty=false;
+  patUpdateSaveBtn();
   patSel=patData.length?0:-1;
   document.getElementById('patFormatBadge').textContent='ESX-1';
   patRenderList();
   if(patSel>=0)patSelectPat(0);
   updateStatusBar();
   toast(`ESX PATTERNS: ${patData.length} loaded from ${r.filePath.split(/[\\/]/).pop()}`,'success');
+}
+
+function patUpdateSaveBtn(){
+  const btn=document.getElementById('esxSaveBtn');
+  if(!btn)return;
+  btn.style.display=patFormat==='ESX-1'?'':'none';
+  btn.style.opacity=patDirty?'1':'0.4';
+}
+async function esxSavePatternFile(){
+  if(!patDirty){toast('Keine Änderungen','info');return}
+  const r=await window.api.esx.savePatternFile();
+  if(!r||r.canceled)return;
+  if(r.error){toast(r.error,'error');return}
+  patDirty=false;patUpdateSaveBtn();
+  toast(`Gespeichert: ${r.filePath.split(/[\\/]/).pop()}`,'success');
 }
 
 async function patOpen(){
@@ -2880,10 +2905,73 @@ function emxSynthPanel(part,partIndex){
   return h;
 }
 
+// Label-to-paramKey mapping for editable cells
+const PARAM_KEY_MAP={
+  'LEVEL':'level','PAN':'pan','PITCH':'pitch','START PT':'startPoint',
+  'CUTOFF':'cutoff','RESONANCE':'resonance','EG INT':'egInt',
+  'EG TIME':'egTime','MOD SPEED':'modSpeed','MOD DEPTH':'modDepth',
+  'GLIDE':'glide',
+};
+// Currently open slider cell reference (to close on click-outside)
+let paramEditingCell=null;
+
+function paramCloseSlider(){
+  if(!paramEditingCell)return;
+  const cell=paramEditingCell;
+  paramEditingCell=null;
+  cell.classList.remove('param-editing');
+  // Restore text display
+  const key=cell.dataset.key;
+  const val=cell.dataset.val;
+  cell.innerHTML=`<span class="param-lbl">${cell.dataset.lbl}</span><span class="param-val">${val}</span>`;
+}
+
+function paramOpenSlider(cell){
+  if(paramEditingCell===cell)return;
+  paramCloseSlider();
+  paramEditingCell=cell;
+  cell.classList.add('param-editing');
+  const key=cell.dataset.key;
+  const lbl=cell.dataset.lbl;
+  const cur=parseInt(cell.dataset.val)||0;
+  cell.innerHTML=`<span class="param-lbl">${lbl}</span><span class="param-val" id="paramSliderVal">${cur}</span><input type="range" class="param-slider" min="0" max="127" value="${cur}">`;
+  const slider=cell.querySelector('.param-slider');
+  const valSpan=cell.querySelector('#paramSliderVal');
+  slider.focus();
+  slider.addEventListener('input',()=>{
+    valSpan.textContent=slider.value;
+  });
+  const commit=async()=>{
+    const nv=parseInt(slider.value);
+    cell.dataset.val=nv;
+    // Update in-memory patData
+    const pat=patData[patSel];if(!pat)return;
+    const part=pat.parts[patSeqPart];if(!part)return;
+    part[key]=nv;
+    // Write to backend buffer (ESX only)
+    if(patFormat==='ESX-1'&&window.api.esx.updatePatternParam){
+      const r=await window.api.esx.updatePatternParam({patIdx:patSel,partIdx:patSeqPart,paramKey:key,value:nv});
+      if(r&&r.error)toast(r.error,'error');
+    }
+    patDirty=true;patUpdateSaveBtn();
+  };
+  slider.addEventListener('change',commit);
+  // Close on click outside
+  const outsideHandler=(e)=>{
+    if(!cell.contains(e.target)){
+      commit();
+      paramCloseSlider();
+      document.removeEventListener('mousedown',outsideHandler,true);
+    }
+  };
+  setTimeout(()=>document.addEventListener('mousedown',outsideHandler,true),0);
+}
+
 function partsRenderParams(pat, part){
   const wrap=document.getElementById('partParams');
   if(!wrap)return;
   if(!part){wrap.innerHTML='';return;}
+  paramEditingCell=null;
 
   // EMX-1: Use visual synth panel
   if(patFormat==='EMX-1'){
@@ -2901,48 +2989,60 @@ function partsRenderParams(pat, part){
   const pv=(key)=>part[key]!==undefined?part[key]:undefined;
   const filt=pv('filterType')!==undefined?esxFilterName(pv('filterType')):undefined;
 
-  // Type-appropriate 4×3 grid layouts
+  // Type-appropriate 4×3 grid layouts (k = paramKey for editable cells)
   let grid;
   if(pType==='accent'){
-    // Accent: only level, show prominent
     grid=[
-      {l:'LEVEL',v:pv('level')},{},{},{},
+      {l:'LEVEL',k:'level',v:pv('level')},{},{},{},
       {},{},{},{},
       {},{},{},{},
     ];
   } else if(pType==='audioin'){
-    // Audio In: no pitch, no startPoint, no sampleNum
     grid=[
-      {l:'LEVEL',v:pv('level')},{l:'PAN',v:pv('pan')},{},{},
-      {l:'FILTER',v:filt},{l:'CUTOFF',v:pv('cutoff')},{l:'RESONANCE',v:pv('resonance')},{l:'EG INT',v:pv('egInt')},
-      {l:'EG TIME',v:pv('egTime')},{l:'MOD SPEED',v:pv('modSpeed')},{l:'MOD DEPTH',v:pv('modDepth')},{},
+      {l:'LEVEL',k:'level',v:pv('level')},{l:'PAN',k:'pan',v:pv('pan')},{},{},
+      {l:'FILTER',v:filt},{l:'CUTOFF',k:'cutoff',v:pv('cutoff')},{l:'RESONANCE',k:'resonance',v:pv('resonance')},{l:'EG INT',k:'egInt',v:pv('egInt')},
+      {l:'EG TIME',k:'egTime',v:pv('egTime')},{l:'MOD SPEED',k:'modSpeed',v:pv('modSpeed')},{l:'MOD DEPTH',k:'modDepth',v:pv('modDepth')},{},
     ];
   } else if(pType==='keyboard'){
-    // Keyboard: GLIDE instead of PITCH
     grid=[
-      {l:'LEVEL',v:pv('level')},{l:'PAN',v:pv('pan')},{l:'GLIDE',v:pv('glide')},{l:'START PT',v:pv('startPoint')},
-      {l:'FILTER',v:filt},{l:'CUTOFF',v:pv('cutoff')},{l:'RESONANCE',v:pv('resonance')},{l:'EG INT',v:pv('egInt')},
-      {l:'EG TIME',v:pv('egTime')},{l:'MOD SPEED',v:pv('modSpeed')},{l:'MOD DEPTH',v:pv('modDepth')},{l:'SAMPLE#',v:pv('sampleNum')},
+      {l:'LEVEL',k:'level',v:pv('level')},{l:'PAN',k:'pan',v:pv('pan')},{l:'GLIDE',k:'glide',v:pv('glide')},{l:'START PT',k:'startPoint',v:pv('startPoint')},
+      {l:'FILTER',v:filt},{l:'CUTOFF',k:'cutoff',v:pv('cutoff')},{l:'RESONANCE',k:'resonance',v:pv('resonance')},{l:'EG INT',k:'egInt',v:pv('egInt')},
+      {l:'EG TIME',k:'egTime',v:pv('egTime')},{l:'MOD SPEED',k:'modSpeed',v:pv('modSpeed')},{l:'MOD DEPTH',k:'modDepth',v:pv('modDepth')},{l:'SAMPLE#',v:pv('sampleNum')},
     ];
   } else {
-    // Drum, Stretch, Slice: full layout
     grid=[
-      {l:'LEVEL',v:pv('level')},{l:'PAN',v:pv('pan')},{l:'PITCH',v:pv('pitch')},{l:'START PT',v:pv('startPoint')},
-      {l:'FILTER',v:filt},{l:'CUTOFF',v:pv('cutoff')},{l:'RESONANCE',v:pv('resonance')},{l:'EG INT',v:pv('egInt')},
-      {l:'EG TIME',v:pv('egTime')},{l:'MOD SPEED',v:pv('modSpeed')},{l:'MOD DEPTH',v:pv('modDepth')},{l:'SAMPLE#',v:pv('sampleNum')},
+      {l:'LEVEL',k:'level',v:pv('level')},{l:'PAN',k:'pan',v:pv('pan')},{l:'PITCH',k:'pitch',v:pv('pitch')},{l:'START PT',k:'startPoint',v:pv('startPoint')},
+      {l:'FILTER',v:filt},{l:'CUTOFF',k:'cutoff',v:pv('cutoff')},{l:'RESONANCE',k:'resonance',v:pv('resonance')},{l:'EG INT',k:'egInt',v:pv('egInt')},
+      {l:'EG TIME',k:'egTime',v:pv('egTime')},{l:'MOD SPEED',k:'modSpeed',v:pv('modSpeed')},{l:'MOD DEPTH',k:'modDepth',v:pv('modDepth')},{l:'SAMPLE#',v:pv('sampleNum')},
     ];
   }
 
+  const isEsx=patFormat==='ESX-1';
   let h=`<div class="part-params">`;
   h+=`<div class="part-params-hdr"><span style="color:${col};font-family:var(--head);font-weight:700">${label}</span> <span style="color:var(--txt-d);font-weight:normal;font-size:11px;font-family:var(--lcd);letter-spacing:1px">${esc(partName)}${sName}</span></div>`;
   h+=`<div class="part-params-grid">`;
   for(const p of grid){
     if(!p.l){h+=`<div class="param-cell param-empty"></div>`;continue;}
     const val=p.v!==undefined?p.v:'—';
-    h+=`<div class="param-cell"><span class="param-lbl">${p.l}</span><span class="param-val">${val}</span></div>`;
+    const editable=isEsx&&p.k;
+    if(editable){
+      h+=`<div class="param-cell param-edit" data-key="${p.k}" data-lbl="${p.l}" data-val="${p.v!==undefined?p.v:0}"><span class="param-lbl">${p.l}</span><span class="param-val">${val}</span></div>`;
+    } else {
+      h+=`<div class="param-cell"><span class="param-lbl">${p.l}</span><span class="param-val">${val}</span></div>`;
+    }
   }
   h+=`</div></div>`;
   wrap.innerHTML=h;
+
+  // Attach click handlers to editable cells
+  if(isEsx){
+    wrap.querySelectorAll('.param-edit').forEach(cell=>{
+      cell.addEventListener('click',(e)=>{
+        e.stopPropagation();
+        paramOpenSlider(cell);
+      });
+    });
+  }
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -3328,6 +3428,7 @@ function seqScheduleStep(step,time){
     if(!buf)continue;
 
     const vel=(part.velocities&&part.velocities[step])||100;
+    const partLevel=typeof part.level==='number'?part.level/127:1;
     try{
       // Voice stealing: stop previous source for this part
       if(patActiveVoices[i]){
@@ -3336,19 +3437,65 @@ function seqScheduleStep(step,time){
 
       const src=ctx.createBufferSource();
       src.buffer=buf;
-      const gain=ctx.createGain();
-      gain.gain.value=Math.max(0.05,vel/127);
-      src.connect(gain);
 
+      // ── Pitch (0-127, 64=center/no shift) ──
+      if(typeof part.pitch==='number'&&part.pitch!==64){
+        // ESX pitch range: ~±1 octave. 0=-12st, 64=0, 127=+12st
+        const semitones=(part.pitch-64)*(12/63);
+        src.playbackRate.value=Math.pow(2,semitones/12);
+      }
+
+      // ── Start Point (0-127 → fraction of buffer) ──
+      const startOffset=typeof part.startPoint==='number'&&part.startPoint>0
+        ?(part.startPoint/127)*buf.duration:0;
+
+      // ── Build audio chain: src → filter → gain → panner → dest ──
+      let node=src; // current end of chain
+
+      // ── Filter (cutoff + resonance) ──
+      if(typeof part.cutoff==='number'&&part.cutoff<127){
+        const filt=ctx.createBiquadFilter();
+        // ESX filter types: 0=LPF,1=HPF,2=BPF — default LPF
+        const ft=part.filterType||0;
+        filt.type=ft===1?'highpass':ft===2?'bandpass':'lowpass';
+        // Cutoff 0-127 → ~60Hz–20kHz (exponential)
+        const minF=60,maxF=20000;
+        filt.frequency.value=minF*Math.pow(maxF/minF,part.cutoff/127);
+        // Resonance 0-127 → Q 0.5–20
+        const res=typeof part.resonance==='number'?part.resonance:0;
+        filt.Q.value=0.5+(res/127)*19.5;
+        node.connect(filt);
+        node=filt;
+      }
+
+      // ── EG (envelope on gain: egInt=attack depth, egTime=decay) ──
+      const gain=ctx.createGain();
+      const baseGain=Math.max(0,(vel/127)*partLevel);
+      const egTime=typeof part.egTime==='number'?part.egTime:64;
+      const egInt=typeof part.egInt==='number'?part.egInt:64;
+      if(egInt!==64&&egTime>0){
+        // egInt>64 = positive envelope (loud→quiet), <64 = negative (quiet→loud)
+        const envAmount=(egInt-64)/64; // -1 to +1
+        const decaySec=Math.max(0.01,(egTime/127)*2); // 0–2s decay
+        const peakGain=Math.min(1,baseGain*(1+envAmount));
+        gain.gain.setValueAtTime(peakGain,time);
+        gain.gain.exponentialRampToValueAtTime(Math.max(0.001,baseGain),time+decaySec);
+      }else{
+        gain.gain.value=baseGain;
+      }
+      node.connect(gain);
+      node=gain;
+
+      // ── Pan (0-127, 64=center) ──
       if(typeof part.pan==='number'&&part.pan!==64){
         const panner=ctx.createStereoPanner();
         panner.pan.value=Math.max(-1,Math.min(1,(part.pan-64)/64));
-        gain.connect(panner);
-        panner.connect(ctx.destination);
-      }else{
-        gain.connect(ctx.destination);
+        node.connect(panner);
+        node=panner;
       }
-      src.start(time);
+
+      node.connect(ctx.destination);
+      src.start(time,startOffset);
       patActiveVoices[i]=src;
       src.onended=()=>{if(patActiveVoices[i]===src)delete patActiveVoices[i];};
     }catch(e){console.warn('seqScheduleStep error, part',i,'sample',sn,e)}
