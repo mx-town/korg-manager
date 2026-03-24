@@ -1271,7 +1271,54 @@ const SORT_MODES=['OFF','TYPE','NAME','LENGTH','SIZE'];
 let sortMode=0;
 let checked=new Set(),lastCheckedIndex=-1;
 const audio=document.getElementById('aE');
-async function init(){updateState(await window.api.getState())} init();
+// ═══ FEATURE FLAGS ═══
+let _features = {};
+function featureEnabled(flag) { return _features[flag] !== false; }
+async function applyFeatureFlags() {
+  const F = await window.api.getFeatures();
+  if (!F) return;
+  _features = F;
+  const hide = sel => document.querySelectorAll(sel).forEach(el => el.style.display = 'none');
+  // Sidebar tabs + views
+  if (F.ESX_SAMPLER === false) {
+    const tab = document.querySelector('.vsb-item[data-device="esx1"]');
+    if (tab) tab.style.display = 'none';
+    const view = document.getElementById('esx1-view');
+    if (view) view.style.display = 'none';
+  }
+  if (F.E2S_SAMPLER === false) {
+    const tab = document.querySelector('.vsb-item[data-device="e2s"]');
+    if (tab) tab.style.display = 'none';
+    const view = document.getElementById('e2s-view');
+    if (view) view.style.display = 'none';
+  }
+  if (F.PATTERN_VIEWER === false) {
+    const tab = document.querySelector('.vsb-item[data-device="e2pat"]');
+    if (tab) tab.style.display = 'none';
+    const view = document.getElementById('e2pat-view');
+    if (view) view.style.display = 'none';
+  }
+  // Toolbar buttons
+  if (F.CONVERSION === false) hide('[onclick="openConversion()"]');
+  if (F.GUIDE === false) {
+    hide('[onclick="openGuide()"]');
+    hide('[onclick="closeModal();openGuide()"]');
+  }
+  // Footer: show BETA indicator
+  const disabledCount = Object.values(F).filter(v => v === false).length;
+  if (disabledCount > 0) {
+    const sl = document.getElementById('statusLeft');
+    if (sl) sl.innerHTML = sl.innerHTML.replace('hardtekk abfahrt', '<span style="color:var(--yel)">BETA</span>');
+  }
+  // If active tab is hidden, auto-select first visible tab
+  const tabs = document.querySelectorAll('.vsb-item');
+  const visibleTabs = [...tabs].filter(t => t.style.display !== 'none');
+  if (visibleTabs.length > 0) {
+    const activeTab = document.querySelector('.vsb-item.active');
+    if (!activeTab || activeTab.style.display === 'none') visibleTabs[0].click();
+  }
+}
+async function init(){updateState(await window.api.getState());applyFeatureFlags()} init();
 function toast(m,t='info'){const c=document.getElementById('tW'),e=document.createElement('div');e.className=`toast ${t}`;e.textContent=m;c.appendChild(e);setTimeout(()=>{e.classList.add('fading');e.addEventListener('animationend',()=>e.remove(),{once:true})},2750)}
 function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
 function fmtTime(sec){if(sec<0)sec=0;const m=Math.floor(sec/60),s=sec-m*60;return `${m}:${s<10?'0':''}${s.toFixed(3)}`}

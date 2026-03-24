@@ -29,6 +29,26 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 
+// ═══ FEATURE FLAGS ═══
+// Toggle features for beta/release builds.
+// Set to false to hide from UI, true to enable.
+//
+// BETA PRESET (ESX Sampler only):
+//   ESX_SAMPLER: true, MODIFY_MODAL: true
+//   Everything else: false
+//
+// DEV PRESET (everything on):
+//   All flags: true
+//
+const FEATURES = {
+  ESX_SAMPLER:      true,   // ESX-1 Sample Manager tab
+  E2S_SAMPLER:      false,  // E2S Sample Manager tab
+  PATTERN_VIEWER:   false,  // Pattern Viewer tab (ESX + EMX + E2)
+  CONVERSION:       false,  // ESX↔E2S conversion dialog
+  GUIDE:            false,  // Hardtekk/Schranz guide
+  MODIFY_MODAL:     true,   // DSP effects modal in ESX sampler
+};
+
 // ═══════════════════════════════════════════════════════════
 //  DEBUG HELPERS
 // ═══════════════════════════════════════════════════════════
@@ -265,6 +285,7 @@ ipcMain.handle('rename-sample', async (ev, { index, name }) => {
   return getSamplesInfo();
 });
 ipcMain.handle('clear-all', async () => { currentSamples = []; esxOriginalBuffer = null; return getSamplesInfo(); });
+ipcMain.handle('get-features', () => FEATURES);
 ipcMain.handle('get-state', async () => getSamplesInfo());
 
 ipcMain.handle('get-waveform', async (ev, index) => {

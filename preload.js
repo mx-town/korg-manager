@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('api', {
   renameSample:     (i, n)          => ipcRenderer.invoke('rename-sample', { index: i, name: n }),
   clearAll:         ()              => ipcRenderer.invoke('clear-all'),
   getState:         ()              => ipcRenderer.invoke('get-state'),
+  getFeatures:      ()              => ipcRenderer.invoke('get-features'),
   duplicateSample:  (i)             => ipcRenderer.invoke('duplicate-sample', i),
   moveSample:       (i, dir)        => ipcRenderer.invoke('move-sample', { index: i, direction: dir }),
   // Preview
