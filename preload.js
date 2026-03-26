@@ -4,7 +4,9 @@ contextBridge.exposeInMainWorld('api', {
   openEsxFile:      ()              => ipcRenderer.invoke('open-esx-file'),
   importWavFiles:   ()              => ipcRenderer.invoke('import-wav-files'),
   importZip:        ()              => ipcRenderer.invoke('import-zip'),
+  importSamples:    ()              => ipcRenderer.invoke('import-samples'),
   saveEsxFile:      (name)          => ipcRenderer.invoke('save-esx-file', name),
+  saveEsxOverwrite: (filePath)      => ipcRenderer.invoke('save-esx-overwrite', filePath),
   exportWav:        (i)             => ipcRenderer.invoke('export-wav', i),
   // Management
   removeSample:     (i)             => ipcRenderer.invoke('remove-sample', i),
@@ -12,6 +14,7 @@ contextBridge.exposeInMainWorld('api', {
   clearAll:         ()              => ipcRenderer.invoke('clear-all'),
   getState:         ()              => ipcRenderer.invoke('get-state'),
   getFeatures:      ()              => ipcRenderer.invoke('get-features'),
+  getVersion:       ()              => ipcRenderer.invoke('get-version'),
   duplicateSample:  (i)             => ipcRenderer.invoke('duplicate-sample', i),
   moveSample:       (i, dir)        => ipcRenderer.invoke('move-sample', { index: i, direction: dir }),
   // Preview
@@ -49,6 +52,7 @@ contextBridge.exposeInMainWorld('api', {
   fxFilterSweep:    (i, t, sf, ef)  => ipcRenderer.invoke('fx-filter-sweep', { index: i, type: t, startFreq: sf, endFreq: ef }),
   fxTransient:      (i, a, s)       => ipcRenderer.invoke('fx-transient', { index: i, attack: a, sustain: s }),
   fxDcRemove:       (i)             => ipcRenderer.invoke('fx-dc-remove', i),
+  fxGain:           (i, db)         => ipcRenderer.invoke('fx-gain', { index: i, db }),
   fxLoopXfade:      (i, ms)         => ipcRenderer.invoke('fx-loop-xfade', { index: i, ms }),
   fxEnvelope:       (i, a, d, s, r) => ipcRenderer.invoke('fx-envelope', { index: i, attackMs: a, decayMs: d, sustainLvl: s, releaseMs: r }),
 

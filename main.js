@@ -8,10 +8,11 @@ const esx = require('./src/esx-format');
 let mainWindow;
 function createWindow() {
   mainWindow = new BrowserWindow({
+    title: 'Electribe Sample Werkstatt',
     width: 1360, height: 900, minWidth: 1024, minHeight: 700,
     backgroundColor: '#030303', autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false },
-    icon: path.join(__dirname, 'src', 'icon.png')
+    icon: path.join(__dirname, 'src', 'icon.ico')
   });
   mainWindow.loadFile(path.join(__dirname, 'src', 'index.html'));
   mainWindow.setMenuBarVisibility(false);
@@ -138,12 +139,14 @@ ipcMain.handle('get-undo-info', async (ev, index) => {
 ipcMain.handle('reset-sample', async (ev, index) => {
   const s = currentSamples[index];
   if (!s || !s._original) return null;
-  // Push current state to undo so reset itself is undoable
-  pushUndo(index);
+  // Restore original state and clear all undo history
   s.pcmData = Buffer.from(s._original.pcmData);
   s.numFrames = s._original.numFrames;
   s.duration = s._original.duration;
   s.sampleRate = s._original.sampleRate;
+  s._undo = [];
+  s._redo = [];
+  s._original = null; // sample IS the original now
   return getSamplesInfo();
 });
 
@@ -185,6 +188,57 @@ ipcMain.handle('open-esx-file', async () => {
     }
     return { filePath: result.filePaths[0], samples: getSamplesInfo() };
   } catch (err) { return { error: err.message }; }
+});
+
+ipcMain.handle('import-samples', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Import Samples',
+    filters: [
+      { name: 'All Supported', extensions: ['wav', 'aif', 'aiff', 'zip'] },
+      { name: 'Audio Files', extensions: ['wav', 'aif', 'aiff'] },
+      { name: 'ZIP Archives', extensions: ['zip'] },
+    ],
+    properties: ['openFile', 'multiSelections']
+  });
+  if (result.canceled) return { imported: [], state: getSamplesInfo() };
+  const imported = [];
+  for (const fp of result.filePaths) {
+    const ext = path.extname(fp).toLowerCase();
+    if (ext === '.zip') {
+      try {
+        const zip = new AdmZip(fp);
+        const wavEntries = zip.getEntries()
+          .filter(e => {
+            if (e.isDirectory) return false;
+            if (!/\.(wav|aif|aiff)$/i.test(e.entryName)) return false;
+            const name = e.entryName.replace(/\\/g, '/');
+            if (name.includes('__MACOSX/')) return false;
+            if (name.split('/').pop().startsWith('._')) return false;
+            return true;
+          })
+          .sort((a, b) => a.entryName.localeCompare(b.entryName));
+        for (const entry of wavEntries) {
+          const entryPath = entry.entryName.replace(/\\/g, '/');
+          const parts = entryPath.split('/');
+          const fileName = parts.pop();
+          const folder = parts.join('/');
+          let data;
+          try { data = entry.getData(); } catch (e) { imported.push({ error: `Cannot decompress: ${fileName}`, originalName: fileName }); continue; }
+          if (!data || data.length < 12) { imported.push({ error: `Empty or too small: ${fileName}`, originalName: fileName }); continue; }
+          const buf = Buffer.from(data);
+          const res = importWavBuffer(buf, path.basename(fileName, path.extname(fileName)), null);
+          if (res.ok && folder) currentSamples[res.index].folder = folder;
+          imported.push(res);
+          if (res.error === 'Max 256 mono samples reached') break;
+        }
+      } catch (err) { imported.push({ error: `ZIP: ${err.message}`, originalName: path.basename(fp) }); }
+    } else {
+      try {
+        imported.push(importWavBuffer(fs.readFileSync(fp), path.basename(fp, path.extname(fp)), fp));
+      } catch (err) { imported.push({ error: err.message, originalName: path.basename(fp) }); }
+    }
+  }
+  return { imported, state: getSamplesInfo() };
 });
 
 ipcMain.handle('import-wav-files', async () => {
@@ -238,6 +292,33 @@ ipcMain.handle('import-zip', async () => {
   return { imported, zipName: path.basename(result.filePaths[0]), state: getSamplesInfo() };
 });
 
+// Save to EXISTING file (preserves patterns via rebuild)
+ipcMain.handle('save-esx-overwrite', async (ev, filePath) => {
+  if (!filePath) return { error: 'No file path' };
+  if (currentSamples.length === 0) return { error: 'No samples' };
+  if (!esxOriginalBuffer) return { error: 'No original file loaded — use Export instead' };
+
+  let totalSize = 0;
+  for (const s of currentSamples) totalSize += 16 + s.pcmData.length;
+  if (totalSize > esx.SIZE.MAX_SAMPLE_BYTES)
+    return { error: `Too large: ${(totalSize / 1024 / 1024).toFixed(1)}MB` };
+
+  try {
+    mainWindow.webContents.send('export-progress', { phase: 'building', percent: 10 });
+    const buf = esx.rebuildEsxFile(esxOriginalBuffer, currentSamples);
+    mainWindow.webContents.send('export-progress', { phase: 'writing', percent: 50 });
+    fs.writeFileSync(filePath, buf);
+    mainWindow.webContents.send('export-progress', { phase: 'verifying', percent: 90 });
+
+    // Update the stored original buffer to reflect the new state
+    esxOriginalBuffer = Buffer.from(buf);
+
+    const stat = fs.statSync(filePath);
+    mainWindow.webContents.send('export-progress', { phase: 'done', percent: 100 });
+    return { filePath, size: stat.size };
+  } catch (err) { return { error: err.message }; }
+});
+
 ipcMain.handle('save-esx-file', async (ev, defaultName) => {
   if (currentSamples.length === 0) return { error: 'No samples' };
   let totalSize = 0;
@@ -286,6 +367,7 @@ ipcMain.handle('rename-sample', async (ev, { index, name }) => {
 });
 ipcMain.handle('clear-all', async () => { currentSamples = []; esxOriginalBuffer = null; return getSamplesInfo(); });
 ipcMain.handle('get-features', () => FEATURES);
+ipcMain.handle('get-version', () => require('./package.json').version);
 ipcMain.handle('get-state', async () => getSamplesInfo());
 
 ipcMain.handle('get-waveform', async (ev, index) => {
@@ -510,20 +592,21 @@ ipcMain.handle('fx-reverse', async (ev, index) => {
   return getSamplesInfo();
 });
 
-// ── BITCRUSHER ─────────────────────────────────────────────
+// ── BITCRUSHER (exponential HOLD for even knob feel) ──────
 ipcMain.handle('fx-bitcrush', async (ev, { index, bits, rateReduction }) => {
   const s = currentSamples[index];
   if (!s) return null;
   pushUndo(index);
   bits = Math.max(1, Math.min(16, bits || 8));
-  rateReduction = Math.max(1, Math.min(64, rateReduction || 1));
+  rateReduction = Math.max(1, Math.min(32, rateReduction || 1));
+  // Exponential mapping: slider 1→1, 16→8, 32→64 — even perceptual spread
+  const holdRate = Math.round(Math.pow(2, (rateReduction - 1) * 6 / 31));
   const shift = 16 - bits;
   const buf = Buffer.alloc(s.pcmData.length);
   let held = 0;
   for (let i = 0; i < s.numFrames; i++) {
-    if (i % rateReduction === 0) {
+    if (i % holdRate === 0) {
       let v = s.pcmData.readInt16BE(i * 2);
-      // Quantize: shift right then shift left to kill lower bits
       v = (v >> shift) << shift;
       held = v;
     }
@@ -581,21 +664,22 @@ ipcMain.handle('fx-distort', async (ev, { index, drive, type }) => {
   return getSamplesInfo();
 });
 
-// ── FADE IN ────────────────────────────────────────────────
+// ── FADE IN (power curve for perceptual smoothness) ───────
 ipcMain.handle('fx-fade-in', async (ev, { index, ms }) => {
   const s = currentSamples[index];
   if (!s) return null;
   pushUndo(index);
   const frames = Math.min(Math.round((ms || 50) / 1000 * s.sampleRate), s.numFrames);
   for (let i = 0; i < frames; i++) {
-    const gain = i / frames;
+    const t = i / frames;
+    const gain = t * t * t; // cubic curve — smooth logarithmic-like fade
     const v = Math.round(s.pcmData.readInt16BE(i * 2) * gain);
     s.pcmData.writeInt16BE(Math.max(-32768, Math.min(32767, v)), i * 2);
   }
   return getSamplesInfo();
 });
 
-// ── FADE OUT ───────────────────────────────────────────────
+// ── FADE OUT (power curve for perceptual smoothness) ──────
 ipcMain.handle('fx-fade-out', async (ev, { index, ms }) => {
   const s = currentSamples[index];
   if (!s) return null;
@@ -603,7 +687,8 @@ ipcMain.handle('fx-fade-out', async (ev, { index, ms }) => {
   const frames = Math.min(Math.round((ms || 50) / 1000 * s.sampleRate), s.numFrames);
   const start = s.numFrames - frames;
   for (let i = 0; i < frames; i++) {
-    const gain = 1 - i / frames;
+    const t = 1 - i / frames;
+    const gain = t * t * t; // cubic curve — smooth logarithmic-like fade
     const v = Math.round(s.pcmData.readInt16BE((start + i) * 2) * gain);
     s.pcmData.writeInt16BE(Math.max(-32768, Math.min(32767, v)), (start + i) * 2);
   }
@@ -637,7 +722,7 @@ ipcMain.handle('fx-chop', async (ev, { index, slices }) => {
   return { chopped: slices, state: getSamplesInfo() };
 });
 
-// ── STUTTER ────────────────────────────────────────────────
+// ── STUTTER (with crossfade to eliminate clicks) ──────────
 ipcMain.handle('fx-stutter', async (ev, { index, ms, repeats }) => {
   const s = currentSamples[index];
   if (!s) return null;
@@ -645,10 +730,23 @@ ipcMain.handle('fx-stutter', async (ev, { index, ms, repeats }) => {
   ms = Math.max(5, Math.min(1000, ms || 50));
   repeats = Math.max(2, Math.min(64, repeats || 8));
   const grainFrames = Math.min(Math.round(ms / 1000 * s.sampleRate), s.numFrames);
+  const xfadeFrames = Math.min(Math.round(s.sampleRate * 0.003), Math.floor(grainFrames / 4)); // 3ms crossfade
   const totalFrames = grainFrames * repeats;
   const buf = Buffer.alloc(totalFrames * 2);
   for (let r = 0; r < repeats; r++) {
-    s.pcmData.copy(buf, r * grainFrames * 2, 0, grainFrames * 2);
+    const dstOff = r * grainFrames;
+    for (let i = 0; i < grainFrames; i++) {
+      let v = s.pcmData.readInt16BE(Math.min(i, s.numFrames - 1) * 2);
+      // Fade in at grain start (except first grain)
+      if (r > 0 && i < xfadeFrames) {
+        v = Math.round(v * (i / xfadeFrames));
+      }
+      // Fade out at grain end (except last grain)
+      if (r < repeats - 1 && i >= grainFrames - xfadeFrames) {
+        v = Math.round(v * ((grainFrames - 1 - i) / xfadeFrames));
+      }
+      buf.writeInt16BE(Math.max(-32768, Math.min(32767, v)), (dstOff + i) * 2);
+    }
   }
   s.pcmData = buf; s.numFrames = totalFrames; s.duration = totalFrames / s.sampleRate;
   return getSamplesInfo();
@@ -781,26 +879,45 @@ ipcMain.handle('fx-timestretch', async (ev, { index, factor }) => {
   return getSamplesInfo();
 });
 
-// ── FILTER SWEEP (LP/HP) ─────────────────────────────────
+// ── FILTER SWEEP (LP/HP) — Biquad 12dB/oct ──────────────
 ipcMain.handle('fx-filter-sweep', async (ev, { index, type, startFreq, endFreq }) => {
   const s = currentSamples[index];
   if (!s) return null;
   pushUndo(index);
   startFreq = Math.max(20, Math.min(18000, startFreq || 200));
   endFreq = Math.max(20, Math.min(18000, endFreq || 8000));
-  // Simple one-pole filter with sweeping cutoff
+  const Q = 0.707; // Butterworth — flat passband, no resonance peak
   const buf = Buffer.alloc(s.pcmData.length);
-  let y = 0; // filter state
+  // Biquad state (direct form II transposed)
+  let z1 = 0, z2 = 0;
+  let prevB0 = 0, prevB1 = 0, prevB2 = 0, prevA1 = 0, prevA2 = 0;
   for (let i = 0; i < s.numFrames; i++) {
     const t = i / s.numFrames;
     const freq = startFreq * Math.pow(endFreq / startFreq, t);
-    const rc = 1.0 / (2.0 * Math.PI * freq);
-    const dt = 1.0 / s.sampleRate;
-    const alpha = dt / (rc + dt);
+    const w0 = 2 * Math.PI * freq / s.sampleRate;
+    const sinW = Math.sin(w0), cosW = Math.cos(w0);
+    const alpha = sinW / (2 * Q);
+    // Compute biquad coefficients
+    let b0, b1, b2, a0, a1, a2;
+    if (type === 'hp') {
+      b0 = (1 + cosW) / 2; b1 = -(1 + cosW); b2 = (1 + cosW) / 2;
+    } else {
+      b0 = (1 - cosW) / 2; b1 = 1 - cosW; b2 = (1 - cosW) / 2;
+    }
+    a0 = 1 + alpha; a1 = -2 * cosW; a2 = 1 - alpha;
+    // Normalize
+    b0 /= a0; b1 /= a0; b2 /= a0; a1 /= a0; a2 /= a0;
+    // Smooth coefficients to avoid zipper noise
+    if (i === 0) { prevB0=b0; prevB1=b1; prevB2=b2; prevA1=a1; prevA2=a2; }
+    const sm = 0.005;
+    prevB0 += sm*(b0-prevB0); prevB1 += sm*(b1-prevB1); prevB2 += sm*(b2-prevB2);
+    prevA1 += sm*(a1-prevA1); prevA2 += sm*(a2-prevA2);
+    // Process sample (direct form II transposed)
     const x = s.pcmData.readInt16BE(i * 2) / 32767;
-    y += alpha * (x - y);
-    const out = type === 'hp' ? x - y : y;
-    buf.writeInt16BE(Math.max(-32768, Math.min(32767, Math.round(out * 32767))), i * 2);
+    const y = prevB0 * x + z1;
+    z1 = prevB1 * x - prevA1 * y + z2;
+    z2 = prevB2 * x - prevA2 * y;
+    buf.writeInt16BE(Math.max(-32768, Math.min(32767, Math.round(y * 32767))), i * 2);
   }
   s.pcmData = buf;
   return getSamplesInfo();
@@ -856,6 +973,21 @@ ipcMain.handle('fx-dc-remove', async (ev, index) => {
   return { dc, state: getSamplesInfo() };
 });
 
+// ── GAIN (adjust volume in dB) ───────────────────────────
+ipcMain.handle('fx-gain', async (ev, { index, db }) => {
+  const s = currentSamples[index];
+  if (!s) return null;
+  pushUndo(index);
+  const gain = Math.pow(10, db / 20);
+  const buf = Buffer.alloc(s.pcmData.length);
+  for (let i = 0; i < s.numFrames; i++) {
+    const sample = s.pcmData.readInt16BE(i * 2);
+    buf.writeInt16BE(Math.max(-32768, Math.min(32767, Math.round(sample * gain))), i * 2);
+  }
+  s.pcmData = buf;
+  return getSamplesInfo();
+});
+
 // ── LOOP CROSSFADE (make loop-ready) ─────────────────────
 ipcMain.handle('fx-loop-xfade', async (ev, { index, ms }) => {
   const s = currentSamples[index];
@@ -882,23 +1014,37 @@ ipcMain.handle('fx-loop-xfade', async (ev, { index, ms }) => {
   return getSamplesInfo();
 });
 
-// ── AMP ENVELOPE (ADSR) ──────────────────────────────────
+// ── AMP ENVELOPE (ADSR — exponential curves) ─────────────
 ipcMain.handle('fx-envelope', async (ev, { index, attackMs, decayMs, sustainLvl, releaseMs }) => {
   const s = currentSamples[index];
   if (!s) return null;
   pushUndo(index);
-  const aFrames = Math.round((attackMs || 5) / 1000 * s.sampleRate);
-  const dFrames = Math.round((decayMs || 50) / 1000 * s.sampleRate);
+  const aFrames = Math.max(1, Math.round((attackMs || 5) / 1000 * s.sampleRate));
+  const dFrames = Math.max(1, Math.round((decayMs || 50) / 1000 * s.sampleRate));
   const sLvl = Math.max(0, Math.min(1, (sustainLvl ?? 80) / 100));
-  const rFrames = Math.round((releaseMs || 100) / 1000 * s.sampleRate);
+  const rFrames = Math.max(1, Math.round((releaseMs || 100) / 1000 * s.sampleRate));
   const sustainEnd = Math.max(0, s.numFrames - rFrames);
+  // Exponential time constants (RC-style, like analog synth envelopes)
+  const aTau = aFrames / 5;  // reach ~99% in aFrames
+  const dTau = dFrames / 5;
+  const rTau = rFrames / 5;
   const buf = Buffer.alloc(s.pcmData.length);
   for (let i = 0; i < s.numFrames; i++) {
     let gain;
-    if (i < aFrames) gain = i / aFrames; // Attack
-    else if (i < aFrames + dFrames) gain = 1 - (1 - sLvl) * ((i - aFrames) / dFrames); // Decay
-    else if (i < sustainEnd) gain = sLvl; // Sustain
-    else gain = sLvl * (1 - (i - sustainEnd) / rFrames); // Release
+    if (i < aFrames) {
+      // Exponential attack: 0 → 1
+      gain = 1 - Math.exp(-i / aTau);
+    } else if (i < aFrames + dFrames) {
+      // Exponential decay: 1 → sustainLvl
+      const t = i - aFrames;
+      gain = sLvl + (1 - sLvl) * Math.exp(-t / dTau);
+    } else if (i < sustainEnd) {
+      gain = sLvl;
+    } else {
+      // Exponential release: sustainLvl → 0
+      const t = i - sustainEnd;
+      gain = sLvl * Math.exp(-t / rTau);
+    }
     gain = Math.max(0, Math.min(1, gain));
     buf.writeInt16BE(Math.max(-32768, Math.min(32767, Math.round(s.pcmData.readInt16BE(i * 2) * gain))), i * 2);
   }

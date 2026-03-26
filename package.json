@@ -1,7 +1,7 @@
 {
-  "name": "korg-esx-manager",
-  "version": "1.0.0",
-  "description": "Sample Manager for Korg Electribe ESX-1 – Drag & Drop WAV to .esx",
+  "name": "electribe-sample-werkstatt",
+  "version": "1.0.0-beta.1",
+  "description": "Sample manager for Korg Electribe ESX-1",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -27,17 +27,30 @@
     "vitest": "^4.0.18"
   },
   "build": {
-    "appId": "com.esx-manager.app",
-    "productName": "Korg ESX Manager",
+    "appId": "com.electribe-sample-werkstatt.app",
+    "productName": "Electribe Sample Werkstatt",
     "win": {
       "target": "nsis",
-      "icon": "src/icon.png"
+      "icon": "src/icon.ico",
+      "signAndEditExecutable": false
     },
     "files": [
       "main.js",
       "preload.js",
       "src/**/*",
-      "node_modules/**/*"
+      "node_modules/**/*",
+      "package.json",
+      "!analyze-esx.js",
+      "!compare-fixes.js",
+      "!test-esx-fix.js",
+      "!test-data/**/*",
+      "!tests/**/*",
+      "!coverage/**/*",
+      "!vitest.config.js",
+      "!TESTING.md",
+      "!EMX_SMARTCARD_FORMAT.md",
+      "!korg-esx-file-structur",
+      "!CLAUDE.md"
     ]
   }
 }
