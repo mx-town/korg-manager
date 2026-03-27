@@ -1302,21 +1302,16 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 
 <script>
 window.onerror=function(msg,src,line,col,err){
-  const pre=document.createElement('pre');
-  pre.style.cssText='color:#f44;background:#111;padding:2em;font:14px monospace;white-space:pre-wrap';
-  pre.textContent='CRASH: '+msg+'\nSource: '+src+'\nLine: '+line+':'+col+'\n\n'+(err&&err.stack||'');
-  document.body.innerHTML='';
-  document.body.appendChild(pre);
+  console.error('CRASH:',msg,src,line,col,err);
+  if(typeof toast==='function')toast('Error: '+msg,'error');
   return true;
 };
 window.onunhandledrejection=function(e){
-  const pre=document.createElement('pre');
-  pre.style.cssText='color:#f44;background:#111;padding:2em;font:14px monospace;white-space:pre-wrap';
-  pre.textContent='UNHANDLED: '+(e.reason&&e.reason.stack||e.reason||'Unknown');
-  document.body.innerHTML='';
-  document.body.appendChild(pre);
+  console.error('Unhandled:',e.reason);
+  if(typeof toast==='function')toast('Error: '+(e.reason?.message||e.reason||'Unknown'),'error');
 };
 // ═══ STATE ═══
+let _fxBusy=false;
 let S={samples:[],numSamples:0,usedPercent:'0'},sel=-1,playing=false,fp=null,dirty=false,wfData=null;
 let cursorAF=null,seekPos=0,currentBlobUrl=null; // cursor animation
 const SORT_MODES=['OFF','TYPE','NAME','LENGTH','SIZE'];
@@ -1545,7 +1540,7 @@ async function importZip(){const r=await window.api.importZip();if(!r||!r.import
 async function importSamples(){const r=await window.api.importSamples();if(!r||!r.imported)return;const ok=r.imported.filter(x=>x.ok).length;const fail=r.imported.filter(x=>x.error);if(fail.length>0)fail.slice(0,3).forEach(x=>toast(`${x.originalName}: ${x.error}`,'error'));if(ok>0){dirty=true;toast(`${ok} SAMPLE${ok>1?'S':''} IMPORTED`,'success')}updateState(r.state)}
 async function remS(i){const s=await window.api.removeSample(i);dirty=true;if(sel===i){sel=-1;hideDet()}else if(sel>i)sel--;updateState(s)}
 async function remCur(){if(sel>=0){stopPlay();await remS(sel)}}
-async function removeChecked(){if(checked.size===0)return;const count=checked.size;if(!confirm(`Delete ${count} sample${count>1?'s':''}?`))return;stopPlay();const indices=[...checked].sort((a,b)=>b-a);for(const idx of indices){await window.api.removeSample(idx)}sel=-1;hideDet();checked.clear();updateSelBadge();dirty=true;updateState(await window.api.getState());toast(`${count} SAMPLES DELETED`,'success')}
+async function removeChecked(){if(_fxBusy)return;if(checked.size===0)return;const count=checked.size;if(!confirm(`Delete ${count} sample${count>1?'s':''}?`))return;_fxBusy=true;try{stopPlay();const indices=[...checked].sort((a,b)=>b-a);for(const idx of indices){await window.api.removeSample(idx)}sel=-1;hideDet();checked.clear();updateSelBadge();dirty=true;updateState(await window.api.getState());toast(`${count} SAMPLES DELETED`,'success')}finally{_fxBusy=false}}
 async function selS(i){sel=i;renderList();const ae=document.querySelector('.ss.act');if(ae)ae.scrollIntoView({block:'nearest',behavior:'smooth'});showDet(i);updatePath();const wf=await window.api.getWaveform(i);if(wf)drawWf(wf);updateUndo()}
 function showDet(i){const s=S.samples.find(x=>x.index===i);if(!s)return;['secPlay','secMod','secDet'].forEach(id=>document.getElementById(id).style.display='block');document.getElementById('renIn').value=s.name;const d=s.duration<1?`${(s.duration*1000).toFixed(1)}ms`:`${s.duration.toFixed(3)}s`,z=s.sizeBytes>1048576?`${(s.sizeBytes/1048576).toFixed(2)}MB`:`${(s.sizeBytes/1024).toFixed(1)}KB`;
   document.getElementById('detI').innerHTML=`<div class="dr"><span class="dl">RATE</span><span class="dv">${s.sampleRate.toLocaleString()} Hz</span></div><div class="dr"><span class="dl">FRAMES</span><span class="dv">${s.numFrames.toLocaleString()}</span></div><div class="dr"><span class="dl">LENGTH</span><span class="dv">${d}</span></div><div class="dr"><span class="dl">SIZE</span><span class="dv">${z}</span></div>${s.folder?`<div class="dr"><span class="dl">SRC</span><span class="dv" style="color:var(--led)">${esc(s.folder)}</span></div>`:''}`}
@@ -1553,6 +1548,8 @@ function hideDet(){['secPlay','secMod','secDet'].forEach(id=>document.getElement
 async function renam(){if(sel<0)return;const s=await window.api.renameSample(sel,document.getElementById('renIn').value);dirty=true;updateState(s)}
 function startRen(i){selS(i);setTimeout(()=>{const e=document.getElementById('renIn');e.focus();e.select()},100)}
 async function saveEsxToFile(){
+  if(_fxBusy)return;_fxBusy=true;
+  try{
   if(!fp){toast('NO FILE LOADED — use EXPORT NEW','error');return}
   if(!S.numSamples){toast('NO SAMPLES','error');return}
   const prog=document.getElementById('expProg');
@@ -1566,7 +1563,10 @@ async function saveEsxToFile(){
   const r=await window.api.saveEsxOverwrite(fp);
   prog.style.display='none';
   if(!r)return;if(r.error){toast(r.error,'error');return}dirty=false;updatePath();toast(`SAVED → ${r.filePath.split(/[\\/]/).pop()} [${(r.size/1048576).toFixed(1)}MB]`,'success')}
+  finally{_fxBusy=false}}
 async function exportNewEsx(){
+  if(_fxBusy)return;_fxBusy=true;
+  try{
   if(!S.numSamples){toast('NO SAMPLES','error');return}
   const prog=document.getElementById('expProg');
   prog.style.display='flex';
@@ -1579,6 +1579,7 @@ async function exportNewEsx(){
   const r=await window.api.saveEsxFile('new_samples.esx');
   prog.style.display='none';
   if(!r)return;if(r.error){toast(r.error,'error');return}fp=r.filePath;dirty=false;updatePath();document.getElementById('btnSave').style.display='';toast(`EXPORTED → ${r.filePath.split(/[\\/]/).pop()} [${(r.size/1048576).toFixed(1)}MB]`,'success')}
+  finally{_fxBusy=false}}
 async function expWav(){if(sel<0)return;const f=await window.api.exportWav(sel);if(f)toast(`EXPORTED → ${f.split(/[\\/]/).pop()}`,'success')}
 async function clearAll(){if(!S.numSamples)return;if(!confirm('Clear all samples?'))return;stopPlay();sel=-1;fp=null;dirty=false;window._sampleTags={};window._autoTags={};hideDet();document.getElementById('btnSave').style.display='none';updateState(await window.api.clearAll());toast('CLEARED','info')}
 async function bNorm(){if(!S.numSamples)return;const r=await window.api.normalizeAll(-1);if(r){dirty=true;toast(`${r.normalized}/${r.total} NORMALIZED`,'success');updateState(r.state);if(sel>=0)reWf()}}
@@ -1988,6 +1989,8 @@ async function applyFxSingle(id,idx){
   return r;
 }
 async function applyFx(id){
+  if(_fxBusy)return;_fxBusy=true;
+  try{
   const batch=checked.size>1;
   const targets=batch?[...checked]:(sel<0?[]:[sel]);
   if(!targets.length)return;
@@ -2002,7 +2005,8 @@ async function applyFx(id){
   }
   if(lastR){dirty=true;updateState(lastR.state||lastR);if(sel>=0){showDet(sel);reWf();drawModalWf();updateUndo();updateModalUndo()}
     if(batch)toast(`${targets.length} SAMPLES: ${fx?fx.icon+' '+fx.name:'FX'} ✓`,'success');
-    else toast(`${fx?fx.icon+' '+fx.name:'FX'} ✓`,'success')}}
+    else toast(`${fx?fx.icon+' '+fx.name:'FX'} ✓`,'success')}
+  }finally{_fxBusy=false}}
 
 // Modal tools
 async function mTool(t){
@@ -2157,8 +2161,8 @@ const GUIDE_HTML = `
 `;
 
 // ═══ DRAG & DROP + KEYS ═══
-function setupDrop(){const d=document.getElementById('dZ');if(!d)return;d.addEventListener('dragover',e=>{e.preventDefault();d.classList.add('dg')});d.addEventListener('dragleave',()=>d.classList.remove('dg'));d.addEventListener('drop',e=>{e.preventDefault();d.classList.remove('dg');importWav()})}
-setupDrop();document.addEventListener('dragover',e=>e.preventDefault());document.addEventListener('drop',e=>{e.preventDefault();if(e.dataTransfer?.files?.length)importWav()});
+function setupDrop(){const d=document.getElementById('dZ');if(!d)return;d.addEventListener('dragover',e=>{e.preventDefault();d.classList.add('dg')});d.addEventListener('dragleave',()=>d.classList.remove('dg'));d.addEventListener('drop',e=>{e.preventDefault();d.classList.remove('dg');importSamples()})}
+setupDrop();document.addEventListener('dragover',e=>e.preventDefault());document.addEventListener('drop',e=>{e.preventDefault();if(e.dataTransfer?.files?.length)importSamples()});
 document.addEventListener('keydown',e=>{
   if(e.target.tagName==='INPUT')return;
   if(e.key==='Escape'){closeModal();closeModalBg('guideBg');return}
@@ -2360,14 +2364,14 @@ async function e2sSetCategory(){
   await window.api.e2s.updateSample({slot:e2sSel,category});
   e2sRenderList();
 }
-function e2sSetTune(){if(e2sSel<0||!e2sSamples[e2sSel])return;const v=+document.getElementById('e2sTune').value;e2sSamples[e2sSel].tune=v;document.getElementById('e2sTuneV').textContent=(v>0?'+':'')+v;e2sDirty=true}
+function e2sSetTune(){if(e2sSel<0||!e2sSamples[e2sSel])return;const v=+document.getElementById('e2sTune').value;e2sSamples[e2sSel].tune=v;document.getElementById('e2sTuneV').textContent=(v>0?'+':'')+v;e2sDirty=true;window.api.e2s.updateSample({slot:e2sSel,tune:v})}
 async function e2sSetPlayMode(){
   if(e2sSel<0||!e2sSamples[e2sSel]||e2sSamples[e2sSel].empty)return;
   const v=document.querySelector('input[name=e2sPlayMode]:checked').value;
   e2sSamples[e2sSel].playMode=v;e2sDirty=true;
   await window.api.e2s.updateSample({slot:e2sSel,loopType:v==='loop'?1:0});
 }
-function e2sSetBoost(){if(e2sSel<0||!e2sSamples[e2sSel])return;e2sSamples[e2sSel].boost=document.getElementById('e2sBoost').checked;e2sDirty=true}
+function e2sSetBoost(){if(e2sSel<0||!e2sSamples[e2sSel])return;const v=document.getElementById('e2sBoost').checked;e2sSamples[e2sSel].boost=v;e2sDirty=true;window.api.e2s.updateSample({slot:e2sSel,boost:v})}
 
 let e2sAudioCtx=null,e2sAudioSrc=null;
 async function e2sTogglePlay(){
@@ -3754,6 +3758,11 @@ function patGetVisibleIndices(){
 }
 function patHandleKeyboard(e){
   if(activeDevice!=='e2pat')return;
+  // Block keys while modals are open
+  if(document.getElementById('modalBg')?.classList.contains('show')||
+     document.getElementById('guideBg')?.classList.contains('show')||
+     document.getElementById('convBg')?.classList.contains('show'))return;
+  if(document.getElementById('smpPickerBg')?.classList.contains('show'))return;
   // Don't intercept when typing in inputs
   if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA'||e.target.tagName==='SELECT')return;
 
@@ -4121,13 +4130,15 @@ function convUpdateCount(){
 document.getElementById('convSamples').addEventListener('change',convUpdateCount);
 
 async function convExecute(){
+  if(_fxBusy)return;_fxBusy=true;
+  try{
   const checked=document.querySelectorAll('.conv-cb:checked');
   if(!checked.length){toast('No samples selected','error');return}
   const src=document.getElementById('convSrc').value;
   const tgt=document.getElementById('convTgt').value;
   if(src===tgt){toast('Same formats — nothing to convert','info');return}
   toast(`Conversion: ${checked.length} samples ${src.toUpperCase()} → ${tgt.toUpperCase()} — feature in progress`,'info');
-}
+  }finally{_fxBusy=false}}
 
 // Update status bar on ESX state change (hook into existing updateState)
 const origUpdateState=updateState;
