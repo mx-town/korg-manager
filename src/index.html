@@ -1254,20 +1254,24 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
 <audio id="aE"></audio>
 
 <script>
-window.onerror = function(msg, url, line, col, err) {
-  document.body.style.background = '#1a1a2e';
-  document.body.innerHTML = '<pre style="color:#ff6b6b;padding:20px;font-size:14px;white-space:pre-wrap;">' +
-    'CRASH: ' + msg + '\nLine: ' + line + ':' + col + '\n\n' + (err && err.stack || '') + '</pre>';
+window.onerror=function(msg,src,line,col,err){
+  const pre=document.createElement('pre');
+  pre.style.cssText='color:#f44;background:#111;padding:2em;font:14px monospace;white-space:pre-wrap';
+  pre.textContent='CRASH: '+msg+'\nSource: '+src+'\nLine: '+line+':'+col+'\n\n'+(err&&err.stack||'');
+  document.body.innerHTML='';
+  document.body.appendChild(pre);
   return true;
 };
-window.onunhandledrejection = function(e) {
-  document.body.style.background = '#1a1a2e';
-  document.body.innerHTML = '<pre style="color:#ff6b6b;padding:20px;font-size:14px;white-space:pre-wrap;">' +
-    'UNHANDLED REJECTION:\n' + (e.reason && e.reason.stack || e.reason || e) + '</pre>';
+window.onunhandledrejection=function(e){
+  const pre=document.createElement('pre');
+  pre.style.cssText='color:#f44;background:#111;padding:2em;font:14px monospace;white-space:pre-wrap';
+  pre.textContent='UNHANDLED: '+(e.reason&&e.reason.stack||e.reason||'Unknown');
+  document.body.innerHTML='';
+  document.body.appendChild(pre);
 };
 // ═══ STATE ═══
 let S={samples:[],numSamples:0,usedPercent:'0'},sel=-1,playing=false,fp=null,dirty=false,wfData=null;
-let cursorAF=null,seekPos=0; // cursor animation
+let cursorAF=null,seekPos=0,currentBlobUrl=null; // cursor animation
 const SORT_MODES=['OFF','TYPE','NAME','LENGTH','SIZE'];
 let sortMode=0;
 let checked=new Set(),lastCheckedIndex=-1;
@@ -1548,11 +1552,11 @@ function updateModalUndo(){const s=S.samples.find(x=>x.index===sel);if(!s)return
 async function reWf(){const wf=await window.api.getWaveform(sel);if(wf)drawWf(wf)}
 
 // ═══ PLAYBACK WITH CURSOR ═══
-async function togglePlay(){if(playing){stopPlay();return}if(sel<0)return;const b=await window.api.getWavPreview(sel);if(!b)return;audio.src=URL.createObjectURL(new Blob([Uint8Array.from(atob(b),c=>c.charCodeAt(0))],{type:'audio/wav'}));audio.currentTime=seekPos*audio.duration||0;audio.play();playing=true;
+async function togglePlay(){if(playing){stopPlay();return}if(sel<0)return;const b=await window.api.getWavPreview(sel);if(!b)return;if(currentBlobUrl){URL.revokeObjectURL(currentBlobUrl);currentBlobUrl=null;}currentBlobUrl=URL.createObjectURL(new Blob([Uint8Array.from(atob(b),c=>c.charCodeAt(0))],{type:'audio/wav'}));audio.src=currentBlobUrl;audio.currentTime=seekPos*audio.duration||0;audio.play();playing=true;
   const pb=document.getElementById('playBtn');if(pb){pb.textContent='⏹ STOP';pb.classList.add('pl')}
   try{document.getElementById('mPlayBtn').textContent='⏹ STOP';document.getElementById('mPlayBtn').classList.add('pl')}catch(e){}
   startCursorAnim();audio.onended=()=>stopPlay()}
-function stopPlay(){audio.pause();audio.currentTime=0;playing=false;seekPos=0;stopCursorAnim();
+function stopPlay(){audio.pause();audio.currentTime=0;playing=false;seekPos=0;if(currentBlobUrl){URL.revokeObjectURL(currentBlobUrl);currentBlobUrl=null;}stopCursorAnim();
   const pb=document.getElementById('playBtn');if(pb){pb.textContent='▶ PLAY';pb.classList.remove('pl')}
   try{document.getElementById('mPlayBtn').textContent='▶ PLAY';document.getElementById('mPlayBtn').classList.remove('pl')}catch(e){}
   if(document.getElementById('modalBg').classList.contains('show'))drawModalWfStatic()}
@@ -4078,7 +4082,7 @@ function updateSdCardStatus(sdPath,inserted){
       badge.onclick=()=>{if(sdCurrentPath&&window.api.sdOpenFolder)window.api.sdOpenFolder(sdCurrentPath).then(p=>{if(p)toast('SD: '+p,'info')})};
       document.getElementById('statusRight').parentElement.appendChild(badge);
     }
-    badge.innerHTML=`<span style="color:var(--yel)">SD: ${sdPath}</span>`;
+    badge.innerHTML=`<span style="color:var(--yel)">SD: ${esc(sdPath)}</span>`;
   } else {
     if(badge)badge.remove();
   }

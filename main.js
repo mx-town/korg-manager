@@ -291,6 +291,8 @@ ipcMain.handle('import-zip', async () => {
 // Save to EXISTING file (preserves patterns via rebuild)
 ipcMain.handle('save-esx-overwrite', async (ev, filePath) => {
   if (!filePath) return { error: 'No file path' };
+  const ext = path.extname(filePath).toLowerCase();
+  if (ext !== '.esx') return { error: 'Invalid file type' };
   if (currentSamples.length === 0) return { error: 'No samples' };
   if (!esxOriginalBuffer) return { error: 'No original file loaded — use Export instead' };
 
@@ -475,6 +477,8 @@ safeIpcHandle('analyze-samples-batch', async (ev, indices) => {
 // ═══════════════════════════════════════════════════════════
 safeIpcHandle('esx:save-tags', async (ev, { filePath, tags }) => {
   if (!filePath || !tags) return { error: 'No file path or tags' };
+  const ext = path.extname(filePath).toLowerCase();
+  if (ext !== '.esx') return { error: 'Invalid file type' };
   try {
     const tagPath = filePath + '.tags.json';
     fs.writeFileSync(tagPath, JSON.stringify(tags, null, 2), 'utf-8');
@@ -484,6 +488,8 @@ safeIpcHandle('esx:save-tags', async (ev, { filePath, tags }) => {
 
 safeIpcHandle('esx:load-tags', async (ev, filePath) => {
   if (!filePath) return null;
+  const ext = path.extname(filePath).toLowerCase();
+  if (ext !== '.esx') return { error: 'Invalid file type' };
   try {
     const tagPath = filePath + '.tags.json';
     if (!fs.existsSync(tagPath)) return null;

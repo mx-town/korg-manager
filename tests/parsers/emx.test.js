@@ -89,7 +89,8 @@ describe('EMX - Dump parsing', () => {
 
     expect(dump.fileSize).toBe(DUMP_SIZE);
     expect(dump.numPatterns).toBe(NUM_PATTERNS);
-    expect(dump.patterns).toHaveLength(NUM_PATTERNS);
+    // SysEx: 288 header + 256×6750 = 1,728,288 > 1,728,000, so pattern 255 overflows
+    expect(dump.patterns).toHaveLength(NUM_PATTERNS - 1);
   });
 
   it('should parse pattern with name and tempo', () => {

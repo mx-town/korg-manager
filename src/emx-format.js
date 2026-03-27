@@ -495,6 +495,7 @@ function parseEmxDump(buf) {
   const patterns = [];
   for (let i = 0; i < NUM_PATTERNS; i++) {
     const offset = ADDR.PATTERN_DATA + i * PATTERN_SIZE;
+    if (offset + PATTERN_SIZE > buf.length) break;
     try {
       patterns.push(parsePattern(buf, offset));
     } catch (err) {

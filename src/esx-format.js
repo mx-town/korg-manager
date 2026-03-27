@@ -23,6 +23,8 @@ const ADDR = {
   SAMPLE_DATA:          0x00250000,   // PCM sample data starts here
 };
 
+const ESX_FILE_SIZE = 0x1950000;        // 26,542,080 bytes — hardware-required fixed file size
+
 const SIZE = {
   HEADER: 32,
   SAMPLE_HDR_MONO: 40,
@@ -801,11 +803,10 @@ function buildEsxFile(samples) {
   }
   headerBuffer.writeUInt32BE(checksum, ADDR.BPS_HEADER + 0x0C);
 
-  // Combine header + sample data
+  // Combine header + sample data into fixed-size hardware buffer
   const sampleDataBuffer = Buffer.concat(dataBlocks);
-  const totalSize = SIZE.FILE_MIN + sampleDataBuffer.length;
 
-  const finalBuffer = Buffer.alloc(totalSize, 0);
+  const finalBuffer = Buffer.alloc(ESX_FILE_SIZE, 0);
   headerBuffer.copy(finalBuffer, 0);
   sampleDataBuffer.copy(finalBuffer, ADDR.SAMPLE_DATA);
 
@@ -1352,11 +1353,10 @@ function rebuildEsxFile(originalBuffer, samples) {
   }
   headerBuffer.writeUInt32BE(checksum, ADDR.BPS_HEADER + 0x0C);
 
-  // Combine header + sample data
+  // Combine header + sample data into fixed-size hardware buffer
   const sampleDataBuffer = Buffer.concat(dataBlocks);
-  const totalSize = ADDR.SAMPLE_DATA + 0x10 + sampleDataBuffer.length;
 
-  const finalBuffer = Buffer.alloc(totalSize, 0);
+  const finalBuffer = Buffer.alloc(ESX_FILE_SIZE, 0);
   headerBuffer.copy(finalBuffer, 0);
   sampleDataBuffer.copy(finalBuffer, ADDR.SAMPLE_DATA);
 
@@ -1457,6 +1457,7 @@ module.exports = {
   ADDR,
   SIZE,
   NUM,
+  ESX_FILE_SIZE,
   PATTERN_SIZE,
   PATTERN_COUNT,
   PATTERN_OFFSETS,
