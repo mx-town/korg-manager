@@ -12,11 +12,11 @@ function createWindow() {
     width: 1360, height: 900, minWidth: 1024, minHeight: 700,
     backgroundColor: '#030303', autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false },
-    icon: path.join(__dirname, 'src', 'icon.ico')
+    icon: path.join(__dirname, 'src', 'icon.png')
   });
   mainWindow.loadFile(path.join(__dirname, 'src', 'index.html'));
   mainWindow.setMenuBarVisibility(false);
-  mainWindow.webContents.openDevTools({ mode: 'bottom' });
+  if (IS_DEV) mainWindow.webContents.openDevTools({ mode: 'bottom' });
 }
 app.whenReady().then(() => {
   createWindow();
@@ -30,30 +30,20 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 
+// ═══ DEV MODE ═══
+// npm start     → beta build (limited features, no DevTools)
+// npm run dev   → dev build  (all features + DevTools + console)
+const IS_DEV = process.argv.includes('--dev');
+
 // ═══ FEATURE FLAGS ═══
-// Toggle features for beta/release builds.
-// Set to false to hide from UI, true to enable.
-//
-// BETA PRESET (ESX Sampler only):
-//   ESX_SAMPLER: true, MODIFY_MODAL: true
-//   Everything else: false
-//
-// DEV PRESET (everything on):
-//   All flags: true
-//
-const FEATURES = {
-  ESX_SAMPLER:      true,   // ESX-1 Sample Manager tab
-  E2S_SAMPLER:      false,  // E2S Sample Manager tab
-  PATTERN_VIEWER:   false,  // Pattern Viewer tab (ESX + EMX + E2)
-  CONVERSION:       false,  // ESX↔E2S conversion dialog
-  GUIDE:            false,  // Hardtekk/Schranz guide
-  MODIFY_MODAL:     true,   // DSP effects modal in ESX sampler
-};
+const FEATURES = IS_DEV
+  ? { ESX_SAMPLER: true, E2S_SAMPLER: true, PATTERN_VIEWER: true, CONVERSION: true, GUIDE: true, MODIFY_MODAL: true }
+  : { ESX_SAMPLER: true, E2S_SAMPLER: false, PATTERN_VIEWER: false, CONVERSION: false, GUIDE: true, MODIFY_MODAL: true };
 
 // ═══════════════════════════════════════════════════════════
 //  DEBUG HELPERS
 // ═══════════════════════════════════════════════════════════
-const DEBUG = process.env.NODE_ENV === 'development';
+const DEBUG = IS_DEV;
 
 function debugLog(category, message, data) {
   if (!DEBUG) return;
@@ -85,6 +75,8 @@ function safeIpcHandle(channel, handler) {
   });
 }
 
+ipcMain.handle('get-version', () => app.getVersion());
+
 // ═══════════════════════════════════════════════════════════
 //  SAMPLE STORE + UNDO SYSTEM
 // ═══════════════════════════════════════════════════════════
@@ -100,6 +92,10 @@ function pushUndo(index) {
   if (!s) return;
   if (!s._undo) s._undo = [];
   if (!s._redo) s._redo = [];
+  // Capture original state on first modification
+  if (!s._original) {
+    s._original = { pcmData: Buffer.from(s.pcmData), numFrames: s.numFrames, duration: s.duration, sampleRate: s.sampleRate };
+  }
   s._undo.push({ pcmData: Buffer.from(s.pcmData), numFrames: s.numFrames, duration: s.duration, sampleRate: s.sampleRate });
   if (s._undo.length > MAX_UNDO) s._undo.shift();
   s._redo = []; // clear redo on new action
@@ -164,7 +160,7 @@ function importWavBuffer(buffer, displayName, originalPath) {
       name, pcmData: converted.pcmData, sampleRate: converted.sampleRate,
       numFrames: converted.numFrames, duration: converted.durationSeconds,
       originalPath: originalPath || null, folder: null, _undo: [], _redo: [],
-      _original: { pcmData: Buffer.from(converted.pcmData), numFrames: converted.numFrames, duration: converted.durationSeconds, sampleRate: converted.sampleRate },
+      _original: null,
     });
     return { index: currentSamples.length - 1, name, originalName: displayName, ok: true };
   } catch (err) { return { error: err.message, originalName: displayName }; }
@@ -184,7 +180,7 @@ ipcMain.handle('open-esx-file', async () => {
     const parsed = esx.parseEsxFile(buffer);
     currentSamples = [];
     for (const s of parsed.monoSamples) {
-      if (s) currentSamples.push({ name: s.name, pcmData: s.pcmData, sampleRate: s.sampleRate, numFrames: s.numFrames, duration: s.duration, originalPath: null, folder: null, _undo: [], _redo: [], _original: { pcmData: Buffer.from(s.pcmData), numFrames: s.numFrames, duration: s.duration, sampleRate: s.sampleRate } });
+      if (s) currentSamples.push({ name: s.name, pcmData: s.pcmData, sampleRate: s.sampleRate, numFrames: s.numFrames, duration: s.duration, originalPath: null, folder: null, _undo: [], _redo: [], _original: null });
     }
     return { filePath: result.filePaths[0], samples: getSamplesInfo() };
   } catch (err) { return { error: err.message }; }
@@ -367,7 +363,6 @@ ipcMain.handle('rename-sample', async (ev, { index, name }) => {
 });
 ipcMain.handle('clear-all', async () => { currentSamples = []; esxOriginalBuffer = null; return getSamplesInfo(); });
 ipcMain.handle('get-features', () => FEATURES);
-ipcMain.handle('get-version', () => require('./package.json').version);
 ipcMain.handle('get-state', async () => getSamplesInfo());
 
 ipcMain.handle('get-waveform', async (ev, index) => {

@@ -252,7 +252,11 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
 /* ═══ GUIDE MODAL ═══ */
 .guide-modal{background:var(--dark);border:2px solid var(--blue-d);width:85%;max-width:800px;height:85%;display:grid;grid-template-rows:auto 1fr;clip-path:polygon(10px 0%,100% 0%,100% calc(100% - 10px),calc(100% - 10px) 100%,0% 100%,0% 10px);box-shadow:0 0 60px rgba(30,80,160,.06)}
 .guide-body{overflow-y:auto;padding:24px 30px}
+.guide-modal .modal-close{margin-left:auto}
 .guide-body::-webkit-scrollbar{width:5px} .guide-body::-webkit-scrollbar-track{background:var(--void)} .guide-body::-webkit-scrollbar-thumb{background:var(--blue-d)}
+@media(max-width:600px){.guide-modal{width:96%;height:96%;max-width:none}.guide-body{padding:14px 16px}.g-h{font-size:12px;letter-spacing:2px}.g-p{font-size:13px}.g-list li{font-size:12px;padding:5px 0 5px 12px}.g-box{padding:12px;font-size:12px}.g-tip{padding:10px 12px;font-size:13px}.g-sub{font-size:10px}}
+@media(min-width:601px) and (max-width:900px){.guide-modal{width:92%;height:90%;max-width:none}}
+@media(min-width:1600px){.guide-modal{max-width:960px}.g-p{font-size:16px}.g-list li{font-size:14px}.g-box{font-size:14px}}
 .g-sec{margin-bottom:28px}
 .g-h{font-family:var(--head);font-size:14px;font-weight:800;color:var(--hi);letter-spacing:4px;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--hi-d)}
 .g-sub{font-family:var(--head);font-size:11px;font-weight:700;color:var(--led);letter-spacing:2px;margin:14px 0 10px}
@@ -967,7 +971,7 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
       <div class="hsep"></div>
       <button class="btn btn-hi" id="btnSave" onclick="saveEsxToFile()" style="display:none">💾 SAVE</button>
       <button class="btn" onclick="exportNewEsx()">📤 EXPORT NEW</button>
-      <button class="btn" onclick="openGuide()">📖 GUIDE</button>
+      <button class="btn" onclick="openGuide()">ℹ BETA INFO</button>
     </div>
   </div>
   <div class="pbar"><span class="pbar-l">LOC&gt;</span><span class="pbar-v" id="pV"><span style="color:var(--txt-x)">// no file loaded</span></span><span class="pbar-st em" id="pS">EMPTY</span></div>
@@ -1217,7 +1221,7 @@ input[type="range"]:hover::-webkit-slider-thumb{box-shadow:0 0 12px var(--hi-g)}
 <!-- ═══ GUIDE MODAL ═══ -->
 <div class="modal-bg" id="guideBg" onclick="if(event.target===this)closeModalBg('guideBg')">
 <div class="guide-modal">
-  <div class="modal-hdr"><span class="modal-title">📖 HARDTEKK GUIDE</span><button class="modal-close" onclick="closeModalBg('guideBg')">✕ ESC</button></div>
+  <div class="modal-hdr"><span class="modal-title">ℹ BETA GUIDE</span><button class="modal-close" onclick="closeModalBg('guideBg')">✕ ESC</button></div>
   <div class="guide-body" id="guideBody"></div>
 </div>
 </div>
@@ -1317,7 +1321,7 @@ async function applyFeatureFlags() {
     if (!activeTab || activeTab.style.display === 'none') visibleTabs[0].click();
   }
 }
-async function init(){updateState(await window.api.getState());applyFeatureFlags()} init();
+async function init(){updateState(await window.api.getState());applyFeatureFlags();try{if(!localStorage.getItem('betaGuideShown')){setTimeout(()=>{openGuide();localStorage.setItem('betaGuideShown','1')},500)}}catch(e){}} init();
 function toast(m,t='info'){const c=document.getElementById('tW'),e=document.createElement('div');e.className=`toast ${t}`;e.textContent=m;c.appendChild(e);setTimeout(()=>{e.classList.add('fading');e.addEventListener('animationend',()=>e.remove(),{once:true})},2750)}
 function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
 function fmtTime(sec){if(sec<0)sec=0;const m=Math.floor(sec/60),s=sec-m*60;return `${m}:${s<10?'0':''}${s.toFixed(3)}`}
@@ -1465,7 +1469,7 @@ function renderList(){
     h+=`<div class="ss ${a?'act':''} ${ck?'checked':''}" onclick="selS(${s.index})" ondblclick="startRen(${s.index})" oncontextmenu="showCtxMenu(event,${s.index})"><div class="${ckClass}" onclick="handleCheck(event,${s.index})"></div><div class="si">${String(s.index+1).padStart(3,'0')}</div><div class="sn">${tagDot}${esc(s.name)}</div><div class="${fc}" title="${esc(f)}">${esc(f)}</div><div class="sr">${r}</div><div class="sd">${d}</div><div class="sz">${z}</div></div>`}
   l.innerHTML=h}
 function updateMem(){const b=document.getElementById('mB'),t=document.getElementById('mT'),p=parseFloat(S.usedPercent||0);b.style.width=`${p}%`;t.textContent=`${p}%`;b.classList.remove('w','c');if(p>90)b.classList.add('c');else if(p>70)b.classList.add('w');document.getElementById('mU').textContent=`${((S.totalSizeBytes||0)/1048576).toFixed(1)} MB`;document.getElementById('mD').textContent=(S.totalDuration||0).toFixed(1)}
-function updatePath(){const v=document.getElementById('pV'),s=document.getElementById('pS');if(!fp&&!S.numSamples){v.innerHTML='<span style="color:var(--txt-x)">// no file loaded</span>';s.className='pbar-st em';s.textContent='EMPTY'}else if(!fp){v.innerHTML=`<span style="color:var(--yel)">UNSAVED</span> <span style="color:var(--txt-x)">(${S.numSamples})</span>`;s.className='pbar-st un';s.textContent='NEW'}else{const p=fp.replace(/\\/g,'/').split('/'),fn=p.pop(),fd=p.slice(-3).join('/');v.innerHTML=`<span class="fld">${esc(fd)}/</span><span class="fil">${esc(fn)}</span>`;s.className=dirty?'pbar-st un':'pbar-st sv';s.textContent=dirty?'MODIFIED':'SAVED'}}
+function updatePath(){const v=document.getElementById('pV'),s=document.getElementById('pS');if(!fp&&!S.numSamples){v.innerHTML='<span style="color:var(--txt-x)">// no file loaded</span>';s.className='pbar-st em';s.textContent='EMPTY'}else if(!fp){v.innerHTML=`<span style="color:var(--yel)">UNSAVED</span> <span style="color:var(--txt-x)">(${S.numSamples})</span>`;s.className='pbar-st un';s.textContent='NEW'}else{const p=fp.replace(/\\/g,'/').split('/'),fn=p.pop(),fd=p.slice(-3).join('/');v.innerHTML=`<span class="fld">${esc(fd)}/</span><span class="fil">${esc(fn)}</span>`;const cs=sel>=0&&S.samples?S.samples.find(x=>x.index===sel):null;const mod=cs?cs.hasOriginal:false;s.className=mod?'pbar-st un':'pbar-st sv';s.textContent=mod?'MODIFIED':'SAVED'}}
 
 // ═══ ACTIONS ═══
 async function openEsx(){
@@ -1491,7 +1495,7 @@ async function importSamples(){const r=await window.api.importSamples();if(!r||!
 async function remS(i){const s=await window.api.removeSample(i);dirty=true;if(sel===i){sel=-1;hideDet()}else if(sel>i)sel--;updateState(s)}
 async function remCur(){if(sel>=0){stopPlay();await remS(sel)}}
 async function removeChecked(){if(checked.size===0)return;const count=checked.size;if(!confirm(`Delete ${count} sample${count>1?'s':''}?`))return;stopPlay();const indices=[...checked].sort((a,b)=>b-a);for(const idx of indices){await window.api.removeSample(idx)}sel=-1;hideDet();checked.clear();updateSelBadge();dirty=true;updateState(await window.api.getState());toast(`${count} SAMPLES DELETED`,'success')}
-async function selS(i){sel=i;renderList();const ae=document.querySelector('.ss.act');if(ae)ae.scrollIntoView({block:'nearest',behavior:'smooth'});showDet(i);const wf=await window.api.getWaveform(i);if(wf)drawWf(wf);updateUndo()}
+async function selS(i){sel=i;renderList();const ae=document.querySelector('.ss.act');if(ae)ae.scrollIntoView({block:'nearest',behavior:'smooth'});showDet(i);updatePath();const wf=await window.api.getWaveform(i);if(wf)drawWf(wf);updateUndo()}
 function showDet(i){const s=S.samples.find(x=>x.index===i);if(!s)return;['secPlay','secMod','secDet'].forEach(id=>document.getElementById(id).style.display='block');document.getElementById('renIn').value=s.name;const d=s.duration<1?`${(s.duration*1000).toFixed(1)}ms`:`${s.duration.toFixed(3)}s`,z=s.sizeBytes>1048576?`${(s.sizeBytes/1048576).toFixed(2)}MB`:`${(s.sizeBytes/1024).toFixed(1)}KB`;
   document.getElementById('detI').innerHTML=`<div class="dr"><span class="dl">RATE</span><span class="dv">${s.sampleRate.toLocaleString()} Hz</span></div><div class="dr"><span class="dl">FRAMES</span><span class="dv">${s.numFrames.toLocaleString()}</span></div><div class="dr"><span class="dl">LENGTH</span><span class="dv">${d}</span></div><div class="dr"><span class="dl">SIZE</span><span class="dv">${z}</span></div>${s.folder?`<div class="dr"><span class="dl">SRC</span><span class="dv" style="color:var(--led)">${esc(s.folder)}</span></div>`:''}`}
 function hideDet(){['secPlay','secMod','secDet'].forEach(id=>document.getElementById(id).style.display='none');document.getElementById('wfC').style.display='none';document.getElementById('wfE').style.display='flex';document.getElementById('wfI').style.display='none'}
@@ -1532,13 +1536,13 @@ async function dupSample(){if(sel<0)return;const r=await window.api.duplicateSam
 async function moveSample(dir){if(sel<0)return;const r=await window.api.moveSample(sel,dir);if(r){sel=r.newIndex;dirty=true;updateState(r.state)}}
 
 // ═══ UNDO ═══
-async function doUndo(){if(sel<0)return;const r=await window.api.undo(sel);if(r){dirty=true;updateState(r);showDet(sel);reWf();toast('UNDO','info');updateUndo();updateModalUndo()}}
-async function doRedo(){if(sel<0)return;const r=await window.api.redo(sel);if(r){dirty=true;updateState(r);showDet(sel);reWf();toast('REDO','info');updateUndo();updateModalUndo()}}
+async function doUndo(){if(sel<0)return;const r=await window.api.undo(sel);if(r){updateState(r);showDet(sel);reWf();toast('UNDO','info');updateUndo();updateModalUndo();recalcDirty()}}
+async function doRedo(){if(sel<0)return;const r=await window.api.redo(sel);if(r){updateState(r);showDet(sel);reWf();toast('REDO','info');updateUndo();updateModalUndo();recalcDirty()}}
 function doUndo2(){doUndo().then(()=>setTimeout(()=>{if(document.getElementById('modalBg').classList.contains('show'))drawModalWf()},80))}
 function doRedo2(){doRedo().then(()=>setTimeout(()=>{if(document.getElementById('modalBg').classList.contains('show'))drawModalWf()},80))}
 async function doReset(){if(sel<0)return;if(!confirm('RESET TO ORIGINAL?'))return;const r=await window.api.resetSample(sel);if(r){updateState(r);showDet(sel);reWf();toast('RESET TO ORIGINAL','success');updateUndo();recalcDirty()}}
 function doReset2(){doReset().then(()=>setTimeout(()=>{if(document.getElementById('modalBg').classList.contains('show')){drawModalWf();updateModalUndo()}},80))}
-function recalcDirty(){if(!S.samples)return;const anyMod=S.samples.some(s=>s.undoCount>0||s.hasOriginal);if(!anyMod)dirty=false;updatePath()}
+function recalcDirty(){if(!S.samples)return;const anyMod=S.samples.some(s=>s.hasOriginal);if(!anyMod)dirty=false;updatePath()}
 function updateUndo(){const s=S.samples.find(x=>x.index===sel);const u=s?s.undoCount:0,r=s?s.redoCount:0,o=s?s.hasOriginal:false;document.getElementById('uBtn').className=`undo-btn${u?' on':''}`;document.getElementById('rBtn').className=`undo-btn${r?' on':''}`;document.getElementById('uInf').innerHTML=`<span>${u}</span>`;document.getElementById('rsBtn').style.display=o?'block':'none'}
 function updateModalUndo(){const s=S.samples.find(x=>x.index===sel);if(!s)return;const u=s.undoCount,r=s.redoCount,o=s.hasOriginal;document.getElementById('muBtn').className=`undo-btn${u?' on':''}`;document.getElementById('mrBtn').className=`undo-btn${r?' on':''}`;document.getElementById('muInf').innerHTML=`<span>${u}</span>`;document.getElementById('mrsBtn').style.display=o?'block':'none'}
 async function reWf(){const wf=await window.api.getWaveform(sel);if(wf)drawWf(wf)}
@@ -1950,17 +1954,137 @@ async function mTool(t){
 
 // ═══ GUIDE ═══
 function openGuide(){document.getElementById('guideBody').innerHTML=GUIDE_HTML;document.getElementById('guideBg').classList.add('show')}
-const GUIDE_HTML=`
-<div class="g-sec"><div class="g-h">⚠ HARDTEKK / SCHRANZ GUIDE</div><div class="g-p">Dein Cheatsheet für brutalen Sound auf ESX-1 und EMX-1.</div></div>
-<div class="g-sec"><div class="g-h">🎯 BPM RANGES</div><div class="g-box"><span class="yl">Hard Techno:</span> 140–150 BPM<br><span class="yl">Schranz:</span> 148–160 BPM<br><span class="yl">Hardtekk:</span> 155–170 BPM<br><span class="yl">Industrial:</span> 160–180 BPM<br><span class="wn">ESX Sweet Spot: 155-165 BPM</span></div></div>
-<div class="g-sec"><div class="g-h">🥁 KICK DESIGN</div><div class="g-p">Die Kick ist <strong>alles</strong>. 3-Layer:</div><ul class="g-list"><li><strong>TRANSIENT (0-5ms):</strong> Click — 909 Top, Noise Burst</li><li><strong>BODY (5-80ms):</strong> Sine 50-60Hz, Pitch Env 150→50Hz</li><li><strong>TAIL (80-200ms):</strong> Verzerrte Sub, ausfadend</li></ul><div class="g-sub">PROCESSING CHAIN</div><div class="g-box">1. Kick laden → 2. <span class="hl">HARD CLIP</span> Drive 3-5 → 3. <span class="hl">TRANSIENT</span> +40<br>4. <span class="hl">NORMALIZE</span> → 5. <span class="hl">TRIM</span> → 6. <span class="hl">FADE OUT</span> 20ms</div><div class="g-tip">Valve Force 40-60% für Wärme + Dreck.</div></div>
-<div class="g-sec"><div class="g-h">🎹 PART LAYOUT</div><div class="g-box"><span class="yl">1:</span> <span class="hl">KICK MAIN</span> — 4/4<br><span class="yl">2:</span> <span class="hl">KICK VAR</span><br><span class="yl">3:</span> <span class="hl">CLAP/SNARE</span> — 2&4<br><span class="yl">4:</span> <span class="hl">CH HH</span> — 16tel<br><span class="yl">5:</span> <span class="hl">OH HH</span> — Offbeats<br><span class="yl">6:</span> <span class="hl">PERC 1</span><br><span class="yl">7:</span> <span class="hl">PERC 2</span> — Industrial<br><span class="yl">8:</span> <span class="hl">FX/RISER</span><br><span class="yl">9:</span> <span class="hl">STAB</span><br><span class="wn">5A/5B:</span> Stretch Parts!</div></div>
-<div class="g-sec"><div class="g-h">📐 PATTERNS</div><div class="g-sub">BASIC HARDTEKK (160 BPM)</div><div class="g-pat"><span class="lbl">KICK</span> <span class="on">X</span><span class="off">·</span><span class="off">·</span><span class="off">·</span> <span class="on">X</span><span class="off">·</span><span class="off">·</span><span class="off">·</span> <span class="on">X</span><span class="off">·</span><span class="off">·</span><span class="off">·</span> <span class="on">X</span><span class="off">·</span><span class="off">·</span><span class="off">·</span><br><span class="lbl">CLAP</span> <span class="off">·</span><span class="off">·</span><span class="off">·</span><span class="off">·</span> <span class="on">X</span><span class="off">·</span><span class="off">·</span><span class="off">·</span> <span class="off">·</span><span class="off">·</span><span class="off">·</span><span class="off">·</span> <span class="on">X</span><span class="off">·</span><span class="off">·</span><span class="off">·</span><br><span class="lbl">HH</span> <span class="on">X</span><span class="on">X</span><span class="on">X</span><span class="on">X</span> <span class="on">X</span><span class="on">X</span><span class="on">X</span><span class="on">X</span> <span class="on">X</span><span class="on">X</span><span class="on">X</span><span class="on">X</span> <span class="on">X</span><span class="on">X</span><span class="on">X</span><span class="on">X</span><br><span class="lbl">OH</span> <span class="off">·</span><span class="off">·</span><span class="on">X</span><span class="off">·</span> <span class="off">·</span><span class="off">·</span><span class="on">X</span><span class="off">·</span> <span class="off">·</span><span class="off">·</span><span class="on">X</span><span class="off">·</span> <span class="off">·</span><span class="off">·</span><span class="on">X</span><span class="off">·</span></div><div class="g-sub">SCHRANZ (155 BPM)</div><div class="g-pat"><span class="lbl">KICK</span> <span class="on">X</span><span class="off">·</span><span class="off">·</span><span class="on">X</span> <span class="on">X</span><span class="off">·</span><span class="off">·</span><span class="off">·</span> <span class="on">X</span><span class="off">·</span><span class="on">X</span><span class="off">·</span> <span class="on">X</span><span class="off">·</span><span class="off">·</span><span class="off">·</span><br><span class="lbl">CLAP</span> <span class="off">·</span><span class="off">·</span><span class="off">·</span><span class="off">·</span> <span class="on">X</span><span class="off">·</span><span class="off">·</span><span class="off">·</span> <span class="off">·</span><span class="off">·</span><span class="off">·</span><span class="off">·</span> <span class="on">X</span><span class="off">·</span><span class="off">·</span><span class="on">x</span><br><span class="lbl">HH</span> <span class="off">·</span><span class="on">X</span><span class="off">·</span><span class="on">X</span> <span class="off">·</span><span class="on">X</span><span class="off">·</span><span class="on">X</span> <span class="off">·</span><span class="on">X</span><span class="off">·</span><span class="on">X</span> <span class="off">·</span><span class="on">X</span><span class="off">·</span><span class="on">X</span></div></div>
-<div class="g-sec"><div class="g-h">🔊 SAMPLE PREP</div><ul class="g-list"><li><strong>Kicks (50-150ms):</strong> Trim → Normalize → Fade Out 20ms → DC Remove</li><li><strong>HiHats (20-80ms):</strong> Kurz trimmen, Bitcrush 10-12bit</li><li><strong>Claps (80-200ms):</strong> Stutter 10-20ms×4 = maschinenartig</li><li><strong>Riser:</strong> Noise + Filter Sweep HP 200→8000Hz</li><li><strong>Impact:</strong> Kick reverse + Normalize</li></ul></div>
-<div class="g-sec"><div class="g-h">⚙ HARDWARE TRICKS</div><ul class="g-list"><li><strong>VALVE FORCE:</strong> 30-60% warm, 80%+ brutal</li><li><strong>MOTION SEQ:</strong> Filter automatisieren</li><li><strong>ROLL:</strong> Part halten + Tempo = live Stutter</li><li><strong>STRETCH:</strong> Sample Start automaten = Wavetable</li><li><strong>REVERSE:</strong> Part Reverse spart Speicher!</li></ul></div>
-<div class="g-sec"><div class="g-h">💡 NAMING (8 Zeichen)</div><div class="g-box"><span class="hl">KCK_MAIN</span> <span class="hl">KCK_HARD</span> <span class="hl">CLP_909</span> <span class="hl">HH_CL01</span> <span class="hl">HH_OP01</span><br><span class="hl">SNR_DIST</span> <span class="hl">PRC_RIM</span> <span class="hl">FX_RISE</span> <span class="hl">FX_IMPCT</span> <span class="hl">STB_ACID</span></div></div>
-<div class="g-sec"><div class="g-h">📏 TIMING @160BPM</div><div class="g-box"><span class="hl">1 Bar</span> = 1500ms <span class="hl">1 Beat</span> = 375ms <span class="hl">1/8</span> = 187ms <span class="hl">1/16</span> = 94ms <span class="hl">1/32</span> = 47ms</div></div>
-<div class="g-sec"><div class="g-h">🔥 WORKFLOW</div><div class="g-box"><span class="yl">1.</span> ZIP laden → Trim All → Norm All → DC Remove<br><span class="yl">2.</span> Kicks: Hard Clip → Transient +40 → Varianten<br><span class="yl">3.</span> HiHats kürzen + Bitcrush<br><span class="yl">4.</span> FX: Noise+Filter, Kick reverse, Vinyl Stop<br><span class="yl">5.</span> Export .ESX → SD → ESX-1 → LOAD<br><span class="yl">6.</span> Kick+HH → Clap 2&4 → Motion Seq → Valve 40%<br><span class="wn">FERTIG. ABFAHRT. 🔊</span></div></div>`;
+const GUIDE_HTML = `
+<div class="g-sec">
+  <div class="g-h">⚠ BETA SOFTWARE — ZUERST LESEN</div>
+  <div class="g-box">
+    <span class="wn">Das ist BETA Software — kein fertiges Produkt.</span><br><br>
+    <span class="hl">1.</span> Keine Garantie. Der Entwickler haftet nicht für Datenverlust oder Schäden.<br>
+    <span class="hl">2.</span> <span class="wn">Du bist für deine Daten verantwortlich. Sichere IMMER deine .esx Dateien bevor du die App benutzt.</span><br>
+    <span class="hl">3.</span> Benutze die App nicht mit Dateien, die du nicht verlieren kannst. Teste mit Kopien, nicht mit Originalen.<br>
+    <span class="hl">4.</span> Features können unvollständig sein oder unerwartet reagieren. Wenn was kaputt geht, nimm dein Backup.
+  </div>
+</div>
+
+<div class="g-sec">
+  <div class="g-h">💾 ZUERST BACKUP MACHEN</div>
+  <div class="g-p">Bevor du irgendwas machst, sichere deine .esx Dateien. Das ist der wichtigste Schritt.</div>
+  <div class="g-sub">VON SD / SMARTMEDIA KARTE</div>
+  <ul class="g-list">
+    <li><strong>Schritt 1:</strong> SD-Karte (oder SmartMedia-Karte) aus dem ESX-1 nehmen</li>
+    <li><strong>Schritt 2:</strong> In einen Kartenleser am PC stecken</li>
+    <li><strong>Schritt 3:</strong> Windows Explorer öffnen — die Karte erscheint als Laufwerk (z.B. D: oder E:)</li>
+    <li><strong>Schritt 4:</strong> ALLE <strong>.esx Dateien</strong> in einen sicheren Ordner auf deinem PC kopieren</li>
+    <li><strong>Schritt 5:</strong> Prüfen: jede .esx Datei muss genau <strong>25,3 MB</strong> (26.542.080 Bytes) groß sein</li>
+  </ul>
+  <div class="g-tip">Backup-Ordner nicht anfassen. In der App nur mit KOPIEN arbeiten.</div>
+</div>
+
+<div class="g-sec">
+  <div class="g-h">🚀 SCHNELLSTART</div>
+  <div class="g-sub">.ESX DATEI ÖFFNEN</div>
+  <ul class="g-list">
+    <li><strong>OPEN</strong> — Klick zum Laden deiner Backup .esx Datei (nicht das Original!)</li>
+    <li>Die Sample-Liste zeigt alle Mono-Samples mit Name, Rate, Länge und Größe</li>
+    <li>Klick auf ein Sample um die Wellenform zu sehen. <strong>Leertaste</strong> zum Abspielen/Stoppen</li>
+    <li><strong>Pfeiltasten</strong> zum Navigieren durch die Samples</li>
+  </ul>
+  <div class="g-sub">NEUE SAMPLES IMPORTIEREN</div>
+  <ul class="g-list">
+    <li><strong>IMPORT</strong> — WAV, AIF oder ZIP Dateien auswählen (Mehrfachauswahl möglich)</li>
+    <li>Dateien werden automatisch ins ESX-1 Format konvertiert: 16-Bit Mono PCM @ 44.100 Hz</li>
+    <li>Stereo-Dateien werden zu Mono gemischt. Namen werden auf 8 Zeichen gekürzt</li>
+  </ul>
+  <div class="g-sub">SAMPLES BEARBEITEN</div>
+  <ul class="g-list">
+    <li>Sample auswählen, <strong>MODIFY</strong> klicken (oder <strong>M</strong> drücken)</li>
+    <li>Das Popup zeigt die Wellenform + drei Effekt-Tabs: TIME, TONE, DYNAMICS</li>
+    <li>Auf der Wellenform ziehen um einen Bereich zu markieren → <strong>CUT HERE</strong> oder <strong>TRIM TO SELECTION</strong></li>
+    <li>Alle Änderungen sind sofort mit <strong>UNDO</strong> (bis zu 50 Schritte) und <strong>RESET</strong> rückgängig machbar</li>
+    <li><strong>NORMALIZE</strong> Button neben PLAY normalisiert auf -1 dBFS</li>
+  </ul>
+  <div class="g-sub">ARBEIT SPEICHERN</div>
+  <div class="g-box">
+    <span class="hl">SAVE</span> — Überschreibt die geöffnete .esx Datei. <span class="wn">Patterns und Songs bleiben erhalten.</span><br>
+    <span class="hl">EXPORT NEW</span> — Erstellt eine komplett neue .esx Datei (keine Patterns, nur Samples).<br><br>
+    <span class="yl">Tipp:</span> SAVE zum Bearbeiten einer bestehenden Datei. EXPORT NEW wenn du von Null anfängst.
+  </div>
+  <div class="g-sub">AUF DEN ESX-1 LADEN</div>
+  <ul class="g-list">
+    <li>Die gespeicherte .esx Datei auf deine SD / SmartMedia Karte kopieren</li>
+    <li>Karte in den ESX-1 stecken</li>
+    <li>Am ESX-1: <strong>GLOBAL → DATA → LOAD → ALL DATA</strong></li>
+    <li>Datei auswählen und bestätigen — deine neuen Samples sind bereit</li>
+  </ul>
+</div>
+
+<div class="g-sec">
+  <div class="g-h">⚡ VERFÜGBARE EFFEKTE</div>
+  <div class="g-sub">TIME</div>
+  <div class="g-box">
+    <span class="hl">REVERSE</span> — Sample rückwärts abspielen<br>
+    <span class="hl">TIMESTRETCH</span> — Länge ändern ohne Tonhöhenverschiebung (0,25× bis 4×)<br>
+    <span class="hl">FADE IN / OUT</span> — Sanfte logarithmische Fades (1ms–2000ms)<br>
+    <span class="hl">CHOP</span> — In 2–32 gleiche Teile schneiden (erzeugt neue Samples)<br>
+    <span class="hl">STUTTER</span> — Grain-Wiederholung (5–500ms Grains, 2–64 Reps)<br>
+    <span class="hl">TURNTABLE STOP</span> — Vinyl-Bremseffekt<br>
+    <span class="hl">TRIM SILENCE</span> — Stille am Anfang und Ende entfernen
+  </div>
+  <div class="g-sub">TONE</div>
+  <div class="g-box">
+    <span class="hl">BITCRUSH</span> — Lo-Fi Bit-Reduktion (1–16 Bit)<br>
+    <span class="hl">PITCH</span> — Halbton-Verschiebung (-24 bis +24)<br>
+    <span class="hl">DISTORTION</span> — Drei Modi: Soft (tanh), Hard (clip), Fold (wavefold)<br>
+    <span class="hl">FILTER SWEEP</span> — Tiefpass- oder Hochpass-Frequenzsweep<br>
+    <span class="hl">RING MOD</span> — Ringmodulation (10–5000 Hz)
+  </div>
+  <div class="g-sub">DYNAMICS</div>
+  <div class="g-box">
+    <span class="hl">GAIN</span> — Lautstärke anpassen (-24 bis +24 dB)<br>
+    <span class="hl">RHYTHMIC GATE</span> — BPM-synchrones Chopping<br>
+    <span class="hl">ENVELOPE</span> — ADSR Hüllkurvenformung
+  </div>
+</div>
+
+<div class="g-sec">
+  <div class="g-h">⌨ TASTENKÜRZEL</div>
+  <div class="g-box">
+    <span class="hl">Leertaste</span> — Abspielen / Stoppen<br>
+    <span class="hl">M</span> — Modify-Popup öffnen<br>
+    <span class="hl">Entf</span> — Ausgewählte(s) Sample(s) löschen<br>
+    <span class="hl">F2</span> — Sample umbenennen<br>
+    <span class="hl">↑ / ↓</span> — Durch Samples navigieren<br>
+    <span class="hl">Strg+Z</span> — Rückgängig<br>
+    <span class="hl">Strg+Y</span> — Wiederherstellen<br>
+    <span class="hl">Strg+B</span> — Seitenleiste ein-/ausblenden<br>
+    <span class="hl">Shift+Klick</span> — Bereichsauswahl (Checkboxen)<br>
+    <span class="hl">Rechtsklick</span> — Sample-Kategorie setzen (TYPE Sortierung)
+  </div>
+</div>
+
+<div class="g-sec">
+  <div class="g-h">🐛 BUGS MELDEN</div>
+  <div class="g-p">Dein Feedback formt die Zukunft dieses Tools. Wenn was schiefgeht, bitte melden:</div>
+  <ul class="g-list">
+    <li><strong>Was du gemacht hast</strong> — Schritt für Schritt</li>
+    <li><strong>Was du erwartet hast</strong></li>
+    <li><strong>Was tatsächlich passiert ist</strong> — Fehlermeldung, Absturz, falsches Verhalten</li>
+    <li><strong>Screenshot</strong> wenn möglich</li>
+    <li><strong>Die .esx Datei</strong> die das Problem verursacht hat (wenn teilbar)</li>
+  </ul>
+  <div class="g-tip">Schreib "ESW BETA" in deine Nachricht damit sie leicht zu finden ist.</div>
+</div>
+
+<div class="g-sec">
+  <div class="g-h">🔮 KOMMT BALD</div>
+  <div class="g-p">Diese Beta enthält nur den ESX-1 Sample Manager. In zukünftigen Updates:</div>
+  <ul class="g-list">
+    <li><strong>E2S Sample Manager</strong> — Korg Electribe 2 Sampler Dateien verwalten</li>
+    <li><strong>Pattern Viewer</strong> — ESX-1 Patterns mit echten Samples ansehen und abspielen</li>
+    <li><strong>EMX-1 Support</strong> — Visuelles Synth-Panel für EMX-1 Patterns</li>
+  </ul>
+</div>
+`;
 
 // ═══ DRAG & DROP + KEYS ═══
 function setupDrop(){const d=document.getElementById('dZ');if(!d)return;d.addEventListener('dragover',e=>{e.preventDefault();d.classList.add('dg')});d.addEventListener('dragleave',()=>d.classList.remove('dg'));d.addEventListener('drop',e=>{e.preventDefault();d.classList.remove('dg');importWav()})}
