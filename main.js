@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const fsp = fs.promises;
 const { exec } = require('child_process');
 const AdmZip = require('adm-zip');
 const esx = require('./src/esx-format');
@@ -181,7 +182,7 @@ ipcMain.handle('open-esx-file', async () => {
   });
   if (result.canceled) return null;
   try {
-    const buffer = fs.readFileSync(result.filePaths[0]);
+    const buffer = await fsp.readFile(result.filePaths[0]);
     esxOriginalBuffer = Buffer.from(buffer); // preserve for pattern-safe rebuild
     const parsed = esx.parseEsxFile(buffer);
     currentSamples = [];
@@ -236,7 +237,7 @@ ipcMain.handle('import-samples', async () => {
       } catch (err) { imported.push({ error: `ZIP: ${err.message}`, originalName: path.basename(fp) }); }
     } else {
       try {
-        imported.push(importWavBuffer(fs.readFileSync(fp), path.basename(fp, path.extname(fp)), fp));
+        imported.push(importWavBuffer(await fsp.readFile(fp), path.basename(fp, path.extname(fp)), fp));
       } catch (err) { imported.push({ error: err.message, originalName: path.basename(fp) }); }
     }
   }
@@ -250,7 +251,7 @@ ipcMain.handle('import-wav-files', async () => {
   if (result.canceled) return { imported: [], state: getSamplesInfo() };
   const imported = [];
   for (const fp of result.filePaths) {
-    imported.push(importWavBuffer(fs.readFileSync(fp), path.basename(fp, path.extname(fp)), fp));
+    imported.push(importWavBuffer(await fsp.readFile(fp), path.basename(fp, path.extname(fp)), fp));
   }
   return { imported, state: getSamplesInfo() };
 });
@@ -309,13 +310,13 @@ ipcMain.handle('save-esx-overwrite', async (ev, filePath) => {
     mainWindow.webContents.send('export-progress', { phase: 'building', percent: 10 });
     const buf = esx.rebuildEsxFile(esxOriginalBuffer, currentSamples);
     mainWindow.webContents.send('export-progress', { phase: 'writing', percent: 50 });
-    fs.writeFileSync(filePath, buf);
+    await fsp.writeFile(filePath, buf);
     mainWindow.webContents.send('export-progress', { phase: 'verifying', percent: 90 });
 
     // Update the stored original buffer to reflect the new state
     esxOriginalBuffer = Buffer.from(buf);
 
-    const stat = fs.statSync(filePath);
+    const stat = await fsp.stat(filePath);
     mainWindow.webContents.send('export-progress', { phase: 'done', percent: 100 });
     return { filePath, size: stat.size };
   } catch (err) { return { error: err.message }; }
@@ -336,9 +337,9 @@ ipcMain.handle('save-esx-file', async (ev, defaultName) => {
       ? esx.rebuildEsxFile(esxOriginalBuffer, currentSamples)
       : esx.buildEsxFile(currentSamples);
     mainWindow.webContents.send('export-progress', { phase: 'writing', percent: 50 });
-    fs.writeFileSync(result.filePath, buf);
+    await fsp.writeFile(result.filePath, buf);
     mainWindow.webContents.send('export-progress', { phase: 'verifying', percent: 90 });
-    const stat = fs.statSync(result.filePath);
+    const stat = await fsp.stat(result.filePath);
     mainWindow.webContents.send('export-progress', { phase: 'done', percent: 100 });
     return { filePath: result.filePath, size: stat.size };
   } catch (err) { return { error: err.message }; }
@@ -351,7 +352,7 @@ ipcMain.handle('export-wav', async (ev, index) => {
     title: 'Export WAV', defaultPath: `${s.name.trim()}.wav`, filters: [{ name: 'WAV', extensions: ['wav'] }]
   });
   if (result.canceled) return null;
-  fs.writeFileSync(result.filePath, esx.pcmToWav(s.pcmData, s.sampleRate));
+  await fsp.writeFile(result.filePath, esx.pcmToWav(s.pcmData, s.sampleRate));
   return result.filePath;
 });
 
@@ -484,7 +485,7 @@ safeIpcHandle('esx:save-tags', async (ev, { filePath, tags }) => {
   if (!filePath || !tags) return { error: 'No file path or tags' };
   try {
     const tagPath = filePath + '.tags.json';
-    fs.writeFileSync(tagPath, JSON.stringify(tags, null, 2), 'utf-8');
+    await fsp.writeFile(tagPath, JSON.stringify(tags, null, 2), 'utf-8');
     return { ok: true, tagPath };
   } catch (err) { return { error: err.message }; }
 });
@@ -493,8 +494,8 @@ safeIpcHandle('esx:load-tags', async (ev, filePath) => {
   if (!filePath) return null;
   try {
     const tagPath = filePath + '.tags.json';
-    if (!fs.existsSync(tagPath)) return null;
-    return JSON.parse(fs.readFileSync(tagPath, 'utf-8'));
+    try { await fsp.access(tagPath); } catch { return null; }
+    return JSON.parse(await fsp.readFile(tagPath, 'utf-8'));
   } catch (err) { return null; }
 });
 
@@ -1145,7 +1146,7 @@ ipcMain.handle('e2s:open-file', async () => {
   });
   if (result.canceled) return null;
   try {
-    const buffer = fs.readFileSync(result.filePaths[0]);
+    const buffer = await fsp.readFile(result.filePaths[0]);
     e2sFilePath = result.filePaths[0];
     const parsed = e2sFormat.parseE2sAllFile(buffer);
     // Store raw samples (with pcmData) in main process
@@ -1178,7 +1179,7 @@ ipcMain.handle('e2s:save-file', async () => {
   if (result.canceled) return null;
   try {
     const buf = e2sFormat.buildE2sAllFile(e2sStoredSamples.filter(s => s !== null));
-    fs.writeFileSync(result.filePath, buf);
+    await fsp.writeFile(result.filePath, buf);
     e2sFilePath = result.filePath;
     return { filePath: result.filePath, size: buf.length };
   } catch (err) { return { error: err.message }; }
@@ -1202,7 +1203,7 @@ ipcMain.handle('e2s:import-wav', async () => {
       }
       if (freeSlot < 0) { imported.push({ name: displayName, ok: false, error: 'All 1000 slots full' }); continue; }
 
-      const wavBuf = fs.readFileSync(fp);
+      const wavBuf = await fsp.readFile(fp);
       const wavInfo = esx.parseWavFile(wavBuf);
       const converted = esx.convertTo16BitMono(wavInfo);
       // Resample to 48kHz if needed (ESX converter outputs 44.1kHz by default)
@@ -1249,7 +1250,7 @@ ipcMain.handle('e2s:export-wav', async (ev, slot) => {
     wav.writeUInt16LE(2, 32); wav.writeUInt16LE(16, 34);
     wav.write('data', 36); wav.writeUInt32LE(dataSize, 40);
     s.pcmData.copy(wav, 44);
-    fs.writeFileSync(result.filePath, wav);
+    await fsp.writeFile(result.filePath, wav);
     return result.filePath;
   } catch (err) { return null; }
 });
@@ -1387,7 +1388,7 @@ ipcMain.handle('esx:open-patterns', async () => {
   });
   if (result.canceled) return { canceled: true };
   try {
-    const buf = fs.readFileSync(result.filePaths[0]);
+    const buf = await fsp.readFile(result.filePaths[0]);
     esxPatternBuffer = Buffer.from(buf); // store copy for write-back
     esxPatternFilePath = result.filePaths[0];
 
@@ -1518,7 +1519,7 @@ ipcMain.handle('esx:save-pattern-file', async () => {
   });
   if (result.canceled) return { canceled: true };
   try {
-    fs.writeFileSync(result.filePath, esxPatternBuffer);
+    await fsp.writeFile(result.filePath, esxPatternBuffer);
     esxPatternFilePath = result.filePath;
     return { ok: true, filePath: result.filePath };
   } catch (err) {
@@ -1537,7 +1538,7 @@ ipcMain.handle('e2pat:open-file', async () => {
   });
   if (result.canceled) return null;
   try {
-    const buffer = fs.readFileSync(result.filePaths[0]);
+    const buffer = await fsp.readFile(result.filePaths[0]);
     patStoredRaw = buffer;
     if (buffer.length === e2patFormat.PATTERN_SIZE) {
       // Single pattern
@@ -1567,7 +1568,7 @@ ipcMain.handle('e2pat:save-file', async (ev, patIdx, ext) => {
     } else {
       outBuf = patStoredRaw;
     }
-    fs.writeFileSync(result.filePath, outBuf);
+    await fsp.writeFile(result.filePath, outBuf);
     return { filePath: result.filePath };
   } catch (err) { return { error: err.message }; }
 });
@@ -1586,7 +1587,7 @@ ipcMain.handle('e2pat:split-save', async () => {
     for (let i = 0; i < e2patFormat.NUM_PATTERNS; i++) {
       const patBuf = e2patFormat.splitPattern(patStoredRaw, i);
       const fn = path.join(dir, `pattern_${String(i).padStart(3, '0')}.e2pat`);
-      fs.writeFileSync(fn, patBuf);
+      await fsp.writeFile(fn, patBuf);
       count++;
     }
     return { dir, count };
@@ -1664,7 +1665,7 @@ ipcMain.handle('emx:open-file', async () => {
   });
   if (result.canceled) return null;
   try {
-    const buffer = fs.readFileSync(result.filePaths[0]);
+    const buffer = await fsp.readFile(result.filePaths[0]);
     const data = emxFormat.parseEmxDump(buffer);
     const patterns = data.patterns.map((p, i) => emxPatternToUI(p, i));
     return { filePath: result.filePaths[0], patterns };
@@ -1679,7 +1680,7 @@ ipcMain.handle('emx:open-patterns', async () => {
   });
   if (result.canceled) return { canceled: true };
   try {
-    const buffer = fs.readFileSync(result.filePaths[0]);
+    const buffer = await fsp.readFile(result.filePaths[0]);
     const data = emxFormat.parseEmxDump(buffer);
     const patterns = data.patterns.map((p, i) => emxPatternToUI(p, i));
     const filename = path.basename(result.filePaths[0]);
@@ -1707,7 +1708,7 @@ ipcMain.handle('file:open-any', async () => {
   const fp = result.filePaths[0];
   // Use file-io auto-detection
   try {
-    const buffer = fs.readFileSync(fp);
+    const buffer = await fsp.readFile(fp);
     const format = fileIO.detectFormat(buffer, path.basename(fp));
     return { format: format || 'unknown', filePath: fp };
   } catch (err) {
