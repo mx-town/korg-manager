@@ -30,8 +30,7 @@
     "productName": "Electribe Sample Werkstatt",
     "win": {
       "target": "nsis",
-      "icon": "src/icon.ico",
-      "signAndEditExecutable": false
+      "icon": "src/icon.ico"
     },
     "files": [
       "main.js",
