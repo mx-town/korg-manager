@@ -5,6 +5,8 @@ const { exec } = require('child_process');
 const AdmZip = require('adm-zip');
 const esx = require('./src/esx-format');
 
+const IS_DEV = process.argv.includes('--dev');
+
 let mainWindow;
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -12,11 +14,11 @@ function createWindow() {
     width: 1360, height: 900, minWidth: 1024, minHeight: 700,
     backgroundColor: '#030303', autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false },
-    icon: path.join(__dirname, 'src', 'icon.png')
+    icon: path.join(__dirname, 'src', 'icon.ico')
   });
   mainWindow.loadFile(path.join(__dirname, 'src', 'index.html'));
   mainWindow.setMenuBarVisibility(false);
-  mainWindow.webContents.openDevTools({ mode: 'bottom' });
+  if (IS_DEV) mainWindow.webContents.openDevTools({ mode: 'bottom' });
 }
 app.whenReady().then(() => {
   createWindow();
