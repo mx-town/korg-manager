@@ -6,7 +6,7 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev",
-    "build": "electron-builder --win",
+    "build": "electron-builder --win && node -e \"require('rcedit').rcedit('dist/win-unpacked/Electribe Sample Werkstatt.exe',{icon:'src/icon.ico'})\" && npx electron-builder --win --prepackaged dist/win-unpacked",
     "pack": "electron-builder --dir",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -23,6 +23,7 @@
     "@vitest/ui": "^4.0.18",
     "electron": "^28.0.0",
     "electron-builder": "^24.9.1",
+    "rcedit": "^5.0.2",
     "vitest": "^4.0.18"
   },
   "build": {
@@ -30,7 +31,8 @@
     "productName": "Electribe Sample Werkstatt",
     "win": {
       "target": "nsis",
-      "icon": "src/icon.ico"
+      "icon": "src/icon.ico",
+      "signAndEditExecutable": false
     },
     "files": [
       "main.js",
