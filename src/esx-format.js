@@ -523,22 +523,32 @@ function createEmptyEsx() {
   // TABLE13: memProtect(1) + reserved(1) + arpCtrl(1) + audioIn(1) + midiClk(1)
   //          + flags(1) + pitchBend(1) + midiCh(3) + noteNums(13) + ccs(33)
   //          + reserved(8) + patternSet(128) = 192 bytes
-  buffer.writeUInt8(0x00, ADDR.GLOBAL_PARAMS + 0x00); // memoryProtect (disabled)
-  buffer.writeUInt8(0x00, ADDR.GLOBAL_PARAMS + 0x01); // reserved
-  buffer.writeUInt8(0x00, ADDR.GLOBAL_PARAMS + 0x02); // arpeggiatorControl (0=NORMAL)
-  buffer.writeUInt8(0x00, ADDR.GLOBAL_PARAMS + 0x03); // audioInMode (0=MONO)
-  buffer.writeUInt8(0x00, ADDR.GLOBAL_PARAMS + 0x04); // midiClock (0=INT, 1=EXT, 2=AUTO)
-  buffer.writeUInt8(0x0F, ADDR.GLOBAL_PARAMS + 0x05); // bitflags [bit0=note,1=sysex,2=cc,3=pc]
-  buffer.writeUInt8(0x0E, ADDR.GLOBAL_PARAMS + 0x06); // pitchBendRange (14=+2 semitones)
+  const GP = ADDR.GLOBAL_PARAMS;
+  buffer[GP + 0x00] = 0x01;  // Memory protect ON
+  // +0x01 reserved (0x00)
+  // +0x02 Arpeggiator control NORMAL (0x00)
+  buffer[GP + 0x03] = 0x01;  // Audio in mode STEREO
+  // +0x04 MIDI clock INTERNAL (0x00)
+  buffer[GP + 0x05] = 0x0F;  // MIDI bitflags: note + sysex + CC + PC all enabled
+  buffer[GP + 0x06] = 0x0E;  // Pitch bend range: +2 semitones
 
   // MIDI channel assignments (0x00=Ch1 .. 0x0F=Ch16)
-  // All on Ch1 for maximum MIDI slave compatibility (e.g. EMX→ESX setup).
-  // Korg factory splits Kbd1=Ch1, Kbd2=Ch2, Drums=Ch10 — but that breaks
-  // common setups where the master sends everything on one channel.
-  // Users can reassign channels on hardware after loading.
-  buffer.writeUInt8(0x00, ADDR.GLOBAL_PARAMS + 0x07); // Keyboard 1 = Channel 1
-  buffer.writeUInt8(0x00, ADDR.GLOBAL_PARAMS + 0x08); // Keyboard 2 = Channel 1
-  buffer.writeUInt8(0x00, ADDR.GLOBAL_PARAMS + 0x09); // Drum/Stretch/Slice/AudioIn = Channel 1
+  buffer[GP + 0x07] = 0x00;  // Keyboard 1 → Ch.1
+  buffer[GP + 0x08] = 0x01;  // Keyboard 2 → Ch.2
+  buffer[GP + 0x09] = 0x09;  // Drum 1 → Ch.10 (GM standard)
+  buffer[GP + 0x0A] = 0x09;  // Drum 2 → Ch.10
+  buffer[GP + 0x0B] = 0x09;  // Drum 3 → Ch.10
+  buffer[GP + 0x0C] = 0x09;  // Drum 4 → Ch.10
+  buffer[GP + 0x0D] = 0x09;  // Drum 5 → Ch.10
+  buffer[GP + 0x0E] = 0x09;  // Drum 6 → Ch.10
+  buffer[GP + 0x0F] = 0x09;  // Drum 7 → Ch.10
+  buffer[GP + 0x10] = 0x09;  // Drum 8 → Ch.10
+  buffer[GP + 0x11] = 0x09;  // Drum 9 → Ch.10
+  buffer[GP + 0x12] = 0x09;  // Stretch 1 → Ch.10
+  buffer[GP + 0x13] = 0x09;  // Stretch 2 → Ch.10
+  buffer[GP + 0x14] = 0x09;  // Slice → Ch.10
+  buffer[GP + 0x15] = 0x09;  // Audio In → Ch.10
+  buffer[GP + 0x16] = 0x00;  // Accent → Ch.1
 
   // Part note numbers (MIDI note that triggers each part)
   // Values match GM drum map: Kick=36, Snare=38, etc.
@@ -591,55 +601,14 @@ function createEmptyEsx() {
   // Write BPS header at sample section
   BPS_HEADER.copy(buffer, ADDR.BPS_HEADER);
 
-  // Initialize all mono sample headers to "empty" — matches factory file exactly
-  // Factory empty slot: name=spaces, ch1Start=0xFFFFFFFF, rest=zeros except rate=44100, byte36=0x80
-  for (let i = 0; i < NUM.MONO_SAMPLES; i++) {
-    const off = ADDR.SAMPLE_HDR_MONO + i * SIZE.SAMPLE_HDR_MONO;
-    // Name: 8 bytes of 0x20 (spaces, factory default for empty)
-    buffer.fill(0x20, off, off + 8);
-    // offsetchannel1start: 0xFFFFFFFF (empty marker)
-    buffer.writeUInt32BE(0xFFFFFFFF, off + 8);
-    // offsetchannel1end: 0x00000000 (factory default)
-    buffer.writeUInt32BE(0x00000000, off + 12);
-    // start: 0x00000000
-    buffer.writeUInt32BE(0x00000000, off + 16);
-    // end: 0x00000000
-    buffer.writeUInt32BE(0x00000000, off + 20);
-    // loopstart: 0x00000000 (factory default for empty)
-    buffer.writeUInt32BE(0x00000000, off + 24);
-    // samplerate: 44100
-    buffer.writeUInt32BE(44100, off + 28);
-    // sampletune: 0x0000
-    buffer.writeUInt16BE(0x0000, off + 32);
-    // playlevel: 0x00
-    buffer.writeUInt8(0x00, off + 34);
-    // stretchstep: 0x80 (factory default for empty slot)
-    buffer.writeUInt8(0x00, off + 35);
-    buffer.writeUInt8(0x80, off + 36);
-    buffer.writeUInt8(0x00, off + 37);
-    buffer.writeUInt8(0x00, off + 38);
-    buffer.writeUInt8(0x00, off + 39);
-  }
+  // BPS version string at 0x1B0010 — factory writes "01000000" here
+  Buffer.from('01000000', 'ascii').copy(buffer, 0x1B0010);
 
-  // Initialize all stereo sample headers to "empty"
-  for (let i = 0; i < NUM.STEREO_SAMPLES; i++) {
-    const off = ADDR.SAMPLE_HDR_STEREO + i * SIZE.SAMPLE_HDR_STEREO;
-    buffer.fill(0x20, off, off + 8);
-    buffer.writeUInt32BE(0xFFFFFFFF, off + 8);
-    buffer.writeUInt32BE(0x00000000, off + 12);
-    buffer.writeUInt32BE(0xFFFFFFFF, off + 16);
-    buffer.writeUInt32BE(0x00000000, off + 20);
-    buffer.writeUInt32BE(0x00000000, off + 24);
-    buffer.writeUInt32BE(0x00000000, off + 28);
-    buffer.writeUInt32BE(44100, off + 32);
-    buffer.writeUInt16BE(0x0000, off + 36);
-    buffer.writeUInt8(0x00, off + 38);
-    buffer.writeUInt8(0x00, off + 39);
-    buffer.writeUInt8(0x80, off + 40);
-    buffer.writeUInt8(0x00, off + 41);
-    buffer.writeUInt8(0x00, off + 42);
-    buffer.writeUInt8(0x00, off + 43);
-  }
+  // Fill entire mono header area with 0xFF (factory default for empty slots)
+  buffer.fill(0xFF, ADDR.SAMPLE_HDR_MONO, ADDR.SAMPLE_HDR_STEREO);
+
+  // Fill entire stereo header area with 0xFF (factory default for empty slots)
+  buffer.fill(0xFF, ADDR.SAMPLE_HDR_STEREO, ADDR.SLICE_DATA);
 
   // Initialize counters
   buffer.writeUInt32BE(0, ADDR.NUM_MONO_SAMPLES);
@@ -1295,10 +1264,13 @@ function rebuildEsxFile(originalBuffer, samples) {
   const headerBuffer = Buffer.alloc(ADDR.SAMPLE_DATA + 0x10, 0);
   originalBuffer.copy(headerBuffer, 0, 0, Math.min(originalBuffer.length, headerBuffer.length));
 
-  // Clear sample headers (mono + stereo) and slice data — we'll rewrite them
-  headerBuffer.fill(0, ADDR.SAMPLE_HDR_MONO, ADDR.SAMPLE_HDR_MONO + NUM.MONO_SAMPLES * SIZE.SAMPLE_HDR_MONO);
-  headerBuffer.fill(0, ADDR.SAMPLE_HDR_STEREO, ADDR.SAMPLE_HDR_STEREO + NUM.STEREO_SAMPLES * SIZE.SAMPLE_HDR_STEREO);
+  // Clear sample headers with 0xFF (factory default for empty slots) and slice data with 0x00
+  headerBuffer.fill(0xFF, ADDR.SAMPLE_HDR_MONO, ADDR.SAMPLE_HDR_STEREO);
+  headerBuffer.fill(0xFF, ADDR.SAMPLE_HDR_STEREO, ADDR.SLICE_DATA);
   headerBuffer.fill(0, ADDR.SLICE_DATA, ADDR.SAMPLE_DATA);
+
+  // BPS version string at 0x1B0010
+  Buffer.from('01000000', 'ascii').copy(headerBuffer, 0x1B0010);
 
   // Build sample data blocks
   const dataBlocks = [];

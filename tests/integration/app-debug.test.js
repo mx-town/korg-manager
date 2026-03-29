@@ -42,10 +42,10 @@ describe('Integration - ESX round-trip integrity', () => {
     expect(reparsed.numMono).toBe(0);
     expect(reparsed.numStereo).toBe(0);
 
-    // MIDI channels should be Ch1 in both passes
-    expect(rebuilt.readUInt8(ADDR.GLOBAL_PARAMS + 0x07)).toBe(0x00);
-    expect(rebuilt.readUInt8(ADDR.GLOBAL_PARAMS + 0x08)).toBe(0x00);
-    expect(rebuilt.readUInt8(ADDR.GLOBAL_PARAMS + 0x09)).toBe(0x00);
+    // Factory MIDI channels preserved
+    expect(rebuilt.readUInt8(ADDR.GLOBAL_PARAMS + 0x07)).toBe(0x00); // Kbd1 → Ch.1
+    expect(rebuilt.readUInt8(ADDR.GLOBAL_PARAMS + 0x08)).toBe(0x01); // Kbd2 → Ch.2
+    expect(rebuilt.readUInt8(ADDR.GLOBAL_PARAMS + 0x09)).toBe(0x09); // Drum1 → Ch.10
   });
 
   it('should maintain file size consistency for empty ESX', () => {

@@ -105,10 +105,10 @@ describe('ESX - Global parameters', () => {
     buf = generateMinimalESX();
   });
 
-  it('should set all MIDI channels to Ch 1 (0x00) for slave compatibility', () => {
-    expect(buf.readUInt8(ADDR.GLOBAL_PARAMS + 0x07)).toBe(0x00); // Keyboard 1
-    expect(buf.readUInt8(ADDR.GLOBAL_PARAMS + 0x08)).toBe(0x00); // Keyboard 2
-    expect(buf.readUInt8(ADDR.GLOBAL_PARAMS + 0x09)).toBe(0x00); // Drum/Stretch/Slice/AudioIn
+  it('should set factory default MIDI channels', () => {
+    expect(buf.readUInt8(ADDR.GLOBAL_PARAMS + 0x07)).toBe(0x00); // Keyboard 1 → Ch.1
+    expect(buf.readUInt8(ADDR.GLOBAL_PARAMS + 0x08)).toBe(0x01); // Keyboard 2 → Ch.2
+    expect(buf.readUInt8(ADDR.GLOBAL_PARAMS + 0x09)).toBe(0x09); // Drum 1 → Ch.10
   });
 
   it('should set pitch bend range to +2 semitones (0x0E)', () => {
@@ -143,10 +143,10 @@ describe('ESX - Global parameters', () => {
 
   it('should preserve MIDI params through buildEsxFile round-trip', () => {
     const built = buildEsxFile([]);
-    // All 3 MIDI channels should be Ch1
-    expect(built.readUInt8(ADDR.GLOBAL_PARAMS + 0x07)).toBe(0x00);
-    expect(built.readUInt8(ADDR.GLOBAL_PARAMS + 0x08)).toBe(0x00);
-    expect(built.readUInt8(ADDR.GLOBAL_PARAMS + 0x09)).toBe(0x00);
+    // Factory MIDI channels
+    expect(built.readUInt8(ADDR.GLOBAL_PARAMS + 0x07)).toBe(0x00); // Kbd1 → Ch.1
+    expect(built.readUInt8(ADDR.GLOBAL_PARAMS + 0x08)).toBe(0x01); // Kbd2 → Ch.2
+    expect(built.readUInt8(ADDR.GLOBAL_PARAMS + 0x09)).toBe(0x09); // Drum1 → Ch.10
     // Note numbers preserved
     expect(built.readUInt8(ADDR.GLOBAL_PARAMS + 0x0A)).toBe(36); // Drum1 = C2
     // Bitflags preserved
@@ -408,20 +408,17 @@ describe('ESX - Sample header layout', () => {
     }
   });
 
-  it('should set default sample rate to 44100 in mono headers', () => {
+  it('should fill empty mono headers with 0xFF (factory default)', () => {
     const off = ADDR.SAMPLE_HDR_MONO;
-    expect(buf.readUInt32BE(off + 28)).toBe(44100);
+    for (let i = 0; i < SIZE.SAMPLE_HDR_MONO; i++) {
+      expect(buf.readUInt8(off + i)).toBe(0xFF);
+    }
   });
 
-  it('should set default sample rate to 44100 in stereo headers', () => {
+  it('should fill empty stereo headers with 0xFF (factory default)', () => {
     const off = ADDR.SAMPLE_HDR_STEREO;
-    expect(buf.readUInt32BE(off + 32)).toBe(44100);
-  });
-
-  it('should space-pad empty sample names', () => {
-    const off = ADDR.SAMPLE_HDR_MONO;
-    for (let i = 0; i < 8; i++) {
-      expect(buf.readUInt8(off + i)).toBe(0x20); // space
+    for (let i = 0; i < SIZE.SAMPLE_HDR_STEREO; i++) {
+      expect(buf.readUInt8(off + i)).toBe(0xFF);
     }
   });
 });
