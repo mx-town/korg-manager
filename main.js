@@ -368,6 +368,7 @@ ipcMain.handle('rename-sample', async (ev, { index, name }) => {
   return getSamplesInfo();
 });
 ipcMain.handle('clear-all', async () => { currentSamples = []; esxOriginalBuffer = null; return getSamplesInfo(); });
+ipcMain.handle('get-version', () => app.getVersion());
 ipcMain.handle('get-features', () => FEATURES);
 ipcMain.handle('get-state', async () => getSamplesInfo());
 
