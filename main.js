@@ -5,23 +5,6 @@ const { exec } = require('child_process');
 const AdmZip = require('adm-zip');
 const esx = require('./src/esx-format');
 
-process.on('unhandledRejection', (reason) => {
-  console.error('[unhandledRejection]', reason);
-});
-process.on('uncaughtException', (err) => {
-  console.error('[uncaughtException]', err);
-});
-
-// ═══ DEV MODE ═══
-// npm start     → beta build (limited features, no DevTools)
-// npm run dev   → dev build  (all features + DevTools + console)
-const IS_DEV = process.argv.includes('--dev');
-
-// ═══ FEATURE FLAGS ═══
-const FEATURES = IS_DEV
-  ? { ESX_SAMPLER: true, E2S_SAMPLER: true, PATTERN_VIEWER: true, CONVERSION: true, GUIDE: true, MODIFY_MODAL: true }
-  : { ESX_SAMPLER: true, E2S_SAMPLER: false, PATTERN_VIEWER: false, CONVERSION: false, GUIDE: true, MODIFY_MODAL: true };
-
 let mainWindow;
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -33,7 +16,7 @@ function createWindow() {
   });
   mainWindow.loadFile(path.join(__dirname, 'src', 'index.html'));
   mainWindow.setMenuBarVisibility(false);
-  if (IS_DEV) mainWindow.webContents.openDevTools({ mode: 'bottom' });
+  mainWindow.webContents.openDevTools({ mode: 'bottom' });
 }
 app.whenReady().then(() => {
   createWindow();
@@ -47,10 +30,30 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 
+// ═══ FEATURE FLAGS ═══
+// Toggle features for beta/release builds.
+// Set to false to hide from UI, true to enable.
+//
+// BETA PRESET (ESX Sampler only):
+//   ESX_SAMPLER: true, MODIFY_MODAL: true
+//   Everything else: false
+//
+// DEV PRESET (everything on):
+//   All flags: true
+//
+const FEATURES = {
+  ESX_SAMPLER:      true,   // ESX-1 Sample Manager tab
+  E2S_SAMPLER:      false,  // E2S Sample Manager tab
+  PATTERN_VIEWER:   false,  // Pattern Viewer tab (ESX + EMX + E2)
+  CONVERSION:       false,  // ESX↔E2S conversion dialog
+  GUIDE:            true,   // Hardtekk/Schranz guide
+  MODIFY_MODAL:     true,   // DSP effects modal in ESX sampler
+};
+
 // ═══════════════════════════════════════════════════════════
 //  DEBUG HELPERS
 // ═══════════════════════════════════════════════════════════
-const DEBUG = IS_DEV;
+const DEBUG = process.env.NODE_ENV === 'development';
 
 function debugLog(category, message, data) {
   if (!DEBUG) return;
@@ -82,8 +85,6 @@ function safeIpcHandle(channel, handler) {
   });
 }
 
-ipcMain.handle('get-version', () => app.getVersion());
-
 // ═══════════════════════════════════════════════════════════
 //  SAMPLE STORE + UNDO SYSTEM
 // ═══════════════════════════════════════════════════════════
@@ -99,10 +100,6 @@ function pushUndo(index) {
   if (!s) return;
   if (!s._undo) s._undo = [];
   if (!s._redo) s._redo = [];
-  // Capture original state on first modification
-  if (!s._original) {
-    s._original = { pcmData: Buffer.from(s.pcmData), numFrames: s.numFrames, duration: s.duration, sampleRate: s.sampleRate };
-  }
   s._undo.push({ pcmData: Buffer.from(s.pcmData), numFrames: s.numFrames, duration: s.duration, sampleRate: s.sampleRate });
   if (s._undo.length > MAX_UNDO) s._undo.shift();
   s._redo = []; // clear redo on new action
@@ -112,7 +109,7 @@ function pushUndoAll() {
   for (let i = 0; i < currentSamples.length; i++) pushUndo(i);
 }
 
-safeIpcHandle('undo', async (ev, index) => {
+ipcMain.handle('undo', async (ev, index) => {
   const s = currentSamples[index];
   if (!s || !s._undo || s._undo.length === 0) return null;
   // Push current state to redo
@@ -124,7 +121,7 @@ safeIpcHandle('undo', async (ev, index) => {
   return getSamplesInfo();
 });
 
-safeIpcHandle('redo', async (ev, index) => {
+ipcMain.handle('redo', async (ev, index) => {
   const s = currentSamples[index];
   if (!s || !s._redo || s._redo.length === 0) return null;
   s._undo.push({ pcmData: Buffer.from(s.pcmData), numFrames: s.numFrames, duration: s.duration, sampleRate: s.sampleRate });
@@ -133,13 +130,13 @@ safeIpcHandle('redo', async (ev, index) => {
   return getSamplesInfo();
 });
 
-safeIpcHandle('get-undo-info', async (ev, index) => {
+ipcMain.handle('get-undo-info', async (ev, index) => {
   const s = currentSamples[index];
   if (!s) return { undoCount: 0, redoCount: 0, hasOriginal: false };
   return { undoCount: (s._undo || []).length, redoCount: (s._redo || []).length, hasOriginal: !!s._original };
 });
 
-safeIpcHandle('reset-sample', async (ev, index) => {
+ipcMain.handle('reset-sample', async (ev, index) => {
   const s = currentSamples[index];
   if (!s || !s._original) return null;
   // Restore original state and clear all undo history
@@ -167,7 +164,7 @@ function importWavBuffer(buffer, displayName, originalPath) {
       name, pcmData: converted.pcmData, sampleRate: converted.sampleRate,
       numFrames: converted.numFrames, duration: converted.durationSeconds,
       originalPath: originalPath || null, folder: null, _undo: [], _redo: [],
-      _original: null,
+      _original: { pcmData: Buffer.from(converted.pcmData), numFrames: converted.numFrames, duration: converted.durationSeconds, sampleRate: converted.sampleRate },
     });
     return { index: currentSamples.length - 1, name, originalName: displayName, ok: true };
   } catch (err) { return { error: err.message, originalName: displayName }; }
@@ -176,7 +173,7 @@ function importWavBuffer(buffer, displayName, originalPath) {
 // ═══════════════════════════════════════════════════════════
 //  FILE OPS
 // ═══════════════════════════════════════════════════════════
-safeIpcHandle('open-esx-file', async () => {
+ipcMain.handle('open-esx-file', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     title: 'Open ESX File', filters: [{ name: 'ESX Files', extensions: ['esx', 'ESX'] }], properties: ['openFile']
   });
@@ -187,13 +184,13 @@ safeIpcHandle('open-esx-file', async () => {
     const parsed = esx.parseEsxFile(buffer);
     currentSamples = [];
     for (const s of parsed.monoSamples) {
-      if (s) currentSamples.push({ name: s.name, pcmData: s.pcmData, sampleRate: s.sampleRate, numFrames: s.numFrames, duration: s.duration, originalPath: null, folder: null, _undo: [], _redo: [], _original: null });
+      if (s) currentSamples.push({ name: s.name, pcmData: s.pcmData, sampleRate: s.sampleRate, numFrames: s.numFrames, duration: s.duration, originalPath: null, folder: null, _undo: [], _redo: [], _original: { pcmData: Buffer.from(s.pcmData), numFrames: s.numFrames, duration: s.duration, sampleRate: s.sampleRate } });
     }
     return { filePath: result.filePaths[0], samples: getSamplesInfo() };
   } catch (err) { return { error: err.message }; }
 });
 
-safeIpcHandle('import-samples', async () => {
+ipcMain.handle('import-samples', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     title: 'Import Samples',
     filters: [
@@ -244,7 +241,7 @@ safeIpcHandle('import-samples', async () => {
   return { imported, state: getSamplesInfo() };
 });
 
-safeIpcHandle('import-wav-files', async () => {
+ipcMain.handle('import-wav-files', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     title: 'Import Samples', filters: [{ name: 'Audio', extensions: ['wav', 'WAV', 'aif', 'aiff'] }], properties: ['openFile', 'multiSelections']
   });
@@ -256,7 +253,7 @@ safeIpcHandle('import-wav-files', async () => {
   return { imported, state: getSamplesInfo() };
 });
 
-safeIpcHandle('import-zip', async () => {
+ipcMain.handle('import-zip', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     title: 'Import from ZIP', filters: [{ name: 'ZIP', extensions: ['zip', 'ZIP'] }], properties: ['openFile']
   });
@@ -296,10 +293,8 @@ safeIpcHandle('import-zip', async () => {
 });
 
 // Save to EXISTING file (preserves patterns via rebuild)
-safeIpcHandle('save-esx-overwrite', async (ev, filePath) => {
+ipcMain.handle('save-esx-overwrite', async (ev, filePath) => {
   if (!filePath) return { error: 'No file path' };
-  const ext = path.extname(filePath).toLowerCase();
-  if (ext !== '.esx') return { error: 'Invalid file type' };
   if (currentSamples.length === 0) return { error: 'No samples' };
   if (!esxOriginalBuffer) return { error: 'No original file loaded — use Export instead' };
 
@@ -324,7 +319,7 @@ safeIpcHandle('save-esx-overwrite', async (ev, filePath) => {
   } catch (err) { return { error: err.message }; }
 });
 
-safeIpcHandle('save-esx-file', async (ev, defaultName) => {
+ipcMain.handle('save-esx-file', async (ev, defaultName) => {
   if (currentSamples.length === 0) return { error: 'No samples' };
   let totalSize = 0;
   for (const s of currentSamples) totalSize += 16 + s.pcmData.length;
@@ -347,7 +342,7 @@ safeIpcHandle('save-esx-file', async (ev, defaultName) => {
   } catch (err) { return { error: err.message }; }
 });
 
-safeIpcHandle('export-wav', async (ev, index) => {
+ipcMain.handle('export-wav', async (ev, index) => {
   if (index < 0 || index >= currentSamples.length) return null;
   const s = currentSamples[index];
   const result = await dialog.showSaveDialog(mainWindow, {
@@ -361,20 +356,20 @@ safeIpcHandle('export-wav', async (ev, index) => {
 // ═══════════════════════════════════════════════════════════
 //  SAMPLE MANAGEMENT
 // ═══════════════════════════════════════════════════════════
-safeIpcHandle('remove-sample', async (ev, index) => {
+ipcMain.handle('remove-sample', async (ev, index) => {
   if (index >= 0 && index < currentSamples.length) currentSamples.splice(index, 1);
   return getSamplesInfo();
 });
-safeIpcHandle('rename-sample', async (ev, { index, name }) => {
+ipcMain.handle('rename-sample', async (ev, { index, name }) => {
   if (index >= 0 && index < currentSamples.length)
     currentSamples[index].name = name.substring(0, 8).toUpperCase().replace(/[^A-Z0-9 _\-\.]/g, '');
   return getSamplesInfo();
 });
-safeIpcHandle('clear-all', async () => { currentSamples = []; esxOriginalBuffer = null; return getSamplesInfo(); });
-safeIpcHandle('get-features', () => FEATURES);
-safeIpcHandle('get-state', async () => getSamplesInfo());
+ipcMain.handle('clear-all', async () => { currentSamples = []; esxOriginalBuffer = null; return getSamplesInfo(); });
+ipcMain.handle('get-features', () => FEATURES);
+ipcMain.handle('get-state', async () => getSamplesInfo());
 
-safeIpcHandle('get-waveform', async (ev, index) => {
+ipcMain.handle('get-waveform', async (ev, index) => {
   if (index < 0 || index >= currentSamples.length) return null;
   const s = currentSamples[index];
   if (!s.pcmData) return null;
@@ -403,14 +398,14 @@ safeIpcHandle('get-waveform', async (ev, index) => {
   return { waveform, sampleRate: s.sampleRate, numFrames: s.numFrames, duration: s.duration, name: s.name, peakDb, rmsDb };
 });
 
-safeIpcHandle('get-wav-preview', async (ev, index) => {
+ipcMain.handle('get-wav-preview', async (ev, index) => {
   if (index < 0 || index >= currentSamples.length) return null;
   const s = currentSamples[index];
   if (!s.pcmData) return null;
   return esx.pcmToWav(s.pcmData, s.sampleRate).toString('base64');
 });
 
-safeIpcHandle('get-float-samples', async (ev, index) => {
+ipcMain.handle('get-float-samples', async (ev, index) => {
   if (index < 0 || index >= currentSamples.length) return null;
   const s = currentSamples[index];
   if (!s.pcmData) return null;
@@ -484,8 +479,6 @@ safeIpcHandle('analyze-samples-batch', async (ev, indices) => {
 // ═══════════════════════════════════════════════════════════
 safeIpcHandle('esx:save-tags', async (ev, { filePath, tags }) => {
   if (!filePath || !tags) return { error: 'No file path or tags' };
-  const ext = path.extname(filePath).toLowerCase();
-  if (ext !== '.esx') return { error: 'Invalid file type' };
   try {
     const tagPath = filePath + '.tags.json';
     fs.writeFileSync(tagPath, JSON.stringify(tags, null, 2), 'utf-8');
@@ -495,8 +488,6 @@ safeIpcHandle('esx:save-tags', async (ev, { filePath, tags }) => {
 
 safeIpcHandle('esx:load-tags', async (ev, filePath) => {
   if (!filePath) return null;
-  const ext = path.extname(filePath).toLowerCase();
-  if (ext !== '.esx') return { error: 'Invalid file type' };
   try {
     const tagPath = filePath + '.tags.json';
     if (!fs.existsSync(tagPath)) return null;
@@ -507,7 +498,7 @@ safeIpcHandle('esx:load-tags', async (ev, filePath) => {
 // ═══════════════════════════════════════════════════════════
 //  BATCH PROCESSING (with undo)
 // ═══════════════════════════════════════════════════════════
-safeIpcHandle('normalize-all', async (ev, { targetDbFs }) => {
+ipcMain.handle('normalize-all', async (ev, { targetDbFs }) => {
   const tgt = Math.round(Math.pow(10, (targetDbFs || -1) / 20) * 32767);
   let n = 0;
   for (let i = 0; i < currentSamples.length; i++) {
@@ -528,7 +519,7 @@ safeIpcHandle('normalize-all', async (ev, { targetDbFs }) => {
   return { normalized: n, total: currentSamples.length, state: getSamplesInfo() };
 });
 
-safeIpcHandle('normalize-sample', async (ev, { index, targetDbFs }) => {
+ipcMain.handle('normalize-sample', async (ev, { index, targetDbFs }) => {
   if (index < 0 || index >= currentSamples.length) return null;
   const s = currentSamples[index];
   if (!s.pcmData || s.numFrames === 0) return null;
@@ -547,7 +538,7 @@ safeIpcHandle('normalize-sample', async (ev, { index, targetDbFs }) => {
   return { peakBefore, peakAfter: (targetDbFs || -1).toFixed(1), state: getSamplesInfo() };
 });
 
-safeIpcHandle('trim-all', async (ev, { thresholdDb }) => {
+ipcMain.handle('trim-all', async (ev, { thresholdDb }) => {
   const thresh = Math.pow(10, (thresholdDb || -40) / 20) * 32767;
   let n = 0;
   for (let i = 0; i < currentSamples.length; i++) {
@@ -556,7 +547,7 @@ safeIpcHandle('trim-all', async (ev, { thresholdDb }) => {
   return { trimmed: n, total: currentSamples.length, state: getSamplesInfo() };
 });
 
-safeIpcHandle('trim-sample', async (ev, { index, thresholdDb }) => {
+ipcMain.handle('trim-sample', async (ev, { index, thresholdDb }) => {
   if (index < 0 || index >= currentSamples.length) return null;
   const thresh = Math.pow(10, (thresholdDb || -40) / 20) * 32767;
   const fb = currentSamples[index].numFrames;
@@ -588,7 +579,7 @@ function doTrim(index, thresh) {
 // ═══════════════════════════════════════════════════════════
 
 // ── REVERSE ────────────────────────────────────────────────
-safeIpcHandle('fx-reverse', async (ev, index) => {
+ipcMain.handle('fx-reverse', async (ev, index) => {
   const s = currentSamples[index];
   if (!s) return null;
   pushUndo(index);
@@ -601,7 +592,7 @@ safeIpcHandle('fx-reverse', async (ev, index) => {
 });
 
 // ── BITCRUSHER (exponential HOLD for even knob feel) ──────
-safeIpcHandle('fx-bitcrush', async (ev, { index, bits, rateReduction }) => {
+ipcMain.handle('fx-bitcrush', async (ev, { index, bits, rateReduction }) => {
   const s = currentSamples[index];
   if (!s) return null;
   pushUndo(index);
@@ -625,7 +616,7 @@ safeIpcHandle('fx-bitcrush', async (ev, { index, bits, rateReduction }) => {
 });
 
 // ── PITCH / RESAMPLE ───────────────────────────────────────
-safeIpcHandle('fx-pitch', async (ev, { index, factor }) => {
+ipcMain.handle('fx-pitch', async (ev, { index, factor }) => {
   const s = currentSamples[index];
   if (!s) return null;
   factor = Math.max(0.1, Math.min(8.0, factor || 1.0));
@@ -646,7 +637,7 @@ safeIpcHandle('fx-pitch', async (ev, { index, factor }) => {
 });
 
 // ── DISTORTION ─────────────────────────────────────────────
-safeIpcHandle('fx-distort', async (ev, { index, drive, type }) => {
+ipcMain.handle('fx-distort', async (ev, { index, drive, type }) => {
   const s = currentSamples[index];
   if (!s) return null;
   pushUndo(index);
@@ -673,7 +664,7 @@ safeIpcHandle('fx-distort', async (ev, { index, drive, type }) => {
 });
 
 // ── FADE IN (power curve for perceptual smoothness) ───────
-safeIpcHandle('fx-fade-in', async (ev, { index, ms }) => {
+ipcMain.handle('fx-fade-in', async (ev, { index, ms }) => {
   const s = currentSamples[index];
   if (!s) return null;
   pushUndo(index);
@@ -688,7 +679,7 @@ safeIpcHandle('fx-fade-in', async (ev, { index, ms }) => {
 });
 
 // ── FADE OUT (power curve for perceptual smoothness) ──────
-safeIpcHandle('fx-fade-out', async (ev, { index, ms }) => {
+ipcMain.handle('fx-fade-out', async (ev, { index, ms }) => {
   const s = currentSamples[index];
   if (!s) return null;
   pushUndo(index);
@@ -704,7 +695,7 @@ safeIpcHandle('fx-fade-out', async (ev, { index, ms }) => {
 });
 
 // ── CHOP TO SLICES ─────────────────────────────────────────
-safeIpcHandle('fx-chop', async (ev, { index, slices }) => {
+ipcMain.handle('fx-chop', async (ev, { index, slices }) => {
   const s = currentSamples[index];
   if (!s) return null;
   slices = Math.max(2, Math.min(32, slices || 4));
@@ -731,7 +722,7 @@ safeIpcHandle('fx-chop', async (ev, { index, slices }) => {
 });
 
 // ── STUTTER (with crossfade to eliminate clicks) ──────────
-safeIpcHandle('fx-stutter', async (ev, { index, ms, repeats }) => {
+ipcMain.handle('fx-stutter', async (ev, { index, ms, repeats }) => {
   const s = currentSamples[index];
   if (!s) return null;
   pushUndo(index);
@@ -761,7 +752,7 @@ safeIpcHandle('fx-stutter', async (ev, { index, ms, repeats }) => {
 });
 
 // ── TURNTABLE STOP ─────────────────────────────────────────
-safeIpcHandle('fx-vinyl-stop', async (ev, { index, durationMs }) => {
+ipcMain.handle('fx-vinyl-stop', async (ev, { index, durationMs }) => {
   const s = currentSamples[index];
   if (!s) return null;
   pushUndo(index);
@@ -790,7 +781,7 @@ safeIpcHandle('fx-vinyl-stop', async (ev, { index, durationMs }) => {
 });
 
 // ── RING MODULATION ────────────────────────────────────────
-safeIpcHandle('fx-ringmod', async (ev, { index, freq }) => {
+ipcMain.handle('fx-ringmod', async (ev, { index, freq }) => {
   const s = currentSamples[index];
   if (!s) return null;
   pushUndo(index);
@@ -806,7 +797,7 @@ safeIpcHandle('fx-ringmod', async (ev, { index, freq }) => {
 });
 
 // ── CROP (keep only start→end in frames) ──────────────────
-safeIpcHandle('fx-crop', async (ev, { index, startPct, endPct }) => {
+ipcMain.handle('fx-crop', async (ev, { index, startPct, endPct }) => {
   const s = currentSamples[index];
   if (!s) return null;
   const startFrame = Math.floor((startPct / 100) * s.numFrames);
@@ -821,7 +812,7 @@ safeIpcHandle('fx-crop', async (ev, { index, startPct, endPct }) => {
 });
 
 // ── RHYTHMIC GATE (BPM-synced) ────────────────────────────
-safeIpcHandle('fx-gate', async (ev, { index, bpm, steps, pattern }) => {
+ipcMain.handle('fx-gate', async (ev, { index, bpm, steps, pattern }) => {
   const s = currentSamples[index];
   if (!s) return null;
   pushUndo(index);
@@ -849,7 +840,7 @@ safeIpcHandle('fx-gate', async (ev, { index, bpm, steps, pattern }) => {
 });
 
 // ── TIMESTRETCH (granular) ────────────────────────────────
-safeIpcHandle('fx-timestretch', async (ev, { index, factor }) => {
+ipcMain.handle('fx-timestretch', async (ev, { index, factor }) => {
   const s = currentSamples[index];
   if (!s) return null;
   factor = Math.max(0.25, Math.min(4.0, factor || 1.0));
@@ -888,7 +879,7 @@ safeIpcHandle('fx-timestretch', async (ev, { index, factor }) => {
 });
 
 // ── FILTER SWEEP (LP/HP) — Biquad 12dB/oct ──────────────
-safeIpcHandle('fx-filter-sweep', async (ev, { index, type, startFreq, endFreq }) => {
+ipcMain.handle('fx-filter-sweep', async (ev, { index, type, startFreq, endFreq }) => {
   const s = currentSamples[index];
   if (!s) return null;
   pushUndo(index);
@@ -932,7 +923,7 @@ safeIpcHandle('fx-filter-sweep', async (ev, { index, type, startFreq, endFreq })
 });
 
 // ── TRANSIENT SHAPER ──────────────────────────────────────
-safeIpcHandle('fx-transient', async (ev, { index, attack, sustain }) => {
+ipcMain.handle('fx-transient', async (ev, { index, attack, sustain }) => {
   const s = currentSamples[index];
   if (!s) return null;
   pushUndo(index);
@@ -964,7 +955,7 @@ safeIpcHandle('fx-transient', async (ev, { index, attack, sustain }) => {
 });
 
 // ── DC OFFSET REMOVE ──────────────────────────────────────
-safeIpcHandle('fx-dc-remove', async (ev, index) => {
+ipcMain.handle('fx-dc-remove', async (ev, index) => {
   const s = currentSamples[index];
   if (!s) return null;
   // Calculate DC offset
@@ -982,7 +973,7 @@ safeIpcHandle('fx-dc-remove', async (ev, index) => {
 });
 
 // ── GAIN (adjust volume in dB) ───────────────────────────
-safeIpcHandle('fx-gain', async (ev, { index, db }) => {
+ipcMain.handle('fx-gain', async (ev, { index, db }) => {
   const s = currentSamples[index];
   if (!s) return null;
   pushUndo(index);
@@ -997,7 +988,7 @@ safeIpcHandle('fx-gain', async (ev, { index, db }) => {
 });
 
 // ── LOOP CROSSFADE (make loop-ready) ─────────────────────
-safeIpcHandle('fx-loop-xfade', async (ev, { index, ms }) => {
+ipcMain.handle('fx-loop-xfade', async (ev, { index, ms }) => {
   const s = currentSamples[index];
   if (!s) return null;
   pushUndo(index);
@@ -1023,7 +1014,7 @@ safeIpcHandle('fx-loop-xfade', async (ev, { index, ms }) => {
 });
 
 // ── AMP ENVELOPE (ADSR — exponential curves) ─────────────
-safeIpcHandle('fx-envelope', async (ev, { index, attackMs, decayMs, sustainLvl, releaseMs }) => {
+ipcMain.handle('fx-envelope', async (ev, { index, attackMs, decayMs, sustainLvl, releaseMs }) => {
   const s = currentSamples[index];
   if (!s) return null;
   pushUndo(index);
@@ -1061,7 +1052,7 @@ safeIpcHandle('fx-envelope', async (ev, { index, attackMs, decayMs, sustainLvl, 
 });
 
 // ── DUPLICATE SAMPLE ─────────────────────────────────────
-safeIpcHandle('duplicate-sample', async (ev, index) => {
+ipcMain.handle('duplicate-sample', async (ev, index) => {
   const s = currentSamples[index];
   if (!s || currentSamples.length >= esx.NUM.MONO_SAMPLES) return null;
   const dup = {
@@ -1076,7 +1067,7 @@ safeIpcHandle('duplicate-sample', async (ev, index) => {
 });
 
 // ── MOVE SAMPLE UP/DOWN ──────────────────────────────────
-safeIpcHandle('move-sample', async (ev, { index, direction }) => {
+ipcMain.handle('move-sample', async (ev, { index, direction }) => {
   const newIdx = index + direction;
   if (newIdx < 0 || newIdx >= currentSamples.length) return null;
   [currentSamples[index], currentSamples[newIdx]] = [currentSamples[newIdx], currentSamples[index]];
@@ -1143,7 +1134,7 @@ function e2sGetSamplesUI() {
   return out;
 }
 
-safeIpcHandle('e2s:open-file', async () => {
+ipcMain.handle('e2s:open-file', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     title: 'Open E2S Sample File',
     filters: [{ name: 'E2S Sample File', extensions: ['all'] }, { name: 'All Files', extensions: ['*'] }],
@@ -1174,7 +1165,7 @@ safeIpcHandle('e2s:open-file', async () => {
   } catch (err) { return { error: err.message }; }
 });
 
-safeIpcHandle('e2s:save-file', async () => {
+ipcMain.handle('e2s:save-file', async () => {
   const hasData = e2sStoredSamples.some(s => s !== null);
   if (!hasData) return { error: 'No E2S samples loaded' };
   const result = await dialog.showSaveDialog(mainWindow, {
@@ -1190,7 +1181,7 @@ safeIpcHandle('e2s:save-file', async () => {
   } catch (err) { return { error: err.message }; }
 });
 
-safeIpcHandle('e2s:import-wav', async () => {
+ipcMain.handle('e2s:import-wav', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     title: 'Import WAV to E2S (48kHz)',
     filters: [{ name: 'Audio', extensions: ['wav', 'WAV', 'aif', 'aiff'] }],
@@ -1235,7 +1226,7 @@ safeIpcHandle('e2s:import-wav', async () => {
   return { imported, samples: e2sGetSamplesUI() };
 });
 
-safeIpcHandle('e2s:export-wav', async (ev, slot) => {
+ipcMain.handle('e2s:export-wav', async (ev, slot) => {
   if (slot < 0 || slot >= e2sFormat.MAX_SLOTS || !e2sStoredSamples[slot]) return null;
   const s = e2sStoredSamples[slot];
   const result = await dialog.showSaveDialog(mainWindow, {
@@ -1261,7 +1252,7 @@ safeIpcHandle('e2s:export-wav', async (ev, slot) => {
 });
 
 // E2S sample updates from renderer (name, category, etc.)
-safeIpcHandle('e2s:update-sample', async (ev, { slot, name, category, loopType }) => {
+ipcMain.handle('e2s:update-sample', async (ev, { slot, name, category, loopType }) => {
   if (slot < 0 || slot >= e2sFormat.MAX_SLOTS || !e2sStoredSamples[slot]) return null;
   const s = e2sStoredSamples[slot];
   if (name !== undefined)     s.name = name;
@@ -1270,12 +1261,12 @@ safeIpcHandle('e2s:update-sample', async (ev, { slot, name, category, loopType }
   return e2sSampleToUI(s, slot);
 });
 
-safeIpcHandle('e2s:remove-sample', async (ev, slot) => {
+ipcMain.handle('e2s:remove-sample', async (ev, slot) => {
   if (slot >= 0 && slot < e2sFormat.MAX_SLOTS) e2sStoredSamples[slot] = null;
   return e2sGetSamplesUI();
 });
 
-safeIpcHandle('e2s:get-waveform', async (ev, slot) => {
+ipcMain.handle('e2s:get-waveform', async (ev, slot) => {
   if (slot < 0 || slot >= e2sFormat.MAX_SLOTS || !e2sStoredSamples[slot]) return null;
   const s = e2sStoredSamples[slot];
   const numFrames = s.pcmData.length / 2;
@@ -1304,7 +1295,7 @@ safeIpcHandle('e2s:get-waveform', async (ev, slot) => {
   return { waveform, sampleRate: s.sampleRate, numFrames, duration: numFrames / s.sampleRate, name: s.name, peakDb, rmsDb };
 });
 
-safeIpcHandle('e2s:get-wav-preview', async (ev, slot) => {
+ipcMain.handle('e2s:get-wav-preview', async (ev, slot) => {
   if (slot < 0 || slot >= e2sFormat.MAX_SLOTS || !e2sStoredSamples[slot]) return null;
   const s = e2sStoredSamples[slot];
   const numFrames = s.pcmData.length / 2;
@@ -1382,7 +1373,7 @@ function esxPatternToUI(esxPat) {
   };
 }
 
-safeIpcHandle('esx:open-patterns', async () => {
+ipcMain.handle('esx:open-patterns', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     title: 'Open ESX File (Patterns)',
     filters: [
@@ -1399,6 +1390,22 @@ safeIpcHandle('esx:open-patterns', async () => {
 
     const rawPatterns = esx.parseEsxPatterns(buf);
     const patterns = rawPatterns.map(p => esxPatternToUI(p));
+
+    // ── TEMP: Verify LSB-first bit unpacking for House1 Drum 1 ──
+    for (let i = 0; i < Math.min(rawPatterns.length, 10); i++) {
+      const rp = rawPatterns[i];
+      if (rp.name && rp.name.trim() === 'House1') {
+        const drum1 = rp.parts[0];
+        const first16 = drum1.steps.slice(0, 16);
+        const activeIdxs = first16.map((v, idx) => v ? idx : null).filter(v => v !== null);
+        const patOff = 0x200 + i * 4280;
+        const rawByte0 = buf.readUInt8(patOff + 24 + 18);
+        const rawByte1 = buf.readUInt8(patOff + 24 + 19);
+        console.log(`[VERIFY] House1 Drum 1: raw bytes [0x${rawByte0.toString(16).padStart(2,'0')}, 0x${rawByte1.toString(16).padStart(2,'0')}] → active steps: [${activeIdxs}]`);
+        break;
+      }
+    }
+    // ── END TEMP ──
 
     // Resolve sample names from the full ESX buffer
     const SAMPLE_HDR_MONO = 0x001B0100;
@@ -1486,7 +1493,7 @@ safeIpcHandle('esx:get-pattern-list', async () => {
 });
 
 // ── ESX Pattern Param Editing ──────────────────────────────
-safeIpcHandle('esx:update-pattern-param', (ev, { patIdx, partIdx, paramKey, value }) => {
+ipcMain.handle('esx:update-pattern-param', (ev, { patIdx, partIdx, paramKey, value }) => {
   if (!esxPatternBuffer) return { error: 'No ESX file loaded' };
   try {
     esx.writePartParam(esxPatternBuffer, patIdx, partIdx, paramKey, value);
@@ -1496,7 +1503,7 @@ safeIpcHandle('esx:update-pattern-param', (ev, { patIdx, partIdx, paramKey, valu
   }
 });
 
-safeIpcHandle('esx:save-pattern-file', async () => {
+ipcMain.handle('esx:save-pattern-file', async () => {
   if (!esxPatternBuffer) return { error: 'No ESX file loaded' };
   const result = await dialog.showSaveDialog(mainWindow, {
     title: 'Save ESX File',
@@ -1516,7 +1523,7 @@ safeIpcHandle('esx:save-pattern-file', async () => {
   }
 });
 
-safeIpcHandle('e2pat:open-file', async () => {
+ipcMain.handle('e2pat:open-file', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     title: 'Open E2 Pattern',
     filters: [
@@ -1543,7 +1550,7 @@ safeIpcHandle('e2pat:open-file', async () => {
   } catch (err) { return { error: err.message }; }
 });
 
-safeIpcHandle('e2pat:save-file', async (ev, patIdx, ext) => {
+ipcMain.handle('e2pat:save-file', async (ev, patIdx, ext) => {
   if (!patStoredRaw) return { error: 'No pattern data loaded' };
   const result = await dialog.showSaveDialog(mainWindow, {
     title: 'Save E2 Pattern', defaultPath: `pattern.${ext || 'e2pat'}`,
@@ -1562,7 +1569,7 @@ safeIpcHandle('e2pat:save-file', async (ev, patIdx, ext) => {
   } catch (err) { return { error: err.message }; }
 });
 
-safeIpcHandle('e2pat:split-save', async () => {
+ipcMain.handle('e2pat:split-save', async () => {
   if (!patStoredRaw || patStoredRaw.length < e2patFormat.ALL_FILE_SIZE) {
     return { error: 'No all-patterns file loaded' };
   }
@@ -1646,7 +1653,7 @@ function emxPatternToUI(emxPat, index) {
   };
 }
 
-safeIpcHandle('emx:open-file', async () => {
+ipcMain.handle('emx:open-file', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     title: 'Open EMX-1 File',
     filters: [{ name: 'EMX-1 Files', extensions: ['emx'] }, { name: 'All Files', extensions: ['*'] }],
@@ -1661,7 +1668,7 @@ safeIpcHandle('emx:open-file', async () => {
   } catch (err) { return { error: err.message }; }
 });
 
-safeIpcHandle('emx:open-patterns', async () => {
+ipcMain.handle('emx:open-patterns', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     title: 'Open EMX-1 File (Patterns)',
     filters: [{ name: 'EMX-1 Files', extensions: ['emx'] }, { name: 'All Files', extensions: ['*'] }],
@@ -1680,7 +1687,7 @@ safeIpcHandle('emx:open-patterns', async () => {
 // ═══════════════════════════════════════════════════════════
 //  UNIVERSAL FILE OPEN (auto-detect format)
 // ═══════════════════════════════════════════════════════════
-safeIpcHandle('file:open-any', async () => {
+ipcMain.handle('file:open-any', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     title: 'Open File',
     filters: [
@@ -1776,11 +1783,11 @@ function startSdCardDetection() {
 
 app.whenReady().then(() => { startSdCardDetection(); });
 
-safeIpcHandle('sd:list-drives', async () => {
+ipcMain.handle('sd:list-drives', async () => {
   return listRemovableDrives();
 });
 
-safeIpcHandle('sd:open-folder', async (ev, sdPath) => {
+ipcMain.handle('sd:open-folder', async (ev, sdPath) => {
   const result = await dialog.showOpenDialog(mainWindow, {
     title: 'SD Card Folder',
     defaultPath: sdPath,
