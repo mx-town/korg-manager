@@ -314,8 +314,15 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 .g-pat{background:rgba(255,255,255,.04);border:1px solid var(--brd);padding:14px;margin:10px 0;font-family:var(--lcd);font-size:13px;line-height:1.8}
 .g-pat .on{color:var(--led);font-weight:bold} .g-pat .off{color:var(--txt-x)} .g-pat .lbl{color:var(--led);display:inline-block;width:60px}
 .g-tip{background:rgba(255,255,255,.04);border-left:3px solid var(--led);padding:12px 16px;margin:10px 0;font-family:var(--ui);font-size:15px;color:var(--txt);line-height:1.8}
-#guideAcceptBtn:not([disabled]){opacity:1!important;cursor:pointer!important;color:var(--hi)!important;border-color:var(--hi)!important}
-#guideAcceptBtn:not([disabled]):hover{background:var(--hi)!important;color:#fff!important;box-shadow:0 0 20px var(--hi-g)!important}
+#guideAcceptBtn{
+  margin-top:16px;width:100%;padding:14px;
+  background:var(--hi-dk);border:2px solid var(--hi-d);color:var(--hi-d);
+  font-family:var(--head);font-size:13px;font-weight:700;letter-spacing:3px;
+  cursor:not-allowed;clip-path:polygon(6px 0%,100% 0%,calc(100% - 6px) 100%,0% 100%);
+  transition:all 120ms;opacity:.5;
+}
+#guideAcceptBtn:not([disabled]){opacity:1;cursor:pointer;color:var(--hi);border-color:var(--hi)}
+#guideAcceptBtn:not([disabled]):hover{background:var(--hi);color:#fff;box-shadow:0 0 20px var(--hi-g)}
 
 /* ═══ DEVICE TAB BAR (hidden — replaced by vertical sidebar) ═══ */
 #device-tabs{display:none}
@@ -2185,7 +2192,7 @@ const GUIDE_HTML = `
     <input type="checkbox" id="guideAcceptCb" onchange="var b=document.getElementById('guideAcceptBtn');if(this.checked)b.removeAttribute('disabled');else b.setAttribute('disabled','')" style="accent-color:var(--hi);margin-top:4px;flex-shrink:0;width:16px;height:16px">
     Ich habe den Beta-Hinweis gelesen und verstanden. Ich bin allein dafür verantwortlich, meine Daten vor der Nutzung dieser Software zu sichern.
   </label>
-  <button id="guideAcceptBtn" disabled onclick="acceptGuideDisclaimer()" style="margin-top:16px;width:100%;padding:14px;background:var(--hi-dk);border:2px solid var(--hi-d);color:var(--hi-d);font-family:var(--head);font-size:13px;font-weight:700;letter-spacing:3px;cursor:not-allowed;clip-path:polygon(6px 0%,100% 0%,calc(100% - 6px) 100%,0% 100%);transition:all 120ms;opacity:.5">AKZEPTIEREN — WEITER</button>
+  <button id="guideAcceptBtn" disabled onclick="acceptGuideDisclaimer()">AKZEPTIEREN — WEITER</button>
 </div>
 `;
 
