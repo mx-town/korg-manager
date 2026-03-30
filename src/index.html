@@ -314,6 +314,8 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 .g-pat{background:rgba(255,255,255,.04);border:1px solid var(--brd);padding:14px;margin:10px 0;font-family:var(--lcd);font-size:13px;line-height:1.8}
 .g-pat .on{color:var(--led);font-weight:bold} .g-pat .off{color:var(--txt-x)} .g-pat .lbl{color:var(--led);display:inline-block;width:60px}
 .g-tip{background:rgba(255,255,255,.04);border-left:3px solid var(--led);padding:12px 16px;margin:10px 0;font-family:var(--ui);font-size:15px;color:var(--txt);line-height:1.8}
+#guideAcceptBtn:not([disabled]){opacity:1!important;cursor:pointer!important;color:var(--hi)!important;border-color:var(--hi)!important}
+#guideAcceptBtn:not([disabled]):hover{background:var(--hi)!important;color:#fff!important;box-shadow:0 0 20px var(--hi-g)!important}
 
 /* ═══ DEVICE TAB BAR (hidden — replaced by vertical sidebar) ═══ */
 #device-tabs{display:none}
@@ -1264,9 +1266,9 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 </div>
 
 <!-- ═══ GUIDE MODAL ═══ -->
-<div class="modal-bg" id="guideBg" onclick="if(event.target===this)closeModalBg('guideBg')">
+<div class="modal-bg" id="guideBg" onclick="if(event.target===this)tryCloseGuide()">
 <div class="guide-modal">
-  <div class="modal-hdr"><span class="modal-title">ℹ BETA GUIDE</span><button class="modal-close" onclick="closeModalBg('guideBg')">✕ ESC</button></div>
+  <div class="modal-hdr"><span class="modal-title">ℹ BETA GUIDE</span><button class="modal-close" onclick="tryCloseGuide()">✕ ESC</button></div>
   <div class="guide-body" id="guideBody"></div>
 </div>
 </div>
@@ -1365,7 +1367,7 @@ async function applyFeatureFlags() {
     if (!activeTab || activeTab.style.display === 'none') visibleTabs[0].click();
   }
 }
-async function init(){updateState(await window.api.getState());applyFeatureFlags();try{if(!localStorage.getItem('betaGuideShown')){setTimeout(()=>{openGuide();localStorage.setItem('betaGuideShown','1')},500)}}catch(e){}} init();
+async function init(){updateState(await window.api.getState());applyFeatureFlags();try{if(!localStorage.getItem('betaDisclaimerAccepted')){setTimeout(()=>openGuide(),500)}}catch(e){}} init();
 function toast(m,t='info'){const c=document.getElementById('tW'),e=document.createElement('div');e.className=`toast ${t}`;e.textContent=m;c.appendChild(e);setTimeout(()=>{e.classList.add('fading');e.addEventListener('animationend',()=>e.remove(),{once:true})},2750)}
 function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
 function fmtTime(sec){if(sec<0)sec=0;const m=Math.floor(sec/60),s=sec-m*60;return `${m}:${s<10?'0':''}${s.toFixed(3)}`}
@@ -2025,7 +2027,19 @@ async function mTool(t){
     if(batch)toast(`${targets.length} SAMPLES: ${t.toUpperCase()} ✓`,'success')}}
 
 // ═══ GUIDE ═══
-function openGuide(){document.getElementById('guideBody').innerHTML=GUIDE_HTML;document.getElementById('guideBg').classList.add('show')}
+function openGuide(){
+  document.getElementById('guideBody').innerHTML=GUIDE_HTML;
+  try{if(localStorage.getItem('betaDisclaimerAccepted')){const a=document.getElementById('guideAcceptArea');if(a)a.style.display='none'}}catch(e){}
+  document.getElementById('guideBg').classList.add('show');
+}
+function acceptGuideDisclaimer(){try{localStorage.setItem('betaDisclaimerAccepted','1');localStorage.setItem('betaGuideShown','1')}catch(e){}closeModalBg('guideBg')}
+function tryCloseGuide(){
+  const bg=document.getElementById('guideBg');
+  if(!bg||!bg.classList.contains('show'))return;
+  try{if(localStorage.getItem('betaDisclaimerAccepted')){closeModalBg('guideBg');return}}catch(e){}
+  const area=document.getElementById('guideAcceptArea');
+  if(area){area.scrollIntoView({behavior:'smooth',block:'center'});area.style.borderColor='var(--hi)';area.style.boxShadow='0 0 30px var(--hi-g)';setTimeout(()=>{area.style.borderColor='var(--hi-d)';area.style.boxShadow='none'},1200)}
+}
 const GUIDE_HTML = `
 <div class="g-sec">
   <div class="g-h">⚠ BETA SOFTWARE — ZUERST LESEN</div>
@@ -2156,6 +2170,23 @@ const GUIDE_HTML = `
     <li><strong>EMX-1 Support</strong> — Visuelles Synth-Panel für EMX-1 Patterns</li>
   </ul>
 </div>
+
+<div class="g-sec" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--brd)">
+  <div style="font-family:var(--ui);font-size:11px;color:var(--txt-x);line-height:1.7;letter-spacing:.5px">
+    Diese Software steht in keiner Verbindung zu KORG Inc. und wird von dieser weder unterstützt noch autorisiert.
+    Korg, Electribe, ESX-1, EMX-1, E2S und ES-1 sind eingetragene Marken der KORG Inc.
+    Alle Produktnamen dienen ausschließlich zur Beschreibung der Kompatibilität.
+  </div>
+</div>
+
+<div class="g-sec" id="guideAcceptArea" style="margin-top:24px;padding:20px;background:var(--void);border:2px solid var(--hi-d);clip-path:polygon(8px 0%,100% 0%,100% calc(100% - 8px),calc(100% - 8px) 100%,0% 100%,0% 8px)">
+  <div style="font-family:var(--head);font-size:11px;font-weight:700;color:var(--hi);letter-spacing:3px;margin-bottom:14px">⚠ BESTÄTIGUNG ERFORDERLICH</div>
+  <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-family:var(--ui);font-size:13px;color:var(--txt);line-height:1.6">
+    <input type="checkbox" id="guideAcceptCb" onchange="var b=document.getElementById('guideAcceptBtn');if(this.checked)b.removeAttribute('disabled');else b.setAttribute('disabled','')" style="accent-color:var(--hi);margin-top:4px;flex-shrink:0;width:16px;height:16px">
+    Ich habe den Beta-Hinweis gelesen und verstanden. Ich bin allein dafür verantwortlich, meine Daten vor der Nutzung dieser Software zu sichern.
+  </label>
+  <button id="guideAcceptBtn" disabled onclick="acceptGuideDisclaimer()" style="margin-top:16px;width:100%;padding:14px;background:var(--hi-dk);border:2px solid var(--hi-d);color:var(--hi-d);font-family:var(--head);font-size:13px;font-weight:700;letter-spacing:3px;cursor:not-allowed;clip-path:polygon(6px 0%,100% 0%,calc(100% - 6px) 100%,0% 100%);transition:all 120ms;opacity:.5">AKZEPTIEREN — WEITER</button>
+</div>
 `;
 
 // ═══ DRAG & DROP + KEYS ═══
@@ -2163,7 +2194,7 @@ function setupDrop(){const d=document.getElementById('dZ');if(!d)return;d.addEve
 setupDrop();document.addEventListener('dragover',e=>e.preventDefault());document.addEventListener('drop',e=>{e.preventDefault();if(e.dataTransfer?.files?.length)importSamples()});
 document.addEventListener('keydown',e=>{
   if(e.target.tagName==='INPUT')return;
-  if(e.key==='Escape'){closeModal();closeModalBg('guideBg');return}
+  if(e.key==='Escape'){closeModal();tryCloseGuide();return}
   if(document.getElementById('modalBg')?.classList.contains('show')||document.getElementById('guideBg')?.classList.contains('show')){if(e.key===' '&&sel>=0){e.preventDefault();togglePlay()}return}
   if(e.key==='Delete'){if(checked.size>0)removeChecked();else if(sel>=0)remCur()}
   if(e.key===' '&&sel>=0){e.preventDefault();togglePlay()}
