@@ -414,9 +414,12 @@ function initMotionSeqs(buffer, offset) {
  *   [1148-1159] FX Params (3 × 4 = 12 bytes)
  *   [1160-4279] Motion Sequences (24 × 130 = 3120 bytes)
  */
-function initDefaultPattern(buffer, patternOffset) {
-  // +0-7: name = "Init    " (space-padded, factory default)
-  buffer.write('Init    ', patternOffset, 'ascii');
+function initDefaultPattern(buffer, patternOffset, patternIndex) {
+  // +0-7: name = bank naming "A.001" .. "D.064" (space-padded, factory default)
+  const bank = String.fromCharCode(65 + Math.floor(patternIndex / 64));
+  const num = String((patternIndex % 64) + 1).padStart(3, '0');
+  const name = `${bank}.${num}`.padEnd(8, ' ');
+  buffer.write(name, patternOffset, 'ascii');
 
   // +8-9: tempo = 0x3C00 (120.0 BPM, encoding: BPM × 128)
   buffer.writeUInt16BE(0x3C00, patternOffset + 8);
@@ -589,7 +592,7 @@ function createEmptyEsx() {
   // ════ Initialize all 256 Patterns ════
   for (let p = 0; p < NUM.PATTERNS; p++) {
     const patternOffset = ADDR.PATTERN_DATA + p * 4280;
-    initDefaultPattern(buffer, patternOffset);
+    initDefaultPattern(buffer, patternOffset, p);
   }
 
   // ════ Initialize all 64 Songs ════

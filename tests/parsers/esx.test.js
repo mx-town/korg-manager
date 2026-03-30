@@ -163,11 +163,13 @@ describe('ESX - Pattern defaults', () => {
     buf = generateMinimalESX();
   });
 
-  it('should have 256 patterns with "Init" name', () => {
+  it('should have 256 patterns with bank names A.001-D.064', () => {
     for (let p = 0; p < NUM.PATTERNS; p++) {
       const off = ADDR.PATTERN_DATA + p * 4280;
       const name = buf.toString('ascii', off, off + 8).trim();
-      expect(name).toBe('Init');
+      const bank = String.fromCharCode(65 + Math.floor(p / 64));
+      const num = String((p % 64) + 1).padStart(3, '0');
+      expect(name).toBe(`${bank}.${num}`);
     }
   });
 

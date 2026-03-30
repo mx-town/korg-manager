@@ -103,6 +103,10 @@ function pushUndo(index) {
   if (!s) return;
   if (!s._undo) s._undo = [];
   if (!s._redo) s._redo = [];
+  // Capture original state on first modification (for RESET feature)
+  if (!s._original) {
+    s._original = { pcmData: Buffer.from(s.pcmData), numFrames: s.numFrames, duration: s.duration, sampleRate: s.sampleRate };
+  }
   s._undo.push({ pcmData: Buffer.from(s.pcmData), numFrames: s.numFrames, duration: s.duration, sampleRate: s.sampleRate });
   if (s._undo.length > MAX_UNDO) s._undo.shift();
   s._redo = []; // clear redo on new action
@@ -167,7 +171,7 @@ function importWavBuffer(buffer, displayName, originalPath) {
       name, pcmData: converted.pcmData, sampleRate: converted.sampleRate,
       numFrames: converted.numFrames, duration: converted.durationSeconds,
       originalPath: originalPath || null, folder: null, _undo: [], _redo: [],
-      _original: { pcmData: Buffer.from(converted.pcmData), numFrames: converted.numFrames, duration: converted.durationSeconds, sampleRate: converted.sampleRate },
+      _original: null,
     });
     return { index: currentSamples.length - 1, name, originalName: displayName, ok: true };
   } catch (err) { return { error: err.message, originalName: displayName }; }
@@ -187,7 +191,7 @@ ipcMain.handle('open-esx-file', async () => {
     const parsed = esx.parseEsxFile(buffer);
     currentSamples = [];
     for (const s of parsed.monoSamples) {
-      if (s) currentSamples.push({ name: s.name, pcmData: s.pcmData, sampleRate: s.sampleRate, numFrames: s.numFrames, duration: s.duration, originalPath: null, folder: null, _undo: [], _redo: [], _original: { pcmData: Buffer.from(s.pcmData), numFrames: s.numFrames, duration: s.duration, sampleRate: s.sampleRate } });
+      if (s) currentSamples.push({ name: s.name, pcmData: s.pcmData, sampleRate: s.sampleRate, numFrames: s.numFrames, duration: s.duration, originalPath: null, folder: null, _undo: [], _redo: [], _original: null });
     }
     return { filePath: result.filePaths[0], samples: getSamplesInfo() };
   } catch (err) { return { error: err.message }; }
@@ -333,9 +337,7 @@ ipcMain.handle('save-esx-file', async (ev, defaultName) => {
   if (result.canceled) return null;
   try {
     mainWindow.webContents.send('export-progress', { phase: 'building', percent: 10 });
-    const buf = esxOriginalBuffer
-      ? esx.rebuildEsxFile(esxOriginalBuffer, currentSamples)
-      : esx.buildEsxFile(currentSamples);
+    const buf = esx.buildEsxFile(currentSamples);
     mainWindow.webContents.send('export-progress', { phase: 'writing', percent: 50 });
     await fsp.writeFile(result.filePath, buf);
     mainWindow.webContents.send('export-progress', { phase: 'verifying', percent: 90 });
