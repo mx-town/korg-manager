@@ -223,10 +223,12 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 /* ═══ FX SLIDER ROW ═══ */
 .fx-row{display:flex;align-items:center;gap:14px;margin-bottom:14px}
 .fx-lbl{font-family:var(--lcd);font-size:11px;color:var(--txt-x);min-width:65px;letter-spacing:1.5px;text-transform:uppercase}
-.fx-val{font-family:var(--lcd);font-size:15px;font-weight:600;min-width:100px;text-align:right;letter-spacing:.5px;padding:4px 8px;background:rgba(0,0,0,.3);border:1px solid var(--brd);clip-path:polygon(3px 0%,100% 0%,calc(100% - 3px) 100%,0% 100%)}
-.fx-cat-content[data-cat="time"] .fx-val{color:var(--cat-time);text-shadow:0 0 8px var(--cat-time-g);border-color:rgba(0,255,136,.15)}
-.fx-cat-content[data-cat="tone"] .fx-val{color:var(--cat-tone);text-shadow:0 0 8px var(--cat-tone-g);border-color:rgba(255,0,136,.15)}
-.fx-cat-content[data-cat="dyn"] .fx-val{color:var(--cat-dyn);text-shadow:0 0 8px var(--cat-dyn-g);border-color:rgba(0,217,255,.15)}
+.fx-val{font-family:var(--lcd);font-size:15px;font-weight:600;min-width:100px;text-align:right;letter-spacing:.5px;padding:4px 8px;background:rgba(0,0,0,.3);border:1px solid var(--brd);clip-path:polygon(3px 0%,100% 0%,calc(100% - 3px) 100%,0% 100%);cursor:text}
+.fx-val-input{font-family:var(--lcd);font-size:15px;font-weight:600;min-width:100px;width:100px;text-align:right;letter-spacing:.5px;padding:4px 8px;background:rgba(0,0,0,.5);border:1px solid;clip-path:polygon(3px 0%,100% 0%,calc(100% - 3px) 100%,0% 100%);outline:none;-moz-appearance:textfield}
+.fx-val-input::-webkit-inner-spin-button,.fx-val-input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.fx-cat-content[data-cat="time"] .fx-val,.fx-cat-content[data-cat="time"] .fx-val-input{color:var(--cat-time);text-shadow:0 0 8px var(--cat-time-g);border-color:rgba(0,255,136,.15)}
+.fx-cat-content[data-cat="tone"] .fx-val,.fx-cat-content[data-cat="tone"] .fx-val-input{color:var(--cat-tone);text-shadow:0 0 8px var(--cat-tone-g);border-color:rgba(255,0,136,.15)}
+.fx-cat-content[data-cat="dyn"] .fx-val,.fx-cat-content[data-cat="dyn"] .fx-val-input{color:var(--cat-dyn);text-shadow:0 0 8px var(--cat-dyn-g);border-color:rgba(0,217,255,.15)}
 
 /* ═══ PREMIUM SLIDER TRACK SYSTEM ═══ */
 .fx-track{position:relative;flex:1;height:32px;display:flex;align-items:center}
@@ -419,7 +421,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 .e2s-check input[type=checkbox]{accent-color:var(--blue)}
 
 /* ═══ PATTERN VIEW ═══ */
-.pat-main{display:grid;grid-template-columns:260px 1fr;overflow:hidden;flex:1}
+.pat-main{display:grid;grid-template-columns:clamp(180px,15vw,260px) 1fr;overflow:hidden;flex:1}
 .pat-list-panel{display:flex;flex-direction:column;overflow:hidden;border-right:2px solid var(--brd);background:var(--dark)}
 .pat-list{flex:1;overflow-y:auto}
 .pat-list::-webkit-scrollbar{width:6px} .pat-list::-webkit-scrollbar-track{background:var(--void)} .pat-list::-webkit-scrollbar-thumb{background:var(--blue-d);border-radius:3px}
@@ -429,32 +431,95 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 .pat-item .pi{color:var(--txt-x);text-align:center} .pat-item.act .pi{color:var(--hi)}
 .pat-item .pn{color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .pat-item.act .pn{color:var(--led)}
 .pat-item .pb2{color:var(--txt-d);text-align:right}
-.pat-grid-panel{display:flex;flex-direction:column;overflow:hidden;background:var(--void)}
+.pat-grid-panel{display:flex;flex-direction:column;overflow:hidden;background:var(--void);flex:1;min-height:0}
 .pat-info-bar{display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--dark);border-bottom:1px solid var(--brd);font-family:var(--lcd);font-size:12px;flex-wrap:wrap}
 .pat-info-bar span{color:var(--led)}
 .pat-grid-wrap{flex:1;padding:0;overflow:auto;display:flex;align-items:flex-start}
-/* ═══ PIXEL BLOCK GRID ═══ */
-.px-grid{display:flex;flex-direction:column;gap:2px;padding:12px 16px;user-select:none;width:fit-content}
-.px-header{display:flex;align-items:center;gap:2px;margin-bottom:4px}
+/* ═══ PIXEL BLOCK GRID — Hardware LED Matrix (perf-optimized) ═══ */
+.px-grid{
+  display:flex;flex-direction:column;gap:1px;padding:14px 18px;user-select:none;width:fit-content;
+  background:#050810;
+  border:1px solid #1a2035;
+  border-top-color:#0d1220;border-left-color:#0d1220;
+  border-bottom-color:#253050;border-right-color:#253050;
+  box-shadow:inset 0 2px 8px rgba(0,0,0,.6),0 2px 12px rgba(0,0,0,.4);
+  border-radius:3px;
+  contain:layout style;
+}
+.px-header{display:flex;align-items:center;gap:1px;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid rgba(255,255,255,.03)}
 .px-hlabel{width:140px;flex-shrink:0}
-.px-hnum{width:var(--cw,20px);font-family:'Share Tech Mono',monospace;font-size:9px;color:#1e2840;text-align:center;flex-shrink:0}
-.px-hnum.px-b4{color:#2a3858}
-.px-row{display:flex;align-items:center;gap:2px;border-radius:1px}
-.px-row:hover{background:rgba(255,255,255,.012)}
-.px-label{width:140px;flex-shrink:0;font-family:'Share Tech Mono',monospace;font-size:10px;text-align:right;padding-right:10px;letter-spacing:.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.8}
-.px-cell{width:var(--cw,20px);height:var(--ch,14px);flex-shrink:0;cursor:pointer;border-radius:2px;position:relative;transition:filter 60ms,transform 60ms}
-.px-cell.px-b4{margin-left:4px}
-.px-cell.px-bar{margin-left:8px}
-.px-cell:hover{filter:brightness(1.5);transform:scaleY(1.1)}
-.px-cell:active{transform:scaleY(.9)}
-.px-cell.px-off{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07)}
-.px-cell.px-off:hover{background:rgba(255,255,255,.10)}
-.px-cell.px-b4::before{content:'';position:absolute;left:-3px;top:0;bottom:0;width:1px;background:rgba(30,80,160,.2);pointer-events:none}
-.px-cell.px-bar::before{content:'';position:absolute;left:-5px;top:-2px;bottom:-2px;width:2px;background:rgba(60,140,255,.45);pointer-events:none}
-.px-hnum.px-bar{margin-left:8px;color:#3c8cff;font-weight:bold}
-.px-cell.px-playing.px-on{filter:brightness(2);outline:1.5px solid rgba(255,255,255,.7);outline-offset:1px;animation:pxpulse .1s ease}
-.px-cell.px-playing.px-off{background:rgba(255,255,255,.15);outline:1px solid rgba(255,255,255,.3);outline-offset:1px}
-@keyframes pxpulse{0%{filter:brightness(3)}100%{filter:brightness(2)}}
+/* Engraved step numbers */
+.px-hnum{
+  width:var(--cw,20px);font-family:'Share Tech Mono',monospace;font-size:9px;
+  color:#1a2438;text-align:center;flex-shrink:0;
+}
+.px-hnum.px-b4{color:#2c4468;font-weight:600}
+.px-hnum.px-bar{margin-left:8px;color:#4a90d9;font-weight:bold}
+/* Rows — machined ridges between parts */
+.px-row{display:flex;align-items:center;gap:1px;border-radius:0;padding:1px 0;border-bottom:1px solid rgba(0,0,0,.25);contain:layout}
+.px-row:nth-child(odd){background:rgba(255,255,255,.006)}
+.px-row:nth-child(even){background:rgba(0,0,0,.06)}
+.px-row:hover{background:rgba(0,204,255,.015)}
+/* Silk-screened part labels */
+.px-label{
+  width:140px;flex-shrink:0;font-family:'Share Tech Mono',monospace;font-size:10px;
+  text-align:right;padding-right:12px;letter-spacing:.5px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.85;
+  text-shadow:0 -1px 0 rgba(0,0,0,.8);
+}
+/* Base cell — shared by OFF and ON */
+.px-cell{
+  width:var(--cw,20px);height:var(--ch,14px);flex-shrink:0;cursor:pointer;
+  border-radius:2px;position:relative;
+  will-change:opacity;contain:strict;
+  transition:opacity 60ms ease,box-shadow 80ms ease;
+}
+.px-cell.px-b4{margin-left:5px}
+.px-cell.px-bar{margin-left:9px}
+/* OFF cells — dark recessed pads (flat bg, border-only depth) */
+.px-cell.px-off{
+  background:#090d16;
+  border:1px solid rgba(20,28,48,.5);
+  border-top-color:rgba(0,0,0,.45);border-left-color:rgba(0,0,0,.35);
+  border-bottom-color:rgba(40,55,80,.25);border-right-color:rgba(40,55,80,.25);
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.5);
+}
+.px-cell.px-off:hover{
+  background:#0e1422;
+  border-color:rgba(30,60,100,.35);
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.4),0 0 4px rgba(0,204,255,.06);
+}
+/* ON cells — glowing LED pads (inline style carries color+velocity) */
+.px-cell.px-on{
+  border:1px solid rgba(255,255,255,.15);
+  border-bottom-color:rgba(255,255,255,.22);
+  box-shadow:inset 0 -1px 1px rgba(0,0,0,.2),0 0 8px currentColor;
+}
+.px-cell.px-on:hover{
+  opacity:.85;
+  box-shadow:inset 0 -1px 1px rgba(0,0,0,.15),0 0 14px currentColor;
+}
+.px-cell.px-off:active{opacity:.7}
+.px-cell.px-on:active{opacity:.6}
+/* Beat/bar etched markers */
+.px-cell.px-b4::before{content:'';position:absolute;left:-3px;top:0;bottom:0;width:1px;pointer-events:none;background:rgba(30,80,160,.18)}
+.px-cell.px-bar::before{content:'';position:absolute;left:-5px;top:-2px;bottom:-2px;width:2px;pointer-events:none;background:rgba(60,140,255,.3)}
+/* Playing step — bright playhead flash */
+.px-cell.px-playing.px-on{
+  outline:2px solid rgba(0,240,255,.9);outline-offset:0px;
+  box-shadow:0 0 12px currentColor,0 0 4px rgba(0,240,255,.5);
+  animation:pxpulse .1s ease-out;
+}
+.px-cell.px-playing.px-off{
+  background:rgba(0,220,255,.14)!important;
+  border-color:rgba(0,220,255,.4);
+  outline:1.5px solid rgba(0,220,255,.5);outline-offset:0px;
+  box-shadow:0 0 8px rgba(0,220,255,.2);
+}
+@keyframes pxpulse{
+  0%{outline-width:3px;box-shadow:0 0 18px currentColor,0 0 6px rgba(0,240,255,.6)}
+  100%{outline-width:2px;box-shadow:0 0 12px currentColor,0 0 4px rgba(0,240,255,.5)}
+}
 .pat-zoom{display:flex;align-items:center;gap:4px}
 .pat-zoom-btn{padding:3px 10px;background:rgba(0,204,255,.08);border:1px solid var(--blue-d);color:var(--blue);font-size:13px;font-weight:700;cursor:pointer;border-radius:3px;min-width:28px;font-family:var(--lcd);transition:background 80ms}
 .pat-zoom-btn:hover{background:rgba(0,204,255,.18)}
@@ -628,10 +693,10 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 }
 
 /* ── Three-mode pattern editor ── */
-.pat-mode-view{flex:1;overflow:auto;display:none}
-.pat-mode-view.active{display:flex;flex-direction:column;animation:viewFadeIn 150ms ease}
-#patPartsWrap.active{align-items:stretch}
-#partsGrid{flex:1;display:flex;flex-direction:column}
+.pat-mode-view{flex:1;overflow:hidden;display:none}
+.pat-mode-view.active{display:flex;flex-direction:column;flex:1;overflow:hidden;animation:viewFadeIn 150ms ease}
+#patPartsWrap.active{align-items:stretch;display:flex;flex-direction:column;flex:1;overflow:hidden}
+#partsGrid{flex:3;display:flex;flex-direction:column;min-height:0}
 @keyframes viewFadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
 
 /* Mode toggle buttons in transport bar */
@@ -650,16 +715,16 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 
 /* ── PARTS view: premium hardware emulation ── */
 .parts-rows{
-  display:flex;flex-direction:column;gap:24px;
-  padding:0 32px;flex:1;
+  display:flex;flex-direction:column;gap:clamp(8px,1.5vh,24px);
+  padding:clamp(4px,1vh,16px) clamp(12px,2vw,32px);flex:1;
   justify-content:center;align-items:center;
-  width:100%;margin:0 auto;
+  width:100%;min-height:0;
 }
 .parts-row-line{display:flex;align-items:stretch;gap:0;width:100%}
 .parts-group{display:flex;flex-direction:column;align-items:stretch;gap:0;flex:1;min-width:0}
 .parts-group-label{
-  font-family:var(--head);font-size:9px;color:#7a8ea0;
-  letter-spacing:3.5px;text-align:center;padding-bottom:8px;white-space:nowrap;
+  font-family:var(--head);font-size:clamp(7px,0.7vw,9px);color:#7a8ea0;
+  letter-spacing:3.5px;text-align:center;padding-bottom:clamp(3px,0.5vh,8px);white-space:nowrap;
   text-transform:uppercase;position:relative;
 }
 .parts-group-label::after{
@@ -667,18 +732,18 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
   background:linear-gradient(90deg,transparent 5%,var(--brd-h) 30%,var(--brd-h) 70%,transparent 95%);
   opacity:.5;
 }
-.parts-group-row{display:flex;gap:8px}
+.parts-group-row{display:flex;gap:clamp(3px,0.4vw,8px)}
 .parts-sep{
-  width:1px;margin:0 14px;align-self:stretch;flex-shrink:0;
+  width:1px;margin:0 clamp(4px,0.8vw,14px);align-self:stretch;flex-shrink:0;
   background:linear-gradient(180deg,transparent 10%,var(--brd-h) 40%,var(--brd-h) 60%,transparent 90%);
   opacity:.6;
 }
 .part-btn{
   border:1.5px solid var(--brd-h);border-radius:7px;
   background:linear-gradient(180deg,rgba(8,12,22,.92) 0%,rgba(14,20,36,.75) 100%);
-  padding:20px 10px 14px;
+  padding:clamp(6px,0.8vh,20px) clamp(3px,0.3vw,10px) clamp(4px,0.6vh,14px);
   cursor:pointer;display:flex;flex-direction:column;
-  align-items:center;gap:8px;position:relative;
+  align-items:center;gap:clamp(2px,0.5vh,8px);position:relative;
   flex:1;min-width:0;
   transition:border-color .15s ease,background .15s ease,opacity .15s ease,box-shadow .15s ease,transform .1s ease;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.05),inset 0 -1px 0 rgba(0,0,0,.4),0 2px 8px rgba(0,0,0,.3);
@@ -695,8 +760,8 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 .part-btn.part-muted{opacity:0.25}
 .part-btn.part-muted .part-type-lbl{text-decoration:line-through}
 .part-gear-icon{
-  position:absolute;top:5px;right:5px;
-  font-size:13px;color:var(--txt-d);cursor:pointer;
+  position:absolute;top:clamp(2px,0.3vh,5px);right:clamp(2px,0.3vw,5px);
+  font-size:clamp(9px,1vw,13px);color:var(--txt-d);cursor:pointer;
   opacity:0;transition:opacity .15s,color .15s;
 }
 .part-btn:hover .part-gear-icon,
@@ -705,13 +770,13 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 .part-mute-toggle{cursor:pointer}
 .part-mute-toggle:hover{text-decoration:line-through}
 .part-type-lbl{
-  font-family:var(--head);font-size:20px;font-weight:700;
+  font-family:var(--head);font-size:clamp(14px,1.8vw,20px);font-weight:700;
   letter-spacing:1px;line-height:1;
 }
 .part-sample-lbl{
-  font-family:var(--lcd);font-size:12px;color:#8a9aac;
+  font-family:var(--lcd);font-size:clamp(9px,1vw,12px);color:#8a9aac;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-  max-width:100%;text-align:center;padding:6px 2px;
+  max-width:100%;text-align:center;padding:clamp(2px,0.4vh,6px) 2px;
 }
 .part-sample-pick{cursor:pointer;transition:color .12s,text-decoration .12s}
 .part-sample-pick:hover{color:var(--led)!important;text-decoration:underline}
@@ -750,6 +815,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 
 /* ── Floating param popup ── */
 .param-popup{
+  display:none!important;
   position:absolute;z-index:100;width:400px;
   background:linear-gradient(180deg,#0d1224 0%,#080c18 100%);
   border:1px solid rgba(0,204,255,.35);border-radius:8px;
@@ -829,18 +895,18 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 }
 
 /* ── EMX Inline Synth Analyzer ── */
-#patPartsWrap.emx-active .parts-rows{flex:none;gap:12px;padding:8px 20px 0}
-#patPartsWrap.emx-active .part-btn{padding:8px 6px 6px;gap:3px;border-radius:5px}
-#patPartsWrap.emx-active .part-type-lbl{font-size:13px}
-#patPartsWrap.emx-active .part-sample-lbl{font-size:8px;padding:2px 2px}
-#patPartsWrap.emx-active .part-step-bar{height:5px}
-#patPartsWrap.emx-active .part-activity{font-size:7px;margin-top:1px}
-#patPartsWrap.emx-active .parts-group-label{font-size:7px;padding-bottom:4px;letter-spacing:2.5px}
-#patPartsWrap.emx-active .parts-group-row{gap:4px}
-#patPartsWrap.emx-active .parts-sep{margin:0 6px}
-#patPartsWrap.emx-active .seq-steps{padding:10px 20px 8px;gap:6px}
-#patPartsWrap.emx-active .seq-step{width:44px;height:44px;font-size:12px;border-radius:4px}
-#patPartsWrap.emx-active .seq-bar-nav{padding:6px 16px 8px}
+#patPartsWrap.emx-active .parts-rows{flex:none;gap:clamp(4px,0.8vh,12px);padding:clamp(4px,0.6vh,8px) clamp(12px,1.5vw,20px) 0}
+#patPartsWrap.emx-active .part-btn{padding:clamp(4px,0.6vh,8px) clamp(3px,0.4vw,6px) clamp(3px,0.5vh,6px);gap:clamp(1px,0.3vh,3px);border-radius:5px}
+#patPartsWrap.emx-active .part-type-lbl{font-size:clamp(9px,1.2vw,13px)}
+#patPartsWrap.emx-active .part-sample-lbl{font-size:clamp(7px,0.7vw,8px);padding:2px 2px}
+#patPartsWrap.emx-active .part-step-bar{height:clamp(3px,0.4vh,5px)}
+#patPartsWrap.emx-active .part-activity{font-size:clamp(6px,0.6vw,7px);margin-top:1px}
+#patPartsWrap.emx-active .parts-group-label{font-size:clamp(6px,0.6vw,7px);padding-bottom:clamp(2px,0.3vh,4px);letter-spacing:2.5px}
+#patPartsWrap.emx-active .parts-group-row{gap:clamp(2px,0.3vw,4px)}
+#patPartsWrap.emx-active .parts-sep{margin:0 clamp(3px,0.5vw,6px)}
+#patPartsWrap.emx-active .seq-steps{padding:clamp(4px,0.6vh,10px) clamp(12px,1.5vw,20px) clamp(4px,0.5vh,8px);gap:clamp(3px,0.4vw,6px)}
+#patPartsWrap.emx-active .seq-step{font-size:clamp(9px,1vw,12px);border-radius:4px}
+#patPartsWrap.emx-active .seq-bar-nav{padding:clamp(3px,0.4vh,6px) 16px clamp(4px,0.5vh,8px)}
 #emxSynthInline{overflow:auto;flex:1;min-height:0}
 #emxSynthInline .emx-panel{padding:8px 20px 6px;border-top:none}
 #emxSynthInline .emx-sections{gap:8px}
@@ -848,7 +914,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 #emxSynthInline .emx-section{padding:8px 10px}
 #emxSynthInline .emx-viz svg{height:80px}
 .emx-inline-hdr{
-  padding:6px 20px;font-family:var(--lcd);font-size:12px;color:var(--led);
+  padding:clamp(6px,0.8vh,12px) clamp(12px,1.5vw,20px);font-family:var(--lcd);font-size:clamp(10px,1vw,13px);color:var(--led);
   border-top:1px solid var(--brd);letter-spacing:1px;
 }
 .emx-inline-label{font-family:var(--head);font-weight:700;font-size:13px;margin-right:8px}
@@ -866,8 +932,8 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
   color:#00ccff;background:rgba(0,204,255,.08);border:1px solid rgba(0,204,255,.2);
   border-radius:3px;padding:2px 8px;
 }
-.emx-sections{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
-.emx-bot-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.emx-sections{display:grid;grid-template-columns:repeat(auto-fit,minmax(clamp(180px,20vw,300px),1fr));gap:clamp(4px,0.5vw,10px)}
+.emx-bot-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(clamp(180px,20vw,300px),1fr));gap:clamp(4px,0.5vw,10px);margin-top:clamp(4px,0.5vh,10px)}
 .emx-section{
   background:linear-gradient(180deg,rgba(8,12,22,.9) 0%,rgba(12,16,32,.7) 100%);
   border:1px solid var(--brd);border-radius:6px;padding:10px 12px;
@@ -906,23 +972,24 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 
 /* ── Mini step bar in part buttons ── */
 .part-step-bar{
-  display:flex;gap:2px;width:100%;height:10px;margin-top:auto;
+  display:flex;gap:1px;width:100%;height:clamp(4px,0.6vh,8px);margin-top:auto;
   padding:0 2px;box-sizing:border-box;
 }
-.part-step-bar .psb{flex:1;border-radius:2px;min-width:0}
+.part-step-bar .psb{flex:1;border-radius:0;min-width:0}
 .part-activity{
-  font-family:var(--lcd);font-size:9px;color:#5a6a7c;margin-top:3px;letter-spacing:.5px;
+  font-family:var(--lcd);font-size:clamp(8px,0.8vw,11px);color:var(--txt-x);margin-top:3px;letter-spacing:1px;
 }
 
 /* ── Step sequencer (in PARTS view) ── */
 .seq-steps{
-  display:flex;flex-wrap:wrap;gap:10px;padding:24px 32px 14px;justify-content:center;
-  margin:0 auto;width:100%;
+  display:grid;grid-template-columns:repeat(16,1fr);
+  gap:clamp(3px,0.4vw,10px);padding:clamp(4px,0.5vh,12px) clamp(8px,1.5vw,32px) clamp(2px,0.3vh,8px);
+  width:100%;flex:2;min-height:0;align-content:center;
 }
 .seq-step{
-  width:60px;height:60px;border:2px solid var(--brd-h);
+  aspect-ratio:1;width:100%;max-width:clamp(40px,5vw,60px);border:2px solid var(--brd-h);
   border-radius:6px;background:rgba(255,255,255,.025);
-  font-family:var(--lcd);font-size:16px;color:var(--txt-x);
+  font-family:var(--lcd);font-size:clamp(10px,1.2vw,16px);color:var(--txt-x);
   cursor:pointer;display:inline-flex;align-items:center;justify-content:center;
   transition:background .1s,border-color .1s,transform .08s,box-shadow .1s;
   box-shadow:0 2px 6px rgba(0,0,0,.25);
@@ -933,8 +1000,8 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 @keyframes seq-pulse{from{outline-width:4px;outline-offset:-4px}to{outline-width:2px;outline-offset:-2px}}
 .seq-bar-nav{
   display:flex;align-items:center;justify-content:center;
-  gap:8px;padding:12px 16px 5vh;
-  border-top:1px solid rgba(255,255,255,.04);
+  gap:clamp(4px,0.5vw,8px);padding:clamp(4px,0.5vh,12px) 16px clamp(8px,1vh,20px);
+  border-top:1px solid rgba(255,255,255,.04);flex-shrink:0;
 }
 .seq-bar-nav-label{
   font-family:var(--lcd);font-size:9px;color:var(--txt-x);
@@ -965,18 +1032,124 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
   color:var(--hi);font-weight:bold;
 }
 
-/* ── GRID view: mute/solo in grid ── */
+/* ── Part Parameter Knobs Panel ── */
+.part-knobs-panel{
+  padding:clamp(4px,0.5vh,10px) clamp(8px,1.5vw,32px);
+  border-top:1px solid var(--brd);border-bottom:1px solid var(--brd);
+  flex:2;min-height:0;overflow-x:hidden;overflow-y:auto;max-height:35vh;
+  display:flex;flex-direction:column;
+}
+.part-knobs-header{display:flex;align-items:baseline;gap:10px;margin-bottom:clamp(2px,0.4vh,8px);flex-wrap:wrap}
+.part-knobs-name{font-family:var(--head);font-size:clamp(12px,1.4vw,16px);font-weight:700;color:var(--hi);letter-spacing:2px}
+.part-knobs-sample{font-family:var(--lcd);font-size:clamp(10px,1vw,13px);color:var(--txt-d)}
+.part-knobs-type{font-family:var(--lcd);font-size:clamp(8px,0.7vw,10px);color:var(--txt-x);letter-spacing:2px;margin-left:auto}
+.pk-sections{display:flex;gap:clamp(4px,0.6vw,16px);align-items:flex-start;flex-wrap:wrap;justify-content:center;flex:1;min-height:0}
+.pk-section{display:flex;flex-direction:column;align-items:center;gap:clamp(1px,0.2vh,4px);flex:1 1 clamp(160px,22vw,280px);min-width:clamp(140px,18vw,200px)}
+.pk-section-label{
+  font-family:var(--head);font-size:clamp(7px,0.6vw,9px);color:var(--txt-x);
+  letter-spacing:3px;text-transform:uppercase;text-align:center;width:100%;
+  padding-bottom:clamp(2px,0.3vh,4px);border-bottom:1px solid var(--brd);margin-bottom:clamp(2px,0.3vh,4px);
+}
+.pk-knobs-row{display:flex;gap:clamp(2px,0.3vw,6px);flex-wrap:wrap;justify-content:center}
+.pk-knob{
+  display:flex;flex-direction:column;align-items:center;gap:clamp(1px,0.15vh,3px);
+  width:clamp(36px,3.5vw,64px);min-height:44px;min-width:44px;
+  padding:clamp(4px,0.4vh,8px) clamp(3px,0.3vw,6px);
+  background:linear-gradient(180deg,rgba(8,12,22,.92),rgba(14,20,36,.75));
+  border:1px solid var(--brd);border-radius:4px;cursor:pointer;
+  transition:border-color .12s,box-shadow .12s,background .12s;
+}
+.pk-knob:hover{
+  border-color:var(--led-d);
+  background:linear-gradient(180deg,rgba(12,16,28,.95),rgba(18,24,44,.8));
+  box-shadow:0 0 8px rgba(0,204,255,.1),inset 0 0 12px rgba(0,204,255,.03);
+}
+.pk-knob:hover .pk-knob-label{color:var(--txt-d)}
+.pk-knob:hover .pk-knob-svg{filter:brightness(1.2)}
+.pk-knob-label{font-family:var(--lcd);font-size:clamp(6px,0.55vw,8px);color:var(--txt-x);letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap;transition:color .12s}
+.pk-knob-svg{cursor:pointer;transition:filter .12s}
+.pk-knob-svg:active{cursor:grabbing}
+.pk-knob-value{font-family:var(--lcd);font-size:clamp(9px,0.8vw,12px);letter-spacing:.5px;min-height:14px;text-align:center}
+.pk-sep{
+  width:1px;align-self:stretch;flex-shrink:0;margin:0 clamp(2px,0.3vw,6px);
+  background:linear-gradient(180deg,transparent 10%,var(--brd-h) 40%,var(--brd-h) 60%,transparent 90%);opacity:.6;
+}
+/* ── Responsive: laptop screens (~1500px and below) ── */
+@media (max-width:1500px){
+  /* Knob sections: force wrap, hide separators */
+  .pk-sep{display:none}
+  .pk-sections{gap:6px 10px}
+  .pk-section{flex:1 1 200px;min-width:180px}
+
+  /* Knobs: ~20% smaller */
+  .pk-knob{width:clamp(34px,3vw,52px);min-width:40px;min-height:40px;padding:3px 2px}
+  .pk-knob-label{font-size:clamp(5.5px,0.5vw,7px)}
+  .pk-knob-value{font-size:clamp(8px,0.7vw,11px)}
+  .pk-knob-svg{width:28px!important;height:28px!important}
+  .pk-section-label{font-size:clamp(6px,0.55vw,8px);letter-spacing:2px}
+
+  /* Part buttons: more compact */
+  .part-btn{padding:clamp(4px,0.6vh,10px) clamp(2px,0.25vw,6px) clamp(3px,0.5vh,8px);gap:clamp(1px,0.3vh,4px)}
+  .part-type-lbl{font-size:clamp(12px,1.5vw,16px)}
+  .part-sample-lbl{font-size:clamp(8px,0.8vw,10px);padding:1px 2px}
+  .parts-rows{gap:clamp(4px,1vh,12px);padding:clamp(2px,0.6vh,8px) clamp(8px,1.5vw,20px)}
+  .parts-group-row{gap:clamp(2px,0.3vw,5px)}
+  .parts-sep{margin:0 clamp(3px,0.5vw,8px)}
+
+  /* Step buttons: capped smaller */
+  .seq-step{max-width:48px}
+  .seq-steps{gap:clamp(2px,0.35vw,6px);padding:clamp(2px,0.4vh,8px) clamp(8px,1.2vw,20px) clamp(2px,0.2vh,4px)}
+
+  /* Bar nav: more compact */
+  .seq-bar-nav{padding:clamp(2px,0.3vh,6px) 12px clamp(4px,0.6vh,10px)}
+
+  /* Knobs panel: less padding */
+  .part-knobs-panel{padding:clamp(2px,0.4vh,6px) clamp(6px,1vw,16px);max-height:30vh}
+}
+/* ── Responsive: narrow windows (~1200px and below) ── */
+@media (max-width:1200px){
+  /* Knob sections: 2x2 grid layout */
+  .pk-sections{gap:4px 8px}
+  .pk-section{flex:1 1 45%;min-width:150px}
+
+  /* Even smaller knobs */
+  .pk-knob{width:clamp(32px,4vw,44px);min-width:36px;min-height:36px;padding:2px 1px}
+  .pk-knob-svg{width:24px!important;height:24px!important}
+  .pk-knob-label{font-size:5.5px}
+  .pk-knob-value{font-size:clamp(7px,0.65vw,10px)}
+
+  /* Part buttons: tighter */
+  .part-btn{padding:clamp(3px,0.5vh,6px) clamp(2px,0.2vw,4px) clamp(2px,0.4vh,4px);gap:1px;border-radius:5px}
+  .part-type-lbl{font-size:clamp(10px,1.3vw,14px)}
+  .part-sample-lbl{font-size:clamp(7px,0.7vw,9px)}
+  .parts-group-label{font-size:clamp(6px,0.55vw,7px);letter-spacing:2px;padding-bottom:2px}
+  .parts-group-row{gap:clamp(2px,0.25vw,4px)}
+
+  /* Step area: smaller */
+  .seq-step{max-width:40px;font-size:clamp(8px,1vw,12px)}
+  .seq-steps{gap:clamp(2px,0.3vw,4px);flex:1.5}
+
+  /* Knobs panel */
+  .part-knobs-panel{max-height:28vh;flex:1.5}
+}
+
+/* ── GRID view: mute/solo toggles ── */
 .px-ms-btns{display:flex;align-items:center;gap:2px;width:36px;flex-shrink:0}
 .px-ms-btn{
-  width:16px;height:14px;padding:0;border:1px solid var(--brd-h);
-  background:rgba(255,255,255,.04);color:var(--txt-x);
+  width:16px;height:14px;padding:0;
+  border:1px solid rgba(20,28,48,.5);
+  border-top-color:rgba(0,0,0,.35);border-left-color:rgba(0,0,0,.3);
+  border-bottom-color:rgba(40,55,80,.2);border-right-color:rgba(40,55,80,.2);
+  background:#090d16;color:var(--txt-x);
   font-family:var(--lcd);font-size:8px;cursor:pointer;
   display:inline-flex;align-items:center;justify-content:center;
   border-radius:2px;
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.4);
+  transition:background 80ms,border-color 80ms;
 }
-.px-ms-btn:hover{background:rgba(255,255,255,.1)}
-.px-ms-btn.muted{background:rgba(197,48,92,.5);color:#fff;border-color:#c5305c}
-.px-ms-btn.soloed{background:rgba(255,235,59,.5);color:#111;border-color:#ffeb3b}
+.px-ms-btn:hover{background:#0e1422;border-color:rgba(30,60,100,.35)}
+.px-ms-btn.muted{background:rgba(197,48,92,.45);color:#fff;border-color:#c5305c}
+.px-ms-btn.soloed{background:rgba(255,235,59,.45);color:#111;border-color:#ffeb3b}
 .px-row.row-muted{opacity:0.3}
 .px-row.row-muted .px-label{text-decoration:line-through}
 
@@ -1159,7 +1332,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
       <div class="hsep"></div>
       <span id="patFormatBadge" style="font-family:var(--lcd);font-size:11px;color:var(--txt-d);padding:0 8px">No file loaded</span>
       <div class="hsep"></div>
-      <div class="pat-zoom">
+      <div class="pat-zoom" id="patZoom">
         <button class="pat-zoom-btn" onclick="patZoom(-1)" title="Zoom Out (-)">−</button>
         <span class="pat-zoom-lbl" id="patZoomLbl">100%</span>
         <button class="pat-zoom-btn" onclick="patZoom(1)" title="Zoom In (+)">+</button>
@@ -1198,12 +1371,20 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
         <div class="pat-mode-view active" id="patPartsWrap">
           <div id="partsGrid"></div>
           <div id="emxSynthInline"></div>
+          <div id="partParamsPanel" class="part-knobs-panel" style="display:none">
+            <div class="part-knobs-header">
+              <span class="part-knobs-name" id="pkName">D1</span>
+              <span class="part-knobs-sample" id="pkSample">—</span>
+              <span class="part-knobs-type" id="pkType">DRUM PART 1</span>
+            </div>
+            <div class="part-knobs-body" id="pkBody"></div>
+          </div>
           <div class="seq-steps" id="seqSteps"></div>
           <div class="seq-bar-nav" id="seqBarNav"></div>
         </div>
         <!-- GRID view (existing matrix) -->
         <div class="pat-mode-view" id="patGridViewWrap">
-          <div id="patGridWrap"></div>
+          <div class="pat-grid-wrap" id="patGridWrap"></div>
         </div>
       </div>
     </div>
@@ -1902,7 +2083,7 @@ function buildFxList(){
           if(hasZero){trk+=`<div class="fx-zero-mark" style="left:${zeroPct.toFixed(1)}%"><div class="fx-zero-diamond"></div><div class="fx-zero-line"></div><div class="fx-zero-lbl">${zeroLbl}</div></div>`}
           trk+=`<input type="range" class="fx-range" id="${p.id}" min="${p.min}" max="${p.max}" value="${p.val}" oninput="upFxVal('${p.id}')">`;
           trk+=`</div>`;
-          h+=`<div class="fx-row"><span class="fx-lbl">${p.lbl}</span>${trk}<span class="fx-val" id="v${p.id}">${p.fmt(p.val)}</span></div>`}
+          h+=`<div class="fx-row"><span class="fx-lbl">${p.lbl}</span>${trk}<span class="fx-val" id="v${p.id}" onclick="fxValClick(this)">${p.fmt(p.val)}</span></div>`}
         if(fx.note)h+=`<div class="fx-note">${fx.note}</div>`;
         h+=`<button class="fx-go" onclick="applyFx('${fx.id}')">⚡ APPLY</button></div>`}
       h+=`</div>`}
@@ -1923,6 +2104,49 @@ function updateSliderFill(slider){
 // Update displayed value for a param
 function upFxVal(pid){
   for(const fx of FX_DEFS){if(!fx.params)continue;for(const p of fx.params){if(p.id===pid){document.getElementById('v'+pid).textContent=p.fmt(+document.getElementById(pid).value);const sl=document.getElementById(pid);if(sl)updateSliderFill(sl);previewDb(fx,pid);return}}}}
+// Click-to-edit on .fx-val spans
+function fxValClick(span){
+  const pid=span.id.slice(1); // strip 'v' prefix
+  const sl=document.getElementById(pid);
+  if(!sl)return;
+  const min=+sl.min,max=+sl.max;
+  const inp=document.createElement('input');
+  inp.type='number';inp.className='fx-val-input';
+  inp.min=min;inp.max=max;inp.step=1;
+  inp.value=sl.value;
+  inp.id=span.id;
+  span.replaceWith(inp);
+  inp.focus();inp.select();
+  let done=false;
+  function finish(sp){
+    if(done)return;done=true;
+    sp.setAttribute('onclick','fxValClick(this)');
+    inp.replaceWith(sp);
+  }
+  function commit(){
+    if(done)return;
+    let v=parseFloat(inp.value);
+    if(isNaN(v))v=+sl.value;
+    v=Math.round(Math.min(max,Math.max(min,v)));
+    sl.value=v;
+    const sp=document.createElement('span');
+    sp.className='fx-val';sp.id=inp.id;
+    finish(sp);
+    upFxVal(pid);
+  }
+  function cancel(){
+    if(done)return;
+    const sp=document.createElement('span');
+    sp.className='fx-val';sp.id=inp.id;
+    for(const fx of FX_DEFS){if(!fx.params)continue;for(const p of fx.params){if(p.id===pid){sp.textContent=p.fmt(+sl.value);break}}}
+    finish(sp);
+  }
+  inp.addEventListener('keydown',e=>{
+    if(e.key==='Enter'){e.preventDefault();commit();}
+    else if(e.key==='Escape'){e.preventDefault();cancel();}
+  });
+  inp.addEventListener('blur',()=>commit());
+}
 function previewDb(fx,pid){
   if(!isFinite(_basePeakDb))return;
   // Calculate dB offset for effects where it's predictable
@@ -2487,7 +2711,7 @@ setTimeout(function setupDelegation(){
   const pg=document.getElementById('partsGrid');
   if(pg)pg.addEventListener('click',e=>{
     const gear=e.target.closest('.part-gear-icon');
-    if(gear){e.stopPropagation();openParamPopup(parseInt(gear.dataset.part),e);return}
+    if(gear){e.stopPropagation();const gi=parseInt(gear.dataset.part);const gbtn=pg.querySelector(`.part-btn[data-part="${gi}"]`);if(gbtn)gbtn.click();return}
     const mute=e.target.closest('.part-mute-toggle');
     if(mute){e.stopPropagation();patToggleMute(parseInt(mute.dataset.part));return}
     const pick=e.target.closest('.part-sample-pick');
@@ -2522,11 +2746,12 @@ setTimeout(function setupDelegation(){
       btn.style.borderColor=col;
       btn.style.background=`linear-gradient(180deg,rgba(${rgb},.12) 0%,rgba(${rgb},.06) 100%)`;
       btn.style.boxShadow=`inset 0 1px 0 rgba(255,255,255,.06),inset 0 -1px 0 rgba(0,0,0,.3),0 0 16px rgba(${rgb},.2)`;
-      // Update step sequencer only
+      // Update step sequencer and knob panel
       const selPart=parts[patSeqPart];
       const selRgb=PAT_PX_COLORS[(selPart&&selPart.type)||'drum']||'197,48,92';
       stepsRenderButtons(pat,selPart,selRgb);
       stepsRenderBarNav(pat);
+      renderPartKnobs(pat,patSeqPart);
       return;
     }
   });
@@ -2671,11 +2896,14 @@ function patSetMode(mode, partIndex){
   if(el)el.classList.add('active');
   // Toggle tab buttons
   document.querySelectorAll('.pat-mode-btn').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));
+  // Show zoom controls only in grid mode
+  const zoomEl=document.getElementById('patZoom');
+  if(zoomEl)zoomEl.style.display=mode==='grid'?'':'none';
   // Render active view
   const pat=patData[patSel];
   if(!pat)return;
   if(mode==='parts'){partsRender(pat);}
-  else if(mode==='grid'){patDrawGrid(pat);}
+  else if(mode==='grid'){patZoom(0);}
 }
 
 // Total step count for display/playback.
@@ -2908,6 +3136,8 @@ function drawHexCell(ctx,cx,cy,r,fill,stroke,glow){
 }
 
 let patPlayStep=-1;
+let patCellsByStep=new Map(); // Map<stepNumber, Element[]> — grid cell index for fast playhead
+let patPlayingCells=[];       // currently highlighted cells (for O(1) removal)
 
 const PAT_PX_COLORS={
   drum:'197,48,92', synth:'0,204,255', keyboard:'0,204,255', stretch:'0,230,118',
@@ -2991,6 +3221,15 @@ function patDrawGrid(pat){
   }
 
   wrap.innerHTML=html;
+
+  // Build cell index Map for fast playhead highlight (avoids querySelectorAll per tick)
+  patCellsByStep=new Map();
+  patPlayingCells=[];
+  wrap.querySelectorAll('.px-cell').forEach(c=>{
+    const s=+c.dataset.step;
+    if(!patCellsByStep.has(s))patCellsByStep.set(s,[]);
+    patCellsByStep.get(s).push(c);
+  });
 }
 
 function patToggleMute(idx){
@@ -3119,6 +3358,9 @@ function partsRender(pat){
   stepsRenderButtons(pat,selPart,selRgb);
   stepsRenderBarNav(pat);
 
+  // Render part parameter knobs (ESX/E2 only, hidden for EMX)
+  renderPartKnobs(pat,patSeqPart);
+
   // EMX-1: render inline synth analyzer
   const emxWrap=document.getElementById('emxSynthInline');
   if(emxWrap){
@@ -3135,6 +3377,178 @@ function partsRender(pat){
 // ESX-1 filter type names
 const ESX_FILTER_NAMES=['LPF','HPF','BPF','BPF+'];
 function esxFilterName(v){return ESX_FILTER_NAMES[v]||String(v);}
+
+// ═══════════════════════════════════════════════════════════
+//  PART PARAMETER ROTARY KNOBS
+// ═══════════════════════════════════════════════════════════
+
+const ESX_PART_PARAMS={
+  drum:[
+    {section:'OSCILLATOR',params:[
+      {key:'pitch',label:'PITCH',min:-24,max:24,defaultVal:0,color:'#00ccff',fmt:v=>(v>0?'+':'')+v+' st'},
+      {key:'glideTime',label:'GLIDE',min:0,max:127,defaultVal:0,color:'#00ccff',fmt:v=>String(v)},
+      {key:'startPoint',label:'START',min:0,max:127,defaultVal:0,color:'#00ccff',fmt:v=>String(v)},
+      {key:'modSpeed',label:'M.SPD',min:0,max:127,defaultVal:64,color:'#00ccff',fmt:v=>String(v)},
+      {key:'modDepth',label:'M.DPT',min:0,max:127,defaultVal:0,color:'#00ccff',fmt:v=>String(v)},
+    ]},
+    {section:'FILTER',params:[
+      {key:'filterType',label:'TYPE',min:0,max:3,defaultVal:0,color:'#ff0088',fmt:v=>['LPF','HPF','BPF','BPF+'][v]||String(v)},
+      {key:'cutoff',label:'CUTOFF',min:0,max:127,defaultVal:127,color:'#ff0088',fmt:v=>String(v)},
+      {key:'resonance',label:'RESO',min:0,max:127,defaultVal:0,color:'#ff0088',fmt:v=>String(v)},
+      {key:'egInt',label:'EG INT',min:0,max:127,defaultVal:64,color:'#ff0088',fmt:v=>String(v)},
+    ]},
+    {section:'AMP',params:[
+      {key:'level',label:'LEVEL',min:0,max:127,defaultVal:100,color:'#00ff88',fmt:v=>String(v)},
+      {key:'pan',label:'PAN',min:0,max:127,defaultVal:64,color:'#00ff88',fmt:v=>v===64?'C':(v<64?'L'+(64-v):'R'+(v-64))},
+      {key:'egTime',label:'DECAY',min:0,max:127,defaultVal:64,color:'#00ff88',fmt:v=>String(v)},
+      {key:'ampEg',label:'AMP EG',min:0,max:1,defaultVal:0,color:'#00ff88',fmt:v=>v?'GATE':'EG'},
+    ]},
+    {section:'MOD / FX',params:[
+      {key:'fxSelect',label:'FX SEL',min:0,max:2,defaultVal:0,color:'#ffe600',fmt:v=>['OFF','FX1','FX2'][v]||String(v)},
+      {key:'fxSend',label:'SEND',min:0,max:127,defaultVal:0,color:'#ffe600',fmt:v=>String(v)},
+      {key:'motionSeqOn',label:'M.SEQ',min:0,max:1,defaultVal:0,color:'#ffe600',fmt:v=>v?'ON':'OFF'},
+      {key:'reverse',label:'REV',min:0,max:1,defaultVal:0,color:'#ffe600',fmt:v=>v?'ON':'OFF'},
+    ]},
+  ],
+};
+ESX_PART_PARAMS.keyboard=ESX_PART_PARAMS.drum;
+ESX_PART_PARAMS.stretch=ESX_PART_PARAMS.drum;
+ESX_PART_PARAMS.slice=ESX_PART_PARAMS.drum;
+
+function drawRotaryKnob(container,angle,color,size){
+  const cx=size/2,cy=size/2;
+  const r=size/2-3;
+  const kr=r-5;
+  const startDeg=225,sweepDeg=270;
+  const toRad=d=>d*Math.PI/180;
+  let svg='';
+  // Track dots
+  for(let a=0;a<=sweepDeg;a+=8){
+    const rad=toRad(startDeg-a);
+    const x=cx+(r-1)*Math.cos(rad),y=cy-(r-1)*Math.sin(rad);
+    svg+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="0.6" fill="rgba(255,255,255,.08)"/>`;
+  }
+  // Active arc dots
+  const activeSweep=angle*sweepDeg;
+  for(let a=0;a<=activeSweep;a+=4){
+    const rad=toRad(startDeg-a);
+    const x=cx+(r-1)*Math.cos(rad),y=cy-(r-1)*Math.sin(rad);
+    const alpha=0.25+0.55*(a/sweepDeg);
+    svg+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="1" fill="${color}" opacity="${alpha.toFixed(2)}"/>`;
+  }
+  // Knob body
+  svg+=`<circle cx="${cx}" cy="${cy}" r="${kr+1}" fill="none" stroke="rgba(0,0,0,.5)" stroke-width="0.5"/>`;
+  svg+=`<circle cx="${cx}" cy="${cy}" r="${kr}" fill="url(#pkMetalGrad)" stroke="rgba(255,255,255,.12)" stroke-width="0.5"/>`;
+  svg+=`<line x1="${cx-kr+3}" y1="${cy}" x2="${cx+kr-3}" y2="${cy}" stroke="rgba(255,255,255,.04)" stroke-width="0.5"/>`;
+  const hlRad=kr-2;
+  svg+=`<path d="M${cx-hlRad*0.7} ${cy-hlRad*0.5} A${hlRad} ${hlRad} 0 0 1 ${cx+hlRad*0.7} ${cy-hlRad*0.5}" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="0.8"/>`;
+  // Indicator notch
+  const indRad=toRad(startDeg-angle*sweepDeg);
+  const ix1=cx+(kr-8)*Math.cos(indRad),iy1=cy-(kr-8)*Math.sin(indRad);
+  const ix2=cx+(kr-2)*Math.cos(indRad),iy2=cy-(kr-2)*Math.sin(indRad);
+  svg+=`<line x1="${ix1.toFixed(1)}" y1="${(iy1+0.5).toFixed(1)}" x2="${ix2.toFixed(1)}" y2="${(iy2+0.5).toFixed(1)}" stroke="rgba(0,0,0,.6)" stroke-width="2.5" stroke-linecap="round"/>`;
+  svg+=`<line x1="${ix1.toFixed(1)}" y1="${iy1.toFixed(1)}" x2="${ix2.toFixed(1)}" y2="${iy2.toFixed(1)}" stroke="rgba(255,255,255,.5)" stroke-width="1.5" stroke-linecap="round"/>`;
+  // Center dimple
+  svg+=`<circle cx="${cx}" cy="${cy}" r="2" fill="rgba(0,0,0,.4)"/>`;
+  svg+=`<circle cx="${cx}" cy="${cy}" r="1.2" fill="rgba(255,255,255,.08)"/>`;
+  container.innerHTML=`<svg class="pk-knob-svg" viewBox="0 0 ${size} ${size}" width="100%" height="100%"><defs><linearGradient id="pkMetalGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#c8d0d8"/><stop offset="35%" stop-color="#8890a0"/><stop offset="65%" stop-color="#6a7280"/><stop offset="100%" stop-color="#c0c8d0"/></linearGradient></defs>${svg}</svg>`;
+}
+
+function attachKnobDrag(knobEl,param,onUpdate){
+  const svgWrap=knobEl.querySelector('.pk-knob-svg');
+  if(!svgWrap)return;
+  let dragging=false,startY=0,startVal=0;
+  svgWrap.addEventListener('mousedown',e=>{
+    dragging=true;startY=e.clientY;startVal=param.value;
+    document.body.style.cursor='grabbing';e.preventDefault();
+  });
+  document.addEventListener('mousemove',e=>{
+    if(!dragging)return;
+    const dy=startY-e.clientY;
+    const range=param.max-param.min;
+    const sensitivity=Math.max(100,range);
+    const newVal=Math.round(Math.min(param.max,Math.max(param.min,startVal+(dy/sensitivity)*range)));
+    if(newVal!==param.value){param.value=newVal;onUpdate(param);}
+  });
+  document.addEventListener('mouseup',()=>{
+    if(dragging){dragging=false;document.body.style.cursor='';}
+  });
+  svgWrap.addEventListener('dblclick',()=>{
+    if(param.defaultVal!=null){param.value=param.defaultVal;onUpdate(param);}
+  });
+}
+
+function renderPartKnobs(pat,partIndex){
+  const panel=document.getElementById('partParamsPanel');
+  const body=document.getElementById('pkBody');
+  const nameEl=document.getElementById('pkName');
+  const sampleEl=document.getElementById('pkSample');
+  const typeEl=document.getElementById('pkType');
+  if(!panel||!body)return;
+  const parts=pat.parts||[];
+  const part=parts[partIndex];
+  if(!part){panel.style.display='none';return;}
+  const isEMX=patFormat==='EMX-1';
+  if(isEMX){panel.style.display='none';return;}
+  // Header
+  const label=SEQ_PART_LABELS[partIndex]||`P${partIndex+1}`;
+  const pType=(part.type||'drum').toUpperCase();
+  const sName=part.sampleName||'—';
+  nameEl.textContent=label;
+  nameEl.style.color=PAT_PX_LABEL[part.type||'drum']||'var(--hi)';
+  sampleEl.textContent=sName;
+  typeEl.textContent=pType+' PART '+(partIndex+1);
+  // Get param layout
+  let layout=ESX_PART_PARAMS[part.type||'drum']||ESX_PART_PARAMS.drum;
+  if(typeof layout==='string')layout=ESX_PART_PARAMS[layout];
+  // Build sections
+  let html='<div class="pk-sections">';
+  layout.forEach((section,si)=>{
+    if(si>0)html+='<div class="pk-sep"></div>';
+    html+='<div class="pk-section">';
+    html+=`<div class="pk-section-label">${section.section}</div>`;
+    html+='<div class="pk-knobs-row">';
+    section.params.forEach(paramDef=>{
+      const val=part[paramDef.key]!=null?part[paramDef.key]:paramDef.defaultVal;
+      const norm=(val-paramDef.min)/(paramDef.max-paramDef.min);
+      const id=`pk_${partIndex}_${paramDef.key}`;
+      html+=`<div class="pk-knob" id="${id}" data-part="${partIndex}" data-key="${paramDef.key}">`;
+      html+=`<div class="pk-knob-label">${paramDef.label}</div>`;
+      html+=`<div class="pk-knob-canvas" data-norm="${norm}" data-color="${paramDef.color}" style="width:clamp(28px,2.5vw,40px);height:clamp(28px,2.5vw,40px)"></div>`;
+      html+=`<div class="pk-knob-value" style="color:${paramDef.color};text-shadow:0 0 4px ${paramDef.color}30">${paramDef.fmt(val)}</div>`;
+      html+='</div>';
+    });
+    html+='</div></div>';
+  });
+  html+='</div>';
+  body.innerHTML=html;
+  panel.style.display='';
+  // Render SVGs
+  body.querySelectorAll('.pk-knob-canvas').forEach(canvas=>{
+    drawRotaryKnob(canvas,parseFloat(canvas.dataset.norm),canvas.dataset.color,48);
+  });
+  // Attach drag interactions
+  body.querySelectorAll('.pk-knob').forEach(knobEl=>{
+    const partIdx=parseInt(knobEl.dataset.part);
+    const key=knobEl.dataset.key;
+    let paramDef=null;
+    for(const sec of layout){paramDef=sec.params.find(p=>p.key===key);if(paramDef)break;}
+    if(!paramDef)return;
+    const currentPart=parts[partIdx];
+    const param={
+      value:currentPart[key]!=null?currentPart[key]:paramDef.defaultVal,
+      min:paramDef.min,max:paramDef.max,defaultVal:paramDef.defaultVal,
+    };
+    attachKnobDrag(knobEl,param,p=>{
+      const norm=(p.value-p.min)/(p.max-p.min);
+      const canvas=knobEl.querySelector('.pk-knob-canvas');
+      const valEl=knobEl.querySelector('.pk-knob-value');
+      if(canvas)drawRotaryKnob(canvas,norm,paramDef.color,48);
+      if(valEl)valEl.textContent=paramDef.fmt(p.value);
+      currentPart[key]=p.value;
+    });
+  });
+}
 
 // ═══════════════════════════════════════════════════════════
 //  EMX-1 VISUAL SYNTH PANEL
@@ -3629,67 +4043,7 @@ function partsRenderParams(pat, part, popupPartIdx){
 // ═══════════════════════════════════════════════════════════
 //  FLOATING PARAM POPUP
 // ═══════════════════════════════════════════════════════════
-function openParamPopup(partIdx, event){
-  const pat=patData[patSel];
-  if(!pat)return;
-  const parts=pat.parts||[];
-  const part=parts[partIdx];
-  const popup=DOM.paramPopup;
-  if(!popup)return;
-
-  // Set title
-  const label=getPartLabel(partIdx);
-  const sName=(part&&part.sampleName)?` — ${esc(part.sampleName)}`:(part&&part.name?` — ${esc(part.name)}`:'');
-  DOM.paramPopupTitle.innerHTML=`<span style="color:var(--led)">${label}</span>${sName}`;
-
-  // Render params into popup body (passing explicit partIdx so it works regardless of selected step-part)
-  partsRenderParams(pat, part, partIdx);
-
-  // Position near the gear icon
-  const rect=event.target.getBoundingClientRect();
-  const viewRect=document.getElementById('e2pat-view').getBoundingClientRect();
-  let left=rect.right-viewRect.left+8;
-  let top=rect.top-viewRect.top;
-  // Keep within viewport
-  if(left+400>viewRect.width)left=rect.left-viewRect.left-340;
-  if(top+300>viewRect.height)top=Math.max(0,viewRect.height-300);
-  popup.style.left=left+'px';
-  popup.style.top=top+'px';
-  popup.style.display='block';
-  popup.classList.remove('popup-closing');
-  requestAnimationFrame(()=>popup.classList.add('popup-open'));
-
-  // Close on outside click (delayed to avoid immediate close)
-  setTimeout(()=>{
-    const outsideClose=(e)=>{
-      if(!popup.contains(e.target)&&!e.target.classList.contains('part-gear-icon')){
-        closeParamPopup();
-        document.removeEventListener('mousedown',outsideClose,true);
-      }
-    };
-    document.addEventListener('mousedown',outsideClose,true);
-    popup._outsideClose=outsideClose;
-  },0);
-
-  // Make popup draggable
-  const hdr=popup.querySelector('.param-popup-hdr');
-  hdr.onmousedown=(e)=>{
-    if(e.target.classList.contains('param-popup-close'))return;
-    e.preventDefault();
-    const startX=e.clientX,startY=e.clientY;
-    const startLeft=popup.offsetLeft,startTop=popup.offsetTop;
-    const onMove=(ev)=>{
-      popup.style.left=(startLeft+ev.clientX-startX)+'px';
-      popup.style.top=(startTop+ev.clientY-startY)+'px';
-    };
-    const onUp=()=>{
-      document.removeEventListener('mousemove',onMove);
-      document.removeEventListener('mouseup',onUp);
-    };
-    document.addEventListener('mousemove',onMove);
-    document.addEventListener('mouseup',onUp);
-  };
-}
+function openParamPopup(){/* disabled — knobs panel replaces popup */}
 
 function closeParamPopup(){
   const popup=DOM.paramPopup;
@@ -3743,13 +4097,19 @@ function stepsRenderBarNav(pat){
 // ═══════════════════════════════════════════════════════════
 function patHighlightStep(step){
   patPlayStep=step;
-  // Clear all highlight types
-  document.querySelectorAll('.px-playing').forEach(c=>c.classList.remove('px-playing'));
-  document.querySelectorAll('.seq-step-playing').forEach(c=>c.classList.remove('seq-step-playing'));
+  // Remove previous highlight from cached cells (O(1) instead of querySelectorAll)
+  for(let i=0;i<patPlayingCells.length;i++)patPlayingCells[i].classList.remove('px-playing');
+  patPlayingCells=[];
   // Apply to active view
   if(patViewMode==='grid'){
-    document.querySelectorAll(`.px-cell[data-step="${step}"]`).forEach(c=>c.classList.add('px-playing'));
+    const cells=patCellsByStep.get(step);
+    if(cells){
+      for(let i=0;i<cells.length;i++)cells[i].classList.add('px-playing');
+      patPlayingCells=cells;
+    }
   } else if(patViewMode==='parts'){
+    // Parts view: also clear seq-step-playing
+    document.querySelectorAll('.seq-step-playing').forEach(c=>c.classList.remove('seq-step-playing'));
     const el=document.querySelector(`.seq-step[data-step="${step}"]`);
     if(el)el.classList.add('seq-step-playing');
   }
@@ -3771,11 +4131,16 @@ function patZoom(dir){
     const gridWrap=document.getElementById('patGridWrap');
     if(!gridWrap||patSel<0||!patData[patSel]){PAT_CELL=PAT_CELL_BASE;return;}
     const steps=patStepCount(patData[patSel]);
-    const labelW=140;
-    const barGaps=Math.floor(steps/16)*8; // bar boundary gaps (8px each)
-    const beatGaps=Math.floor(steps/4)*4; // beat group gaps (4px each)
-    const gapTotal=barGaps+beatGaps;
-    const availW=gridWrap.parentElement.clientWidth-labelW-gapTotal-40; // 40 = padding
+    const msW=38;   // mute/solo buttons column + gap
+    const labelW=142; // label width + padding
+    const padX=36;   // .px-grid padding: 18px each side
+    const cellGap=(steps-1)*1; // 1px gap between cells
+    const barMarks=steps>16?Math.floor((steps-1)/16):0; // bar boundary margins (9px)
+    const beatMarks=steps>4?Math.floor((steps-1)/4)-barMarks:0; // beat margins (5px, excluding bars)
+    const extraGaps=barMarks*9+beatMarks*5;
+    const scrollbar=14; // scrollbar reserve
+    const containerW=gridWrap.parentElement?gridWrap.parentElement.clientWidth:gridWrap.clientWidth;
+    const availW=containerW-msW-labelW-padX-cellGap-extraGaps-scrollbar;
     PAT_CELL=Math.round(Math.max(PAT_CELL_MIN,Math.min(PAT_CELL_MAX,availW/steps)));
   } else {
     PAT_CELL=Math.max(PAT_CELL_MIN,Math.min(PAT_CELL_MAX,PAT_CELL+dir*4));
@@ -3851,6 +4216,15 @@ function patScrollToSel(){
 }
 document.addEventListener('keydown',patHandleKeyboard);
 
+// Auto-fit grid on window resize (debounced)
+let _patResizeT;
+window.addEventListener('resize',()=>{
+  clearTimeout(_patResizeT);
+  _patResizeT=setTimeout(()=>{
+    if(activeDevice==='e2pat'&&patViewMode==='grid'&&patSel>=0&&patData[patSel])patZoom(0);
+  },150);
+});
+
 // ═══════════════════════════════════════════════════════════
 //  PATTERN PLAYBACK — Web Audio lookahead scheduler
 // ═══════════════════════════════════════════════════════════
@@ -3861,6 +4235,46 @@ const patActiveVoices={};  // Map<partIndex, AudioBufferSourceNode> — voice st
 let smpPickerPartIdx=-1;    // which part index the picker is for
 let smpDirectory=null;      // cached sample directory from main process
 let smpPreviewSource=null;  // currently playing preview AudioBufferSourceNode
+
+// Master audio chain — prevents clipping when many parts play simultaneously
+let patMasterGain=null;      // GainNode: scaled by active part count
+let patMasterComp=null;      // DynamicsCompressorNode: gentle safety limiter
+
+function patCreateMasterChain(ctx,parts){
+  if(patMasterGain&&patMasterComp)return;
+  // Count parts that have at least one active step
+  let activeCount=1;
+  if(parts&&parts.length){
+    activeCount=0;
+    for(let i=0;i<parts.length;i++){
+      const p=parts[i];
+      if(p&&p.steps&&p.steps.some(s=>s))activeCount++;
+    }
+    if(activeCount<1)activeCount=1;
+  }
+  patMasterGain=ctx.createGain();
+  patMasterGain.gain.value=1/Math.sqrt(activeCount);
+  patMasterComp=ctx.createDynamicsCompressor();
+  patMasterComp.threshold.value=-3;
+  patMasterComp.ratio.value=4;
+  patMasterComp.knee.value=6;
+  patMasterComp.attack.value=0.01;
+  patMasterComp.release.value=0.15;
+  patMasterGain.connect(patMasterComp);
+  patMasterComp.connect(ctx.destination);
+}
+
+function patDestroyMasterChain(){
+  if(patMasterGain){try{patMasterGain.disconnect()}catch(e){}}
+  if(patMasterComp){try{patMasterComp.disconnect()}catch(e){}}
+  patMasterGain=null;
+  patMasterComp=null;
+}
+
+function patGetMasterDest(ctx){
+  if(patMasterGain)return patMasterGain;
+  return ctx.destination; // fallback for sample preview
+}
 
 // Sequencer state
 let seqPattern=null;
@@ -3874,9 +4288,13 @@ const SEQ_INTERVAL=25;     // Check every 25ms
 function getPatAudioCtx(){
   if(!patAudioCtx){
     try{
-      patAudioCtx=Tone.getContext().rawContext;
+      if(typeof Tone!=='undefined'&&Tone.getContext){
+        patAudioCtx=Tone.getContext().rawContext;
+      }else{
+        patAudioCtx=new (window.AudioContext||window.webkitAudioContext)();
+      }
     }catch(e){
-      console.error('Failed to get Tone.js AudioContext:',e);
+      console.error('Failed to create AudioContext:',e);
       return null;
     }
   }
@@ -4039,7 +4457,7 @@ function seqScheduleStep(step,time){
         node=panner;
       }
 
-      node.connect(ctx.destination);
+      node.connect(patGetMasterDest(ctx));
       src.start(time,startOffset);
       patActiveVoices[i]=src;
       src.onended=()=>{if(patActiveVoices[i]===src)delete patActiveVoices[i];};
@@ -4078,13 +4496,17 @@ async function patTogglePlay(){
     const pat=patData[patSel];
     const bpm=parseFloat(document.getElementById('patBpmIn')?.value)||pat.bpm||120;
 
-    await Tone.start();
+    // Unlock AudioContext (Tone.js if available, else native resume)
+    if(typeof Tone!=='undefined'&&Tone.start){await Tone.start();}
+    const ctx=getPatAudioCtx();
+    if(!ctx){toast('Audio context unavailable','error');return;}
+    if(ctx.state==='suspended')await ctx.resume();
 
     toast('Loading samples...','info');
     await patLoadSamples(pat.parts||[]);
 
-    const ctx=getPatAudioCtx();
-    if(!ctx){toast('Audio context unavailable','error');return;}
+    // Create master audio chain (gain scaled by active parts + gentle compressor)
+    patCreateMasterChain(ctx,pat.parts);
 
     seqPattern=pat;
     seqStepDuration=60/bpm/4; // 16th note in seconds
@@ -4112,10 +4534,13 @@ function patStop(){
     try{patActiveVoices[k].stop();}catch(e){}
     delete patActiveVoices[k];
   }
+  // Tear down master audio chain
+  patDestroyMasterChain();
   seqCurrentStep=0;
   patPlayStep=-1;
-  // Clear all playing highlights
-  document.querySelectorAll('.px-playing').forEach(c=>c.classList.remove('px-playing'));
+  // Clear all playing highlights using cached cells
+  for(let i=0;i<patPlayingCells.length;i++)patPlayingCells[i].classList.remove('px-playing');
+  patPlayingCells=[];
   document.querySelectorAll('.seq-step-playing').forEach(c=>c.classList.remove('seq-step-playing'));
   const btn=document.getElementById('patPlayBtn');
   if(btn){btn.classList.remove('playing');btn.textContent='PLAY';}

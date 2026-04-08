@@ -47,7 +47,7 @@ app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) creat
 const FEATURES = {
   ESX_SAMPLER:      true,   // ESX-1 Sample Manager tab
   E2S_SAMPLER:      false,  // E2S Sample Manager tab
-  PATTERN_VIEWER:   false,  // Pattern Viewer tab (ESX + EMX + E2)
+  PATTERN_VIEWER:   true, // Pattern Viewer tab (ESX + EMX + E2)
   CONVERSION:       false,  // ESX↔E2S conversion dialog
   GUIDE:            true,   // Hardtekk/Schranz guide
   MODIFY_MODAL:     true,   // DSP effects modal in ESX sampler
