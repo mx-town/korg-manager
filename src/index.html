@@ -21,6 +21,66 @@
   --cat-dyn:#00d9ff;--cat-dyn-d:#005566;--cat-dyn-g:rgba(0,217,255,.15);
   --lcd:'Share Tech Mono',monospace;--head:'Orbitron',sans-serif;--ui:'Rajdhani',sans-serif;
 }
+/* ═══ SHARED DEPTH CLASSES ═══ */
+.hw-panel{
+  background:linear-gradient(180deg,rgba(8,12,22,.92) 0%,rgba(14,20,36,.75) 100%);
+  border:1.5px solid var(--brd-h);border-radius:7px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05),inset 0 -1px 0 rgba(0,0,0,.4),0 2px 8px rgba(0,0,0,.3);
+  transition:background .15s ease,border-color .15s ease,box-shadow .15s ease,transform .1s ease;
+}
+.hw-panel:hover{
+  background:linear-gradient(180deg,rgba(14,18,30,.95) 0%,rgba(22,28,48,.8) 100%);
+  transform:translateY(-1px);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.06),inset 0 -1px 0 rgba(0,0,0,.4),0 4px 16px rgba(0,0,0,.4);
+}
+.hw-recess{
+  background:rgba(8,12,22,.9);
+  border:1px solid #1a2035;
+  border-top-color:rgba(0,0,0,.45);border-left-color:rgba(0,0,0,.35);
+  border-bottom-color:rgba(40,55,80,.25);border-right-color:rgba(40,55,80,.25);
+  box-shadow:inset 0 2px 8px rgba(0,0,0,.6),0 2px 12px rgba(0,0,0,.4);
+}
+/* ═══ ANIMATION PRIMITIVES ═══ */
+@keyframes glow-pulse{
+  0%,100%{opacity:1}
+  50%{opacity:.85}
+}
+@keyframes led-flicker{
+  0%,100%{opacity:1}
+  25%{opacity:.92}
+  50%{opacity:.87}
+  75%{opacity:.95}
+}
+@keyframes scan-sweep{
+  0%{background-position:0% 50%}
+  100%{background-position:100% 50%}
+}
+@keyframes warm-up{
+  0%{opacity:0;filter:brightness(.6) saturate(.3)}
+  60%{opacity:.8;filter:brightness(.9) saturate(.7)}
+  100%{opacity:1;filter:brightness(1) saturate(1)}
+}
+@keyframes scan-drift{
+  0%{transform:translateY(-100%)}
+  100%{transform:translateY(100%)}
+}
+@keyframes header-flow{
+  0%{background-position:0% 50%}
+  100%{background-position:200% 50%}
+}
+@keyframes velocity-bloom{
+  0%{box-shadow:0 0 20px currentColor,0 0 8px rgba(0,240,255,.6)}
+  100%{box-shadow:0 0 8px currentColor,0 0 4px rgba(0,240,255,.3)}
+}
+@keyframes cascade-flash{
+  0%{background:rgba(0,204,255,.15)}
+  100%{background:transparent}
+}
+/* ═══ REDUCED MOTION ═══ */
+@media(prefers-reduced-motion:reduce){
+  .hw-panel,.hw-recess{transition:none}
+  *{animation-duration:0s!important;animation-delay:0s!important;transition-duration:0s!important}
+}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 button:focus,button:focus-visible{outline:none}
 ::-webkit-scrollbar{width:5px;height:5px}
