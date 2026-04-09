@@ -632,6 +632,16 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
   0%{outline-width:3px;box-shadow:0 0 18px currentColor,0 0 6px rgba(0,240,255,.6)}
   100%{outline-width:2px;box-shadow:0 0 12px currentColor,0 0 4px rgba(0,240,255,.5)}
 }
+/* Afterglow trail — previous steps keep a fading glow */
+.px-cell.px-trail-1{box-shadow:0 0 6px currentColor,0 0 2px rgba(0,240,255,.2);opacity:.7}
+.px-cell.px-trail-2{box-shadow:0 0 3px currentColor;opacity:.5}
+/* Velocity bloom — momentary flare when playhead hits an ON step */
+.px-cell.px-bloom{animation:velocity-bloom .15s ease-out forwards}
+/* Beat pulse — whole UI breathes on downbeats */
+.pat-play-btn.beat-pulse{box-shadow:0 0 25px var(--hi-g)!important}
+.beat-flash #patBpmIn{text-shadow:0 0 14px rgba(0,204,255,.6)!important}
+/* Vertical now-line — highlights active column in GRID */
+.px-cell.px-now-col{background:rgba(0,240,255,.04)!important}
 .pat-zoom{display:flex;align-items:center;gap:4px}
 .pat-zoom-btn{padding:3px 10px;background:rgba(0,204,255,.08);border:1px solid var(--blue-d);color:var(--blue);font-size:13px;font-weight:700;cursor:pointer;border-radius:3px;min-width:28px;font-family:var(--lcd);transition:background 80ms}
 .pat-zoom-btn:hover{background:rgba(0,204,255,.18)}
@@ -4244,23 +4254,50 @@ function stepsRenderBarNav(pat){
 //  PLAYHEAD HIGHLIGHT (parts + grid modes)
 // ═══════════════════════════════════════════════════════════
 function patHighlightStep(step){
+  const prevStep=patPlayStep;
   patPlayStep=step;
-  // Remove previous highlight from cached cells (O(1) instead of querySelectorAll)
-  for(let i=0;i<patPlayingCells.length;i++)patPlayingCells[i].classList.remove('px-playing');
+
+  // Remove previous highlights
+  for(let i=0;i<patPlayingCells.length;i++)patPlayingCells[i].classList.remove('px-playing','px-bloom');
+  // Remove old trails and now-column
+  document.querySelectorAll('.px-trail-1,.px-trail-2,.px-now-col').forEach(c=>c.classList.remove('px-trail-1','px-trail-2','px-now-col'));
+
   patPlayingCells=[];
-  // Apply to active view
+
   if(patViewMode==='grid'){
+    // Trail: previous 2 steps
+    if(prevStep>=0){
+      const t1=patCellsByStep.get(prevStep);
+      if(t1)for(let i=0;i<t1.length;i++)t1[i].classList.add('px-trail-1');
+      const totalSteps=seqPattern?patStepCount(seqPattern):patBarCount*16;
+      const t2Step=prevStep>0?prevStep-1:totalSteps-1;
+      const t2=patCellsByStep.get(t2Step);
+      if(t2)for(let i=0;i<t2.length;i++){t2[i].classList.remove('px-trail-1');t2[i].classList.add('px-trail-2');}
+    }
+    // Current step
     const cells=patCellsByStep.get(step);
     if(cells){
-      for(let i=0;i<cells.length;i++)cells[i].classList.add('px-playing');
+      for(let i=0;i<cells.length;i++){
+        cells[i].classList.add('px-playing');
+        if(cells[i].classList.contains('px-on'))cells[i].classList.add('px-bloom');
+        cells[i].classList.add('px-now-col');
+      }
       patPlayingCells=cells;
     }
   } else if(patViewMode==='parts'){
-    // Parts view: also clear seq-step-playing
     document.querySelectorAll('.seq-step-playing').forEach(c=>c.classList.remove('seq-step-playing'));
     const el=document.querySelector(`.seq-step[data-step="${step}"]`);
     if(el)el.classList.add('seq-step-playing');
   }
+
+  // Beat pulse on downbeats (every 4 steps)
+  if(step%4===0){
+    const playBtn=document.getElementById('patPlayBtn');
+    if(playBtn){playBtn.classList.add('beat-pulse');setTimeout(()=>playBtn.classList.remove('beat-pulse'),120);}
+    const transport=document.querySelector('.pat-transport');
+    if(transport){transport.classList.add('beat-flash');setTimeout(()=>transport.classList.remove('beat-flash'),120);}
+  }
+
   const disp=DOM.patStepDisp;
   if(disp){
     const total=seqPattern?patStepCount(seqPattern):patBarCount*16;
