@@ -5156,74 +5156,100 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(DOM.smpPickerBg&
     for(let y=0;y<H;y+=gs){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
 
     // ── Draw traces (progressive reveal) ──
+    // Helper: draw a component symbol between two points
+    function drawComponent(ax,ay,bx,by,type,alpha){
+      const dx=bx-ax,dy=by-ay,len=Math.sqrt(dx*dx+dy*dy);
+      if(len<2)return;
+      const ux=dx/len,uy=dy/len; // unit vector along trace
+      const nx=-uy,ny=ux; // normal (perpendicular)
+      const mx=ax+dx*.5,my=ay+dy*.5; // midpoint
+      const ca=`rgba(0,204,255,${alpha+.1})`;
+      ctx.save();ctx.strokeStyle=ca;ctx.fillStyle=ca;ctx.lineWidth=.8;
+      if(type==='resistor'){
+        // ─┤▯├─  Trace stops 8px before mid, rect body, trace resumes 8px after
+        const hw=7,hh=3;
+        ctx.strokeRect(mx-ux*hw-nx*hh,my-uy*hw-ny*hh,ux*hw*2+nx*hh*2||hw*2,uy*hw*2+ny*hh*2||hh*2);
+        // Solder pads at body ends
+        ctx.beginPath();ctx.arc(mx-ux*hw,my-uy*hw,1.8,0,Math.PI*2);ctx.fill();
+        ctx.beginPath();ctx.arc(mx+ux*hw,my+uy*hw,1.8,0,Math.PI*2);ctx.fill();
+      } else {
+        // ─┤||├─  Capacitor: two parallel lines perpendicular to trace
+        const gap=3,ph=5;
+        ctx.lineWidth=1.2;
+        ctx.beginPath();ctx.moveTo(mx-ux*gap+nx*ph,my-uy*gap+ny*ph);ctx.lineTo(mx-ux*gap-nx*ph,my-uy*gap-ny*ph);ctx.stroke();
+        ctx.beginPath();ctx.moveTo(mx+ux*gap+nx*ph,my+uy*gap+ny*ph);ctx.lineTo(mx+ux*gap-nx*ph,my+uy*gap-ny*ph);ctx.stroke();
+        // Solder pads
+        ctx.beginPath();ctx.arc(mx-ux*(gap+3),my-uy*(gap+3),1.8,0,Math.PI*2);ctx.fill();
+        ctx.beginPath();ctx.arc(mx+ux*(gap+3),my+uy*(gap+3),1.8,0,Math.PI*2);ctx.fill();
+      }
+      ctx.restore();
+    }
+
     traces.forEach(tr=>{
       const trT=t-0.8-tr.delay;
       if(trT<0)return;
-      const progress=Math.min(1,trT/2.8); // 2.8s to fully draw (longer for edge reach)
+      const progress=Math.min(1,trT/2.8);
       const totalSegs=tr.segs.length;
       const visibleSegs=Math.floor(progress*totalSegs);
       const partialProg=(progress*totalSegs)%1;
       const col=`rgba(0,204,255,${tr.alpha})`,colG=`rgba(0,204,255,${tr.alpha*.6})`;
 
-      // Draw trace segments, breaking at components
-      let needsMove=true;
-      ctx.strokeStyle=col;ctx.lineWidth=tr.width;ctx.lineCap='round';
-      gctx.strokeStyle=colG;gctx.lineWidth=tr.width+1;gctx.lineCap='round';
-
-      for(let i=-1;i<visibleSegs;i++){
-        const cur=i<0?tr.start:tr.segs[i];
-        const next=i+1<totalSegs?tr.segs[i+1]:null;
-        // If this segment has a component, end current path and skip gap
-        if(i>=0&&cur.comp){
-          ctx.stroke();gctx.stroke();needsMove=true;
-          // Draw component between prev and current point
-          const prev=i>0?tr.segs[i-1]:tr.start;
-          const mx=(prev.x+cur.x)/2,my=(prev.y+cur.y)/2;
-          const compAlpha=tr.alpha+.1;
-          ctx.strokeStyle=`rgba(0,204,255,${compAlpha})`;ctx.lineWidth=.8;
-          if(cur.comp==='resistor'){
-            // Resistor: small rectangle with pads at each end
-            const dx=cur.x-prev.x,dy=cur.y-prev.y;
-            const len=Math.sqrt(dx*dx+dy*dy);if(len<1)continue;
-            const ux=dx/len,uy=dy/len,px2=-uy,py2=ux;
-            const rw=10,rh=4;
-            // Pads
-            ctx.fillStyle=`rgba(0,204,255,${compAlpha*.6})`;
-            ctx.beginPath();ctx.arc(mx-ux*rw/2,my-uy*rw/2,1.5,0,Math.PI*2);ctx.fill();
-            ctx.beginPath();ctx.arc(mx+ux*rw/2,my+uy*rw/2,1.5,0,Math.PI*2);ctx.fill();
-            // Body
-            ctx.strokeRect(mx-ux*rw/2-px2*rh/2,my-uy*rw/2-py2*rh/2,ux*rw+px2*rh<0?-(Math.abs(ux*rw)):Math.abs(ux*rw),Math.abs(uy*rw)+Math.abs(py2*rh)||rh);
-          } else {
-            // Capacitor: two parallel short lines with gap
-            ctx.beginPath();ctx.moveTo(mx-3,my-4);ctx.lineTo(mx-3,my+4);ctx.stroke();
-            ctx.beginPath();ctx.moveTo(mx+3,my-4);ctx.lineTo(mx+3,my+4);ctx.stroke();
-            // Pads
-            ctx.fillStyle=`rgba(0,204,255,${compAlpha*.6})`;
-            ctx.beginPath();ctx.arc(mx-6,my,1.5,0,Math.PI*2);ctx.fill();
-            ctx.beginPath();ctx.arc(mx+6,my,1.5,0,Math.PI*2);ctx.fill();
-          }
-          ctx.strokeStyle=col;ctx.lineWidth=tr.width;
-          continue;
-        }
-        if(needsMove){ctx.beginPath();gctx.beginPath();ctx.moveTo(cur.x,cur.y);gctx.moveTo(cur.x,cur.y);needsMove=false;continue;}
-        if(i<visibleSegs){ctx.lineTo(cur.x,cur.y);gctx.lineTo(cur.x,cur.y);}
-      }
-      // Partial segment
-      if(visibleSegs<totalSegs&&!needsMove){
+      // Build list of visible points
+      const pts=[tr.start];
+      for(let i=0;i<visibleSegs;i++)pts.push(tr.segs[i]);
+      // Add partial point
+      if(visibleSegs<totalSegs){
         const prev=visibleSegs>0?tr.segs[visibleSegs-1]:tr.start;
         const next=tr.segs[visibleSegs];
-        ctx.lineTo(prev.x+(next.x-prev.x)*partialProg,prev.y+(next.y-prev.y)*partialProg);
-        gctx.lineTo(prev.x+(next.x-prev.x)*partialProg,prev.y+(next.y-prev.y)*partialProg);
+        pts.push({x:prev.x+(next.x-prev.x)*partialProg,y:prev.y+(next.y-prev.y)*partialProg,comp:null,pad:null});
+      }
+
+      // Draw trace line, breaking at components
+      ctx.strokeStyle=col;ctx.lineWidth=tr.width;ctx.lineCap='round';
+      gctx.strokeStyle=colG;gctx.lineWidth=tr.width+1;gctx.lineCap='round';
+      ctx.beginPath();gctx.beginPath();
+      ctx.moveTo(pts[0].x,pts[0].y);gctx.moveTo(pts[0].x,pts[0].y);
+
+      for(let i=1;i<pts.length;i++){
+        const p=pts[i];
+        if(p.comp){
+          // Stop trace 10px before this point
+          const prev=pts[i-1];
+          const dx=p.x-prev.x,dy=p.y-prev.y,len=Math.sqrt(dx*dx+dy*dy);
+          if(len>20){
+            const ux=dx/len,uy=dy/len;
+            // Trace ends before component
+            ctx.lineTo(p.x-ux*10,p.y-uy*10);gctx.lineTo(p.x-ux*10,p.y-uy*10);
+            ctx.stroke();gctx.stroke();
+            // Draw component at this point
+            drawComponent(prev.x,prev.y,p.x,p.y,p.comp,tr.alpha);
+            // Resume trace after component
+            ctx.beginPath();gctx.beginPath();
+            ctx.moveTo(p.x+ux*10,p.y+uy*10);gctx.moveTo(p.x+ux*10,p.y+uy*10);
+          } else {
+            ctx.lineTo(p.x,p.y);gctx.lineTo(p.x,p.y);
+          }
+        } else {
+          ctx.lineTo(p.x,p.y);gctx.lineTo(p.x,p.y);
+        }
       }
       ctx.stroke();gctx.stroke();
 
-      // Draw pads (via holes) at completed segments
+      // Draw pads: filled circle (°) at pad points and open trace ends
       for(let i=0;i<visibleSegs;i++){
         const s=tr.segs[i];if(!s.pad)continue;
-        ctx.strokeStyle=`rgba(0,204,255,${tr.alpha+.12})`;ctx.lineWidth=.8;
-        ctx.beginPath();ctx.arc(s.x,s.y,3,0,Math.PI*2);ctx.stroke();
-        ctx.fillStyle=`rgba(0,204,255,${tr.alpha*.5})`;
-        ctx.beginPath();ctx.arc(s.x,s.y,1.5,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle=`rgba(0,204,255,${tr.alpha+.1})`;
+        ctx.beginPath();ctx.arc(s.x,s.y,2.5,0,Math.PI*2);ctx.fill();
+        ctx.strokeStyle=`rgba(0,204,255,${tr.alpha+.15})`;ctx.lineWidth=.8;
+        ctx.beginPath();ctx.arc(s.x,s.y,4,0,Math.PI*2);ctx.stroke();
+      }
+      // End pad (°) on the last real segment (before edge extension)
+      if(progress>=1&&tr.segs.length>=2){
+        const endSeg=tr.segs[tr.segs.length-2]; // second-to-last = real end
+        ctx.fillStyle=`rgba(0,204,255,${tr.alpha+.1})`;
+        ctx.beginPath();ctx.arc(endSeg.x,endSeg.y,2.5,0,Math.PI*2);ctx.fill();
+        ctx.strokeStyle=`rgba(0,204,255,${tr.alpha+.15})`;ctx.lineWidth=.8;
+        ctx.beginPath();ctx.arc(endSeg.x,endSeg.y,4,0,Math.PI*2);ctx.stroke();
       }
     });
 
