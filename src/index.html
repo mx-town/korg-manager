@@ -1334,115 +1334,9 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 </head>
 <body>
 <!-- ═══ BOOT SEQUENCE OVERLAY ═══ -->
-<div id="bootOverlay" style="position:fixed;inset:0;z-index:99999;background:#04060c;display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden">
-  <!-- Everything is ONE SVG — emblem + traces + LEDs unified -->
-  <svg id="bootSvg" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%;opacity:0;transition:opacity .6s ease">
-    <defs>
-      <filter id="cyanGlow"><feGaussianBlur stdDeviation="2" result="g"/><feMerge><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-      <filter id="pinkGlow"><feGaussianBlur stdDeviation="1.5" result="g"/><feMerge><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-      <style>
-        .boot-trace{stroke-dasharray:var(--tl);stroke-dashoffset:var(--tl);opacity:0}
-        .boot-trace.draw{animation:traceDraw 2.8s ease-out forwards;animation-delay:var(--td)}
-        .boot-pad{opacity:0}
-        .boot-pad.show{animation:padPop .3s ease-out forwards;animation-delay:var(--pd)}
-        .emblem-line{opacity:0}
-        .emblem-line.show{animation:emblemReveal .8s ease-out forwards;animation-delay:var(--ed,0s)}
-        .emblem-text{opacity:0}
-        .emblem-text.show{animation:textReveal .6s ease-out forwards;animation-delay:var(--ed,0s)}
-        @keyframes traceDraw{0%{stroke-dashoffset:var(--tl);opacity:.05}30%{opacity:.35}100%{stroke-dashoffset:0;opacity:.3}}
-        @keyframes padPop{0%{opacity:0;transform:scale(0)}60%{opacity:.5;transform:scale(1.4)}100%{opacity:.35;transform:scale(1)}}
-        @keyframes emblemReveal{0%{opacity:0;stroke-dashoffset:var(--el,400)}60%{opacity:.7}100%{opacity:1;stroke-dashoffset:0}}
-        @keyframes textReveal{0%{opacity:0;transform:translateY(3px)}100%{opacity:1;transform:translateY(0)}}
-      </style>
-    </defs>
-
-    <!-- ═══ LAYER 1: OUTER TRACES — from emblem to screen edges ═══ -->
-    <g filter="url(#cyanGlow)" fill="none" stroke="#00ccff" stroke-width="1.2" stroke-linecap="round">
-      <!-- Top vertex (600,310) → up -->
-      <path class="boot-trace" d="M600,310 L600,240 L560,200 L560,100 L520,50 L520,0" style="--tl:450;--td:0s"/>
-      <path class="boot-trace" d="M600,310 L600,230 L640,190 L640,90 L680,40 L680,0" style="--tl:460;--td:.12s"/>
-      <circle class="boot-pad" cx="560" cy="100" r="3" style="--pd:1.2s"/>
-      <circle class="boot-pad" cx="640" cy="90" r="3" style="--pd:1.3s"/>
-      <!-- Top-right vertex (690,345) → upper-right -->
-      <path class="boot-trace" d="M690,345 L750,305 L750,240 L830,200 L940,200 L1060,160 L1200,120" style="--tl:720;--td:.1s"/>
-      <path class="boot-trace" d="M690,345 L770,320 L810,320 L810,260 L890,220 L1000,220 L1200,180" style="--tl:700;--td:.22s"/>
-      <circle class="boot-pad" cx="830" cy="200" r="3" style="--pd:1.4s"/>
-      <rect class="boot-pad" x="992" y="212" width="16" height="8" rx="1" style="--pd:1.7s"/>
-      <!-- Right vertex (720,400) → right -->
-      <path class="boot-trace" d="M720,400 L800,400 L800,370 L880,370 L960,370 L1060,370 L1200,370" style="--tl:620;--td:.18s"/>
-      <path class="boot-trace" d="M720,400 L800,420 L800,460 L900,460 L1000,460 L1100,480 L1200,500" style="--tl:640;--td:.3s"/>
-      <circle class="boot-pad" cx="880" cy="370" r="3" style="--pd:1.35s"/>
-      <rect class="boot-pad" x="992" y="452" width="16" height="8" rx="1" style="--pd:1.65s"/>
-      <!-- Bottom-right vertex (690,455) → lower-right -->
-      <path class="boot-trace" d="M690,455 L750,510 L750,580 L820,620 L940,620 L1060,660 L1200,700" style="--tl:720;--td:.28s"/>
-      <path class="boot-trace" d="M690,455 L740,500 L800,500 L800,560 L880,600 L1000,600 L1200,640" style="--tl:700;--td:.38s"/>
-      <circle class="boot-pad" cx="750" cy="580" r="3" style="--pd:1.5s"/>
-      <circle class="boot-pad" cx="880" cy="600" r="3" style="--pd:1.6s"/>
-      <!-- Bottom vertex (600,490) → down -->
-      <path class="boot-trace" d="M600,490 L600,560 L560,600 L560,700 L520,750 L520,800" style="--tl:450;--td:.36s"/>
-      <path class="boot-trace" d="M600,490 L600,570 L640,610 L640,710 L680,760 L680,800" style="--tl:450;--td:.44s"/>
-      <circle class="boot-pad" cx="560" cy="700" r="3" style="--pd:1.55s"/>
-      <circle class="boot-pad" cx="640" cy="710" r="3" style="--pd:1.65s"/>
-      <!-- Bottom-left vertex (510,455) → lower-left -->
-      <path class="boot-trace" d="M510,455 L450,510 L450,580 L380,620 L260,620 L140,660 L0,700" style="--tl:720;--td:.42s"/>
-      <path class="boot-trace" d="M510,455 L460,500 L400,500 L400,560 L320,600 L200,600 L0,640" style="--tl:700;--td:.52s"/>
-      <circle class="boot-pad" cx="450" cy="580" r="3" style="--pd:1.7s"/>
-      <circle class="boot-pad" cx="320" cy="600" r="3" style="--pd:1.8s"/>
-      <!-- Left vertex (480,400) → left -->
-      <path class="boot-trace" d="M480,400 L400,400 L400,370 L320,370 L240,370 L140,370 L0,370" style="--tl:620;--td:.48s"/>
-      <path class="boot-trace" d="M480,400 L400,420 L400,460 L300,460 L200,460 L100,480 L0,500" style="--tl:640;--td:.58s"/>
-      <circle class="boot-pad" cx="320" cy="370" r="3" style="--pd:1.75s"/>
-      <rect class="boot-pad" x="192" y="452" width="16" height="8" rx="1" style="--pd:1.9s"/>
-      <!-- Top-left vertex (510,345) → upper-left -->
-      <path class="boot-trace" d="M510,345 L450,305 L450,240 L370,200 L260,200 L140,160 L0,120" style="--tl:720;--td:.55s"/>
-      <path class="boot-trace" d="M510,345 L430,320 L390,320 L390,260 L310,220 L200,220 L0,180" style="--tl:700;--td:.65s"/>
-      <circle class="boot-pad" cx="370" cy="200" r="3" style="--pd:1.85s"/>
-      <rect class="boot-pad" x="192" y="212" width="16" height="8" rx="1" style="--pd:2.0s"/>
-    </g>
-
-    <!-- ═══ LAYER 2: SVG EMBLEM — hexagon + text + waveform ═══ -->
-    <g id="bootEmblemG" filter="url(#cyanGlow)">
-      <!-- Outer hexagon frame -->
-      <polygon class="emblem-line" points="600,300 700,340 700,460 600,500 500,460 500,340" fill="none" stroke="#00ccff" stroke-width="2.5" stroke-linejoin="round" style="--el:800;stroke-dasharray:800;--ed:0s"/>
-      <!-- Inner hexagon -->
-      <polygon class="emblem-line" points="600,318 680,348 680,452 600,482 520,452 520,348" fill="none" stroke="#00ccff" stroke-width="1" stroke-linejoin="round" style="--el:650;stroke-dasharray:650;--ed:.1s" opacity=".4"/>
-      <!-- Mounting bolts at vertices -->
-      <circle class="emblem-line" cx="600" cy="300" r="4" fill="none" stroke="#00ccff" stroke-width="1.5" style="--el:26;stroke-dasharray:26;--ed:.15s"/>
-      <circle class="emblem-line" cx="700" cy="340" r="4" fill="none" stroke="#00ccff" stroke-width="1.5" style="--el:26;stroke-dasharray:26;--ed:.2s"/>
-      <circle class="emblem-line" cx="700" cy="460" r="4" fill="none" stroke="#00ccff" stroke-width="1.5" style="--el:26;stroke-dasharray:26;--ed:.25s"/>
-      <circle class="emblem-line" cx="600" cy="500" r="4" fill="none" stroke="#00ccff" stroke-width="1.5" style="--el:26;stroke-dasharray:26;--ed:.3s"/>
-      <circle class="emblem-line" cx="500" cy="460" r="4" fill="none" stroke="#00ccff" stroke-width="1.5" style="--el:26;stroke-dasharray:26;--ed:.35s"/>
-      <circle class="emblem-line" cx="500" cy="340" r="4" fill="none" stroke="#00ccff" stroke-width="1.5" style="--el:26;stroke-dasharray:26;--ed:.4s"/>
-      <!-- Inner mounting dots -->
-      <circle class="emblem-line" cx="600" cy="300" r="1.5" fill="#00ccff" stroke="none" style="--el:10;stroke-dasharray:10;--ed:.2s"/>
-      <circle class="emblem-line" cx="700" cy="340" r="1.5" fill="#00ccff" stroke="none" style="--el:10;stroke-dasharray:10;--ed:.25s"/>
-      <circle class="emblem-line" cx="700" cy="460" r="1.5" fill="#00ccff" stroke="none" style="--el:10;stroke-dasharray:10;--ed:.3s"/>
-      <circle class="emblem-line" cx="600" cy="500" r="1.5" fill="#00ccff" stroke="none" style="--el:10;stroke-dasharray:10;--ed:.35s"/>
-      <circle class="emblem-line" cx="500" cy="460" r="1.5" fill="#00ccff" stroke="none" style="--el:10;stroke-dasharray:10;--ed:.4s"/>
-      <circle class="emblem-line" cx="500" cy="340" r="1.5" fill="#00ccff" stroke="none" style="--el:10;stroke-dasharray:10;--ed:.45s"/>
-      <!-- Cross braces inside hexagon -->
-      <line class="emblem-line" x1="530" y1="355" x2="670" y2="355" stroke="#00ccff" stroke-width=".6" opacity=".25" style="--el:140;stroke-dasharray:140;--ed:.3s"/>
-      <line class="emblem-line" x1="530" y1="445" x2="670" y2="445" stroke="#00ccff" stroke-width=".6" opacity=".25" style="--el:140;stroke-dasharray:140;--ed:.35s"/>
-      <!-- Waveform (pink accent) -->
-      <polyline class="emblem-line" points="560,370 570,360 580,375 590,355 600,380 610,350 620,372 630,358 640,370" fill="none" stroke="#C5305C" stroke-width="2" stroke-linejoin="round" filter="url(#pinkGlow)" style="--el:200;stroke-dasharray:200;--ed:.5s"/>
-      <!-- ESW text -->
-      <text class="emblem-text" x="600" y="420" text-anchor="middle" font-family="Orbitron,sans-serif" font-weight="900" font-size="42" fill="#00ccff" letter-spacing="8" style="--ed:.6s">ESW</text>
-      <!-- SAMPLE WERKSTATT subtitle -->
-      <text class="emblem-text" x="600" y="440" text-anchor="middle" font-family="'Share Tech Mono',monospace" font-size="10" fill="#00ccff" letter-spacing="3" opacity=".5" style="--ed:.75s">SAMPLE WERKSTATT</text>
-    </g>
-
-    <!-- ═══ LAYER 3: LED dots (below emblem) ═══ -->
-    <g id="bootLedG">
-      <circle class="boot-led-svg" cx="570" cy="520" r="4" fill="#C5305C" opacity="0" style="--ld:0s"/>
-      <circle class="boot-led-svg" cx="590" cy="520" r="4" fill="#1E50A0" opacity="0" style="--ld:.12s"/>
-      <circle class="boot-led-svg" cx="610" cy="520" r="4" fill="#00ccff" opacity="0" style="--ld:.24s"/>
-      <circle class="boot-led-svg" cx="630" cy="520" r="4" fill="#00ff88" opacity="0" style="--ld:.36s"/>
-    </g>
-  </svg>
-  <style>
-    .boot-led-svg{transition:opacity .15s,r .2s}
-    .boot-led-svg.on{opacity:1}
-  </style>
+<div id="bootOverlay" style="position:fixed;inset:0;z-index:99999;background:#04060c;cursor:pointer;overflow:hidden">
+  <canvas id="bootCanvas" style="position:absolute;inset:0;width:100%;height:100%"></canvas>
+  <canvas id="bootGlow" style="position:absolute;inset:0;width:100%;height:100%;filter:blur(4px);opacity:.5"></canvas>
 </div>
 <div class="app">
   <div class="app-body">
@@ -5155,20 +5049,21 @@ document.addEventListener('click',e=>{if(!e.target.closest('.ctx-menu'))hideCtxM
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(DOM.smpPickerBg&&DOM.smpPickerBg.classList.contains('show')){closeSamplePicker();return}hideCtxMenu()}});
 
 // ═══════════════════════════════════════════════════════════
-//  BOOT SEQUENCE
+//  BOOT SEQUENCE — Procedural Circuit Board Animation
 // ═══════════════════════════════════════════════════════════
 (function bootSequence(){
   if(localStorage.getItem('skipBoot')==='true'){
-    const ov=document.getElementById('bootOverlay');
-    if(ov)ov.remove();
-    return;
+    const ov=document.getElementById('bootOverlay');if(ov)ov.remove();return;
   }
-  const ov=document.getElementById('bootOverlay');
-  if(!ov)return;
+  const ov=document.getElementById('bootOverlay');if(!ov)return;
+  const c=document.getElementById('bootCanvas');
+  const cg=document.getElementById('bootGlow');
+  if(!c||!cg)return;
 
-  let skipped=false;
+  let skipped=false,af=null;
   function skipBoot(){
     if(skipped)return;skipped=true;
+    if(af)cancelAnimationFrame(af);
     ov.style.transition='opacity .3s';ov.style.opacity='0';
     setTimeout(()=>ov.remove(),300);
   }
@@ -5177,46 +5072,248 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(DOM.smpPickerBg&
     if(e.key==='Escape'){skipBoot();document.removeEventListener('keydown',bootEsc);}
   });
 
-  const svg=document.getElementById('bootSvg');
+  // ── Setup canvases ──
+  const dpr=window.devicePixelRatio||1;
+  const W=window.innerWidth,H=window.innerHeight;
+  c.width=W*dpr;c.height=H*dpr;c.style.width=W+'px';c.style.height=H+'px';
+  cg.width=W*dpr;cg.height=H*dpr;cg.style.width=W+'px';cg.style.height=H+'px';
+  const ctx=c.getContext('2d');ctx.scale(dpr,dpr);
+  const gctx=cg.getContext('2d');gctx.scale(dpr,dpr);
+  const cx=W/2,cy=H/2;
 
-  // T+200ms: SVG visible, emblem hexagon starts drawing
-  setTimeout(()=>{
-    if(skipped)return;
-    svg.style.opacity='1';
-    svg.querySelectorAll('.emblem-line').forEach(el=>el.classList.add('show'));
-  },200);
+  // ── Colors ──
+  const CYAN='#00ccff',PINK='#C5305C',DIM='rgba(0,204,255,.15)',GRID_C='rgba(0,204,255,.03)';
 
-  // T+800ms: Text appears
-  setTimeout(()=>{
-    if(skipped)return;
-    svg.querySelectorAll('.emblem-text').forEach(el=>el.classList.add('show'));
-  },800);
+  // ── Hexagon geometry ──
+  const HR=Math.min(W,H)*0.13; // hex radius ~13% of screen
+  const hexPts=[];
+  for(let i=0;i<6;i++){const a=Math.PI/2+i*Math.PI/3;hexPts.push({x:cx+HR*Math.cos(a),y:cy-HR*Math.sin(a)});}
+  const hexPtsInner=[];
+  for(let i=0;i<6;i++){const a=Math.PI/2+i*Math.PI/3;hexPtsInner.push({x:cx+HR*.82*Math.cos(a),y:cy-HR*.82*Math.sin(a)});}
 
-  // T+1200ms: Traces start drawing outward from hex vertices to screen edges
-  setTimeout(()=>{
-    if(skipped)return;
-    svg.querySelectorAll('.boot-trace').forEach(t=>t.classList.add('draw'));
-    svg.querySelectorAll('.boot-pad').forEach(p=>p.classList.add('show'));
-  },1200);
+  // ── Generate traces procedurally ──
+  const traces=[];const rng=()=>Math.random();
+  // From each hex vertex, spawn 4-6 traces going outward
+  hexPts.forEach((vt,vi)=>{
+    const angle=Math.PI/2+vi*Math.PI/3; // outward direction from center
+    const numTraces=4+Math.floor(rng()*3); // 4-6 per vertex
+    for(let t=0;t<numTraces;t++){
+      const spread=(t-numTraces/2)*0.25; // angular spread
+      const a=angle+spread;
+      const segs=[];let px=vt.x,py=vt.y;
+      const segCount=6+Math.floor(rng()*5); // 6-10 segments
+      for(let s=0;s<segCount;s++){
+        // Alternate horizontal/vertical moves (PCB style)
+        const len=30+rng()*80;
+        if(s%2===0){px+=Math.cos(a)*len;py-=Math.sin(a)*len;}
+        else{const perp=a+Math.PI/2*(rng()>.5?1:-1);px+=Math.cos(perp)*len*.4;py-=Math.sin(perp)*len*.4;}
+        segs.push({x:px,y:py});
+        // Random pad at segment end
+        if(rng()>.6)segs[segs.length-1].pad=rng()>.5?'circle':'rect';
+      }
+      traces.push({start:{x:vt.x,y:vt.y},segs,delay:vi*0.12+t*0.06,width:.6+rng()*.8,alpha:.15+rng()*.2});
+    }
+  });
+  // Add extra cross-traces between vertices
+  for(let i=0;i<8;i++){
+    const v1=hexPts[Math.floor(rng()*6)],v2=hexPts[Math.floor(rng()*6)];
+    const mx=(v1.x+v2.x)/2+rng()*100-50,my=(v1.y+v2.y)/2+rng()*100-50;
+    const segs=[{x:mx,y:my},{x:mx+rng()*200-100,y:my+rng()*200-100}];
+    traces.push({start:{x:v1.x,y:v1.y},segs,delay:.5+i*.08,width:.5,alpha:.1});
+  }
 
-  // T+3800ms: LED dots
-  setTimeout(()=>{
+  // ── Waveform data ──
+  const wfPts=[];for(let i=0;i<80;i++)wfPts.push(Math.sin(i*.3)*(.3+rng()*.7)*(i<10||i>70?.3:1));
+
+  // ── Energy pulses ──
+  const pulses=[];
+  traces.forEach((tr,i)=>{
+    if(rng()>.5)pulses.push({traceIdx:i,progress:0,speed:.008+rng()*.006,delay:3+rng()*1.5,started:false});
+  });
+
+  // ── LED data ──
+  const leds=[{color:PINK,on:false},{color:'#1E50A0',on:false},{color:CYAN,on:false},{color:'#00ff88',on:false}];
+
+  // ── Animation state ──
+  const startTime=performance.now();
+  const TOTAL_DURATION=6000;
+
+  function draw(now){
     if(skipped)return;
-    const leds=svg.querySelectorAll('.boot-led-svg');
-    leds.forEach((led,i)=>{
-      setTimeout(()=>{
-        if(skipped)return;
-        led.classList.add('on');
-      },i*120);
+    const t=(now-startTime)/1000; // seconds elapsed
+    ctx.clearRect(0,0,W,H);gctx.clearRect(0,0,W,H);
+
+    // ── Background grid ──
+    ctx.strokeStyle=GRID_C;ctx.lineWidth=.5;
+    const gs=40;
+    for(let x=0;x<W;x+=gs){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+    for(let y=0;y<H;y+=gs){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+
+    // ── Draw traces (progressive reveal) ──
+    traces.forEach(tr=>{
+      const trT=t-0.8-tr.delay; // traces start at T+0.8s
+      if(trT<0)return;
+      const progress=Math.min(1,trT/2.5); // 2.5s to fully draw
+      const totalSegs=tr.segs.length;
+      const visibleSegs=Math.floor(progress*totalSegs);
+      const partialProg=(progress*totalSegs)%1;
+      ctx.strokeStyle=`rgba(0,204,255,${tr.alpha})`;ctx.lineWidth=tr.width;ctx.lineCap='round';
+      gctx.strokeStyle=`rgba(0,204,255,${tr.alpha*.6})`;gctx.lineWidth=tr.width+1;gctx.lineCap='round';
+      ctx.beginPath();gctx.beginPath();
+      ctx.moveTo(tr.start.x,tr.start.y);gctx.moveTo(tr.start.x,tr.start.y);
+      for(let i=0;i<visibleSegs;i++){
+        ctx.lineTo(tr.segs[i].x,tr.segs[i].y);gctx.lineTo(tr.segs[i].x,tr.segs[i].y);
+      }
+      if(visibleSegs<totalSegs){
+        const prev=visibleSegs>0?tr.segs[visibleSegs-1]:tr.start;
+        const next=tr.segs[visibleSegs];
+        const ix=prev.x+(next.x-prev.x)*partialProg;
+        const iy=prev.y+(next.y-prev.y)*partialProg;
+        ctx.lineTo(ix,iy);gctx.lineTo(ix,iy);
+      }
+      ctx.stroke();gctx.stroke();
+      // Draw pads at completed segments
+      for(let i=0;i<visibleSegs;i++){
+        const s=tr.segs[i];if(!s.pad)continue;
+        ctx.fillStyle='none';ctx.strokeStyle=`rgba(0,204,255,${tr.alpha+.1})`;ctx.lineWidth=.8;
+        if(s.pad==='circle'){ctx.beginPath();ctx.arc(s.x,s.y,3,0,Math.PI*2);ctx.stroke();}
+        else{ctx.strokeRect(s.x-6,s.y-3,12,6);}
+        // Via hole fill
+        ctx.fillStyle=`rgba(0,204,255,${tr.alpha*.5})`;ctx.beginPath();ctx.arc(s.x,s.y,1.5,0,Math.PI*2);ctx.fill();
+      }
     });
-  },3800);
 
-  // T+5600ms: Reveal app
+    // ── Emblem (draws at T+0.2s) ──
+    const embT=t-0.2;
+    if(embT>0){
+      const embProg=Math.min(1,embT/1.0);
+      // Outer hexagon
+      ctx.strokeStyle=CYAN;ctx.lineWidth=2.5;ctx.lineCap='round';ctx.lineJoin='round';
+      gctx.strokeStyle=CYAN;gctx.lineWidth=4;
+      const drawHexPartial=(pts,prog,lw)=>{
+        const totalLen=pts.length;const visLen=prog*totalLen;
+        ctx.lineWidth=lw;
+        ctx.beginPath();gctx.beginPath();
+        ctx.moveTo(pts[0].x,pts[0].y);gctx.moveTo(pts[0].x,pts[0].y);
+        for(let i=1;i<=Math.floor(visLen)&&i<totalLen;i++){ctx.lineTo(pts[i].x,pts[i].y);gctx.lineTo(pts[i].x,pts[i].y);}
+        if(Math.floor(visLen)<totalLen){
+          const fi=Math.floor(visLen),frac=visLen-fi;
+          const p1=pts[fi],p2=pts[(fi+1)%pts.length];
+          ctx.lineTo(p1.x+(p2.x-p1.x)*frac,p1.y+(p2.y-p1.y)*frac);
+          gctx.lineTo(p1.x+(p2.x-p1.x)*frac,p1.y+(p2.y-p1.y)*frac);
+        }
+        ctx.stroke();gctx.stroke();
+      };
+      const hexClosed=[...hexPts,hexPts[0]];
+      const hexClosedInner=[...hexPtsInner,hexPtsInner[0]];
+      drawHexPartial(hexClosed,embProg,2.5);
+      ctx.globalAlpha=.3;gctx.globalAlpha=.3;
+      drawHexPartial(hexClosedInner,Math.max(0,embProg-.1)/.9,1);
+      ctx.globalAlpha=1;gctx.globalAlpha=1;
+      // Mounting bolts
+      if(embProg>.3){
+        const boltAlpha=Math.min(1,(embProg-.3)/.3);
+        hexPts.forEach(p=>{
+          ctx.strokeStyle=`rgba(0,204,255,${boltAlpha})`;ctx.lineWidth=1.5;
+          ctx.beginPath();ctx.arc(p.x,p.y,4,0,Math.PI*2);ctx.stroke();
+          ctx.fillStyle=`rgba(0,204,255,${boltAlpha*.5})`;
+          ctx.beginPath();ctx.arc(p.x,p.y,1.5,0,Math.PI*2);ctx.fill();
+        });
+      }
+      // Cross braces
+      if(embProg>.4){
+        const braceAlpha=Math.min(.2,(embProg-.4)/.3*.2);
+        ctx.strokeStyle=`rgba(0,204,255,${braceAlpha})`;ctx.lineWidth=.6;
+        const y1=cy-HR*.35,y2=cy+HR*.35;
+        ctx.beginPath();ctx.moveTo(cx-HR*.6,y1);ctx.lineTo(cx+HR*.6,y1);ctx.stroke();
+        ctx.beginPath();ctx.moveTo(cx-HR*.6,y2);ctx.lineTo(cx+HR*.6,y2);ctx.stroke();
+      }
+      // Waveform (pink)
+      if(embProg>.5){
+        const wfAlpha=Math.min(1,(embProg-.5)/.3);
+        const wfW=HR*1.1,wfH=HR*.3,wfY=cy-HR*.15;
+        ctx.strokeStyle=`rgba(197,48,92,${wfAlpha})`;ctx.lineWidth=2;ctx.lineJoin='round';
+        gctx.strokeStyle=`rgba(197,48,92,${wfAlpha*.5})`;gctx.lineWidth=3;
+        ctx.beginPath();gctx.beginPath();
+        for(let i=0;i<wfPts.length;i++){
+          const x=cx-wfW/2+i*(wfW/wfPts.length),y=wfY-wfPts[i]*wfH/2;
+          i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+          i===0?gctx.moveTo(x,y):gctx.lineTo(x,y);
+        }
+        ctx.stroke();gctx.stroke();
+      }
+      // ESW text
+      if(embProg>.6){
+        const txtAlpha=Math.min(1,(embProg-.6)/.2);
+        ctx.fillStyle=`rgba(0,204,255,${txtAlpha})`;
+        ctx.font='900 '+Math.round(HR*.45)+'px Orbitron,sans-serif';
+        ctx.textAlign='center';ctx.textBaseline='middle';
+        ctx.fillText('ESW',cx,cy+HR*.2);
+        gctx.fillStyle=`rgba(0,204,255,${txtAlpha*.4})`;
+        gctx.font=ctx.font;gctx.textAlign='center';gctx.textBaseline='middle';
+        gctx.fillText('ESW',cx,cy+HR*.2);
+      }
+      // SAMPLE WERKSTATT
+      if(embProg>.75){
+        const stAlpha=Math.min(.5,(embProg-.75)/.2*.5);
+        ctx.fillStyle=`rgba(0,204,255,${stAlpha})`;
+        ctx.font='10px "Share Tech Mono",monospace';
+        ctx.letterSpacing='3px';
+        ctx.fillText('SAMPLE WERKSTATT',cx,cy+HR*.42);
+      }
+    }
+
+    // ── Energy pulses (travel along traces after T+3s) ──
+    pulses.forEach(p=>{
+      if(t<p.delay)return;
+      if(!p.started){p.started=true;p.progress=0;}
+      p.progress+=p.speed;
+      if(p.progress>1)p.progress=0; // loop
+      const tr=traces[p.traceIdx];if(!tr)return;
+      const totalSegs=tr.segs.length;
+      const segF=p.progress*totalSegs;
+      const si=Math.floor(segF),sf=segF-si;
+      const p1=si===0?tr.start:tr.segs[Math.min(si-1,totalSegs-1)];
+      const p2=tr.segs[Math.min(si,totalSegs-1)];
+      const px=p1.x+(p2.x-p1.x)*sf,py=p1.y+(p2.y-p1.y)*sf;
+      // Bright dot
+      const grad=ctx.createRadialGradient(px,py,0,px,py,6);
+      grad.addColorStop(0,'rgba(0,204,255,.8)');grad.addColorStop(1,'rgba(0,204,255,0)');
+      ctx.fillStyle=grad;ctx.fillRect(px-6,py-6,12,12);
+      // Glow layer
+      const gg=gctx.createRadialGradient(px,py,0,px,py,10);
+      gg.addColorStop(0,'rgba(0,204,255,.5)');gg.addColorStop(1,'rgba(0,204,255,0)');
+      gctx.fillStyle=gg;gctx.fillRect(px-10,py-10,20,20);
+    });
+
+    // ── LEDs (T+4s) ──
+    if(t>4){
+      const ledY=cy+HR*.7,ledSpacing=20,ledStartX=cx-ledSpacing*1.5;
+      leds.forEach((led,i)=>{
+        const lt=t-4-i*.15;if(lt<0)return;
+        const a=Math.min(1,lt/.15);
+        ctx.fillStyle=led.color;ctx.globalAlpha=a;
+        ctx.beginPath();ctx.arc(ledStartX+i*ledSpacing,ledY,4,0,Math.PI*2);ctx.fill();
+        gctx.fillStyle=led.color;gctx.globalAlpha=a*.6;
+        gctx.beginPath();gctx.arc(ledStartX+i*ledSpacing,ledY,6,0,Math.PI*2);gctx.fill();
+        ctx.globalAlpha=1;gctx.globalAlpha=1;
+      });
+    }
+
+    // ── Continue or fade out ──
+    if(t<TOTAL_DURATION/1000+0.5){
+      af=requestAnimationFrame(draw);
+    }
+  };
+
+  // Start
+  af=requestAnimationFrame(draw);
+
+  // Fade out at 5.6s
   setTimeout(()=>{
     if(skipped)return;
-    ov.style.transition='opacity .5s ease';
-    ov.style.opacity='0';
-    setTimeout(()=>ov.remove(),500);
+    ov.style.transition='opacity .5s ease';ov.style.opacity='0';
+    setTimeout(()=>{if(af)cancelAnimationFrame(af);ov.remove();},500);
   },5600);
 })();
 </script>
