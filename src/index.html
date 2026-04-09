@@ -5119,7 +5119,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(DOM.smpPickerBg&
       segs.push({x:cx+dx*Math.min(Math.max(edgeScale,.5),4),y:cy+dy*Math.min(Math.max(edgeScale,.5),4),pad:null,comp:null});
       segs[segs.length-2].pad='end'; // terminal pad before edge
       // All traces start together at T+1.0s, slight random duration variation
-      traces.push({start:{x:vt.x,y:vt.y},segs,drawStart:1.0,drawDur:2.0+rng()*.8,width:1,alpha:.3,vertexEven:vi%2===0});
+      traces.push({start:{x:vt.x,y:vt.y},segs,drawStart:1.0,drawDur:2.0+rng()*.8,width:1.2,alpha:.5,vertexEven:vi%2===0});
     }
   });
 
@@ -5312,7 +5312,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(DOM.smpPickerBg&
     ov.style.opacity='0';
     ov.style.transform='scale(1.8)';
     setTimeout(()=>{if(af)cancelAnimationFrame(af);ov.remove();},600);
-  },3900);
+  },3400);
 })();
 </script>
 <div class="ctx-menu" id="ctxMenu"><div class="ctx-title">SET TYPE</div><div class="ctx-items" id="ctxItems"></div></div>
