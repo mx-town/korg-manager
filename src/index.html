@@ -5226,6 +5226,16 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(DOM.smpPickerBg&
       ctx.lineTo(headX,headY);gctx.lineTo(headX,headY);
       ctx.stroke();gctx.stroke();
 
+      // Fill corner joints — small dot at every segment bend to close gaps
+      ctx.fillStyle=`rgba(0,204,255,${trAlpha})`;
+      gctx.fillStyle=`rgba(0,204,255,${trAlpha*.5})`;
+      for(let i=0;i<fullSegs;i++){
+        const s=tr.segs[i];
+        const r=tr.width*.6;
+        ctx.beginPath();ctx.arc(s.x,s.y,r,0,Math.PI*2);ctx.fill();
+        gctx.beginPath();gctx.arc(s.x,s.y,r+.5,0,Math.PI*2);gctx.fill();
+      }
+
       // ── GLOWING TIP — the "Light Runner" ──
       if(progress<1){
         // Bright core dot
