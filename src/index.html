@@ -1331,18 +1331,20 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 </style>
 <script src="https://unpkg.com/tone@14/build/Tone.js"></script>
 <script src="https://unpkg.com/meyda/dist/web/meyda.min.js"></script>
+<script src="https://unpkg.com/lottie-web@5/build/player/lottie.min.js"></script>
 </head>
 <body>
 <!-- ═══ BOOT SEQUENCE OVERLAY ═══ -->
-<div id="bootOverlay" style="position:fixed;inset:0;z-index:99999;background:#04060c;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;cursor:pointer">
-  <div id="bootLogo" style="opacity:0;font-family:'Orbitron',sans-serif;font-weight:900;font-size:22px;color:#C5305C;letter-spacing:6px;text-shadow:0 0 0 transparent;transition:opacity .6s,text-shadow .8s">ELECTRIBE SAMPLE WERKSTATT</div>
-  <div id="bootLeds" style="display:flex;gap:6px;opacity:0;transition:opacity .3s">
+<div id="bootOverlay" style="position:fixed;inset:0;z-index:99999;background:#04060c;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;cursor:pointer;overflow:hidden">
+  <div id="bootLottie" style="position:absolute;inset:0;opacity:0;transition:opacity 1.5s ease"></div>
+  <img id="bootEmblem" src="assets/esw-emblem.png" style="width:240px;height:auto;opacity:0;filter:brightness(0) saturate(0);transition:opacity .8s ease,filter 1.2s ease,box-shadow 1s ease;position:relative;z-index:2;drop-shadow:none" alt="ESW">
+  <div id="bootLeds" style="display:flex;gap:8px;opacity:0;transition:opacity .3s;position:relative;z-index:2;margin-top:16px">
     <span class="boot-led" style="width:8px;height:8px;border-radius:50%;background:#C5305C;opacity:0;transform:scale(0);transition:opacity .15s,transform .2s"></span>
     <span class="boot-led" style="width:8px;height:8px;border-radius:50%;background:#1E50A0;opacity:0;transform:scale(0);transition:opacity .15s,transform .2s"></span>
     <span class="boot-led" style="width:8px;height:8px;border-radius:50%;background:#00ccff;opacity:0;transform:scale(0);transition:opacity .15s,transform .2s"></span>
     <span class="boot-led" style="width:8px;height:8px;border-radius:50%;background:#00ff88;opacity:0;transform:scale(0);transition:opacity .15s,transform .2s"></span>
   </div>
-  <div id="bootReadout" style="font-family:'Share Tech Mono',monospace;font-size:11px;color:#00ccff;letter-spacing:2px;opacity:0;transition:opacity .3s;text-shadow:0 0 6px rgba(0,204,255,.3);min-height:16px"></div>
+  <div id="bootReadout" style="font-family:'Share Tech Mono',monospace;font-size:11px;color:#00ccff;letter-spacing:2px;opacity:0;transition:opacity .3s;text-shadow:0 0 6px rgba(0,204,255,.3);min-height:16px;position:relative;z-index:2;margin-top:14px"></div>
 </div>
 <div class="app">
   <div class="app-body">
@@ -5067,8 +5069,10 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(DOM.smpPickerBg&
   if(!ov)return;
 
   let skipped=false;
+  let lottieAnim=null;
   function skipBoot(){
     if(skipped)return;skipped=true;
+    if(lottieAnim)try{lottieAnim.destroy();}catch(e){}
     ov.style.transition='opacity .3s';ov.style.opacity='0';
     setTimeout(()=>ov.remove(),300);
   }
@@ -5077,25 +5081,41 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(DOM.smpPickerBg&
     if(e.key==='Escape'){skipBoot();document.removeEventListener('keydown',bootEsc);}
   });
 
-  const logo=document.getElementById('bootLogo');
+  const emblem=document.getElementById('bootEmblem');
+  const lottieContainer=document.getElementById('bootLottie');
   const leds=document.getElementById('bootLeds');
   const readout=document.getElementById('bootReadout');
   const ledEls=ov.querySelectorAll('.boot-led');
 
-  // T+400ms: Logo warm-up
+  // T+0ms: Start Lottie circuit board background
+  try{
+    if(typeof lottie!=='undefined'){
+      lottieAnim=lottie.loadAnimation({
+        container:lottieContainer,
+        renderer:'svg',
+        loop:true,
+        autoplay:true,
+        path:'assets/circuit-board.json'
+      });
+      lottieContainer.style.opacity='.15';
+    }
+  }catch(e){console.warn('Lottie not available:',e)}
+
+  // T+400ms: Emblem appears — dark silhouette first
   setTimeout(()=>{
     if(skipped)return;
-    logo.style.opacity='1';
-    logo.style.textShadow='0 0 20px rgba(197,48,92,.4)';
-    logo.style.filter='brightness(.6) saturate(.3)';
-    setTimeout(()=>{
-      if(skipped)return;
-      logo.style.transition='filter .5s ease';
-      logo.style.filter='brightness(1) saturate(1)';
-    },100);
+    emblem.style.opacity='1';
+    emblem.style.filter='brightness(0.3) saturate(0)';
   },400);
 
-  // T+1200ms: LED check
+  // T+800ms: Emblem warms up — color and glow fade in
+  setTimeout(()=>{
+    if(skipped)return;
+    emblem.style.filter='brightness(1) saturate(1)';
+    emblem.style.boxShadow='0 0 40px rgba(0,204,255,.2),0 0 80px rgba(0,204,255,.08)';
+  },800);
+
+  // T+1800ms: LED check
   setTimeout(()=>{
     if(skipped)return;
     leds.style.opacity='1';
@@ -5103,23 +5123,19 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(DOM.smpPickerBg&
       setTimeout(()=>{
         if(skipped)return;
         led.style.opacity='1';
-        led.style.transform='scale(1.2)';
-        led.style.boxShadow=`0 0 8px ${led.style.background}`;
-        setTimeout(()=>{
-          led.style.transform='scale(1)';
-        },100);
-      },i*100);
+        led.style.transform='scale(1.3)';
+        led.style.boxShadow=`0 0 10px ${led.style.background}`;
+        setTimeout(()=>{led.style.transform='scale(1)';},120);
+      },i*120);
     });
-  },1200);
+  },1800);
 
-  // T+2000ms: System readout (typewriter)
+  // T+2600ms: System readout (typewriter)
   setTimeout(async()=>{
     if(skipped)return;
     readout.style.opacity='1';
     let ver='1.0.0',mem='26.5MB';
-    try{
-      ver=await window.api.getVersion()||ver;
-    }catch(e){}
+    try{ver=await window.api.getVersion()||ver;}catch(e){}
     const text=`SYS PARSERS OK  MEM ${mem} FREE  VER ${ver}`;
     let idx=0;
     function typeChar(){
@@ -5128,14 +5144,15 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(DOM.smpPickerBg&
       setTimeout(typeChar,35+Math.random()*25);
     }
     typeChar();
-  },2000);
+  },2600);
 
   // T+5600ms: Reveal app
   setTimeout(()=>{
     if(skipped)return;
-    ov.style.transition='opacity .4s ease';
+    if(lottieAnim)try{lottieAnim.destroy();}catch(e){}
+    ov.style.transition='opacity .5s ease';
     ov.style.opacity='0';
-    setTimeout(()=>ov.remove(),400);
+    setTimeout(()=>ov.remove(),500);
   },5600);
 })();
 </script>
