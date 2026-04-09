@@ -5094,15 +5094,16 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(DOM.smpPickerBg&
   // ── Generate traces — "Light Runner" approach ──
   // Fewer, cleaner traces. Each drawn sequentially with a glowing tip.
   const traces=[];const rng=()=>Math.random();
-  // 2 traces per vertex = 12 total. Clean, deliberate, no chaos.
+  // 3-4 traces per vertex = ~20 total. All start together, glow tips race outward.
   hexPts.forEach((vt,vi)=>{
     const baseAngle=Math.PI/2+vi*Math.PI/3;
-    for(let t=0;t<2;t++){
-      const spread=(t===0?-0.2:0.2); // slight fan
+    const numT=3+(vi%2); // alternating 3 and 4 per vertex
+    for(let t=0;t<numT;t++){
+      const spread=(t/(numT-1||1)-.5)*.5; // fan within ~28° cone
       const a=baseAngle+spread;
-      const perpSign=t===0?-1:1;
+      const perpSign=t<numT/2?-1:1;
       const segs=[];let px=vt.x,py=vt.y;
-      const segCount=8+Math.floor(rng()*4); // 8-11 segments (longer paths to edge)
+      const segCount=8+Math.floor(rng()*4);
       for(let s=0;s<segCount;s++){
         const len=50+rng()*60;
         if(s%2===0){px+=Math.cos(a)*len;py-=Math.sin(a)*len;}
@@ -5117,9 +5118,8 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(DOM.smpPickerBg&
       const edgeScale=Math.max(Math.abs(dx)<1?999:((dx>0?W:0)-cx)/dx,Math.abs(dy)<1?999:((dy>0?H:0)-cy)/dy);
       segs.push({x:cx+dx*Math.min(Math.max(edgeScale,.5),4),y:cy+dy*Math.min(Math.max(edgeScale,.5),4),pad:null,comp:null});
       segs[segs.length-2].pad='end'; // terminal pad before edge
-      // Sequential timing: each trace starts 0.3s after the previous
-      const traceIdx=vi*2+t;
-      traces.push({start:{x:vt.x,y:vt.y},segs,drawStart:1.0+traceIdx*0.25,drawDur:1.2+rng()*.3,width:1,alpha:.3});
+      // All traces start together at T+1.0s, slight random duration variation
+      traces.push({start:{x:vt.x,y:vt.y},segs,drawStart:1.0,drawDur:2.5+rng()*1.0,width:1,alpha:.3});
     }
   });
 
@@ -5200,8 +5200,8 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(DOM.smpPickerBg&
 
       // Draw the permanent trace (dim, behind the head)
       const trAlpha=tr.alpha;
-      ctx.strokeStyle=`rgba(0,204,255,${trAlpha})`;ctx.lineWidth=tr.width;ctx.lineCap='round';
-      gctx.strokeStyle=`rgba(0,204,255,${trAlpha*.5})`;gctx.lineWidth=tr.width+1;gctx.lineCap='round';
+      ctx.strokeStyle=`rgba(0,204,255,${trAlpha})`;ctx.lineWidth=tr.width;ctx.lineCap='round';ctx.lineJoin='round';
+      gctx.strokeStyle=`rgba(0,204,255,${trAlpha*.5})`;gctx.lineWidth=tr.width+1;gctx.lineCap='round';gctx.lineJoin='round';
       ctx.beginPath();gctx.beginPath();
       ctx.moveTo(tr.start.x,tr.start.y);gctx.moveTo(tr.start.x,tr.start.y);
 
