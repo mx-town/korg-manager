@@ -5251,9 +5251,6 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(DOM.smpPickerBg&
       const hexClosed=[...hexPts,hexPts[0]];
       const hexClosedInner=[...hexPtsInner,hexPtsInner[0]];
       drawHexPartial(hexClosed,embProg,2.5);
-      ctx.globalAlpha=.3;gctx.globalAlpha=.3;
-      drawHexPartial(hexClosedInner,Math.max(0,embProg-.1)/.9,1);
-      ctx.globalAlpha=1;gctx.globalAlpha=1;
       // Mounting bolts
       if(embProg>.3){
         const boltAlpha=Math.min(1,(embProg-.3)/.3);
@@ -5275,7 +5272,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(DOM.smpPickerBg&
       // Waveform (pink) — above center
       if(embProg>.5){
         const wfAlpha=Math.min(1,(embProg-.5)/.3);
-        const wfW=HR*1.1,wfH=HR*.3,wfY=cy-HR*.2;
+        const wfW=HR*1.1,wfH=HR*.35,wfY=cy-HR*.12;
         ctx.strokeStyle=`rgba(197,48,92,${wfAlpha})`;ctx.lineWidth=2;ctx.lineJoin='round';
         gctx.strokeStyle=`rgba(197,48,92,${wfAlpha*.5})`;gctx.lineWidth=3;
         ctx.beginPath();gctx.beginPath();
