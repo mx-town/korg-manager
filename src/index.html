@@ -1301,6 +1301,17 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 <script src="https://unpkg.com/meyda/dist/web/meyda.min.js"></script>
 </head>
 <body>
+<!-- ═══ BOOT SEQUENCE OVERLAY ═══ -->
+<div id="bootOverlay" style="position:fixed;inset:0;z-index:99999;background:#04060c;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;cursor:pointer">
+  <div id="bootLogo" style="opacity:0;font-family:'Orbitron',sans-serif;font-weight:900;font-size:22px;color:#C5305C;letter-spacing:6px;text-shadow:0 0 0 transparent;transition:opacity .6s,text-shadow .8s">ELECTRIBE SAMPLE WERKSTATT</div>
+  <div id="bootLeds" style="display:flex;gap:6px;opacity:0;transition:opacity .3s">
+    <span class="boot-led" style="width:8px;height:8px;border-radius:50%;background:#C5305C;opacity:0;transform:scale(0);transition:opacity .15s,transform .2s"></span>
+    <span class="boot-led" style="width:8px;height:8px;border-radius:50%;background:#1E50A0;opacity:0;transform:scale(0);transition:opacity .15s,transform .2s"></span>
+    <span class="boot-led" style="width:8px;height:8px;border-radius:50%;background:#00ccff;opacity:0;transform:scale(0);transition:opacity .15s,transform .2s"></span>
+    <span class="boot-led" style="width:8px;height:8px;border-radius:50%;background:#00ff88;opacity:0;transform:scale(0);transition:opacity .15s,transform .2s"></span>
+  </div>
+  <div id="bootReadout" style="font-family:'Share Tech Mono',monospace;font-size:11px;color:#00ccff;letter-spacing:2px;opacity:0;transition:opacity .3s;text-shadow:0 0 6px rgba(0,204,255,.3);min-height:16px"></div>
+</div>
 <div class="app">
   <div class="app-body">
     <!-- ═══ VERTICAL SIDEBAR ═══ -->
@@ -4918,6 +4929,91 @@ function showCtxMenu(e,idx){
 function hideCtxMenu(){const menu=document.getElementById('ctxMenu');if(menu)menu.classList.remove('show');ctxMenuTarget=-1}
 document.addEventListener('click',e=>{if(!e.target.closest('.ctx-menu'))hideCtxMenu()});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(DOM.smpPickerBg&&DOM.smpPickerBg.classList.contains('show')){closeSamplePicker();return}hideCtxMenu()}});
+
+// ═══════════════════════════════════════════════════════════
+//  BOOT SEQUENCE
+// ═══════════════════════════════════════════════════════════
+(function bootSequence(){
+  if(localStorage.getItem('skipBoot')==='true'){
+    const ov=document.getElementById('bootOverlay');
+    if(ov)ov.remove();
+    return;
+  }
+  const ov=document.getElementById('bootOverlay');
+  if(!ov)return;
+
+  let skipped=false;
+  function skipBoot(){
+    if(skipped)return;skipped=true;
+    ov.style.transition='opacity .3s';ov.style.opacity='0';
+    setTimeout(()=>ov.remove(),300);
+  }
+  ov.addEventListener('click',skipBoot);
+  document.addEventListener('keydown',function bootEsc(e){
+    if(e.key==='Escape'){skipBoot();document.removeEventListener('keydown',bootEsc);}
+  });
+
+  const logo=document.getElementById('bootLogo');
+  const leds=document.getElementById('bootLeds');
+  const readout=document.getElementById('bootReadout');
+  const ledEls=ov.querySelectorAll('.boot-led');
+
+  // T+200ms: Logo warm-up
+  setTimeout(()=>{
+    if(skipped)return;
+    logo.style.opacity='1';
+    logo.style.textShadow='0 0 20px rgba(197,48,92,.4)';
+    logo.style.filter='brightness(.6) saturate(.3)';
+    setTimeout(()=>{
+      if(skipped)return;
+      logo.style.transition='filter .5s ease';
+      logo.style.filter='brightness(1) saturate(1)';
+    },100);
+  },200);
+
+  // T+800ms: LED check
+  setTimeout(()=>{
+    if(skipped)return;
+    leds.style.opacity='1';
+    ledEls.forEach((led,i)=>{
+      setTimeout(()=>{
+        if(skipped)return;
+        led.style.opacity='1';
+        led.style.transform='scale(1.2)';
+        led.style.boxShadow=`0 0 8px ${led.style.background}`;
+        setTimeout(()=>{
+          led.style.transform='scale(1)';
+        },100);
+      },i*100);
+    });
+  },800);
+
+  // T+1200ms: System readout (typewriter)
+  setTimeout(async()=>{
+    if(skipped)return;
+    readout.style.opacity='1';
+    let ver='1.0.0',mem='26.5MB';
+    try{
+      ver=await window.api.getVersion()||ver;
+    }catch(e){}
+    const text=`SYS PARSERS OK  MEM ${mem} FREE  VER ${ver}`;
+    let idx=0;
+    function typeChar(){
+      if(skipped||idx>=text.length)return;
+      readout.textContent=text.slice(0,++idx);
+      setTimeout(typeChar,20+Math.random()*15);
+    }
+    typeChar();
+  },1200);
+
+  // T+1800ms: Reveal app
+  setTimeout(()=>{
+    if(skipped)return;
+    ov.style.transition='opacity .4s ease';
+    ov.style.opacity='0';
+    setTimeout(()=>ov.remove(),400);
+  },1800);
+})();
 </script>
 <div class="ctx-menu" id="ctxMenu"><div class="ctx-title">SET TYPE</div><div class="ctx-items" id="ctxItems"></div></div>
 <div class="sample-picker-bg" id="smpPickerBg" onclick="closeSamplePicker()"><div class="sample-picker" onclick="event.stopPropagation()"><div class="smp-header"><span class="smp-title">SELECT SAMPLE</span><span class="smp-part-label" id="smpPartLabel">DRUM 1</span><input type="text" class="smp-search" id="smpSearch" placeholder="Search..." oninput="smpFilterList()"><button class="smp-close" onclick="closeSamplePicker()">&#10005;</button></div><div class="smp-list" id="smpList"></div><div class="smp-footer" id="smpFooter"><span class="smp-current" id="smpCurrent">Current: —</span></div></div></div>
