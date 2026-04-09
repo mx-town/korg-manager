@@ -5261,18 +5261,10 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(DOM.smpPickerBg&
           ctx.beginPath();ctx.arc(p.x,p.y,1.5,0,Math.PI*2);ctx.fill();
         });
       }
-      // Cross braces
-      if(embProg>.4){
-        const braceAlpha=Math.min(.2,(embProg-.4)/.3*.2);
-        ctx.strokeStyle=`rgba(0,204,255,${braceAlpha})`;ctx.lineWidth=.6;
-        const y1=cy-HR*.35,y2=cy+HR*.35;
-        ctx.beginPath();ctx.moveTo(cx-HR*.6,y1);ctx.lineTo(cx+HR*.6,y1);ctx.stroke();
-        ctx.beginPath();ctx.moveTo(cx-HR*.6,y2);ctx.lineTo(cx+HR*.6,y2);ctx.stroke();
-      }
       // Waveform (pink) — above center
       if(embProg>.5){
         const wfAlpha=Math.min(1,(embProg-.5)/.3);
-        const wfW=HR*1.1,wfH=HR*.35,wfY=cy-HR*.12;
+        const wfW=HR*1.1,wfH=HR*.3,wfY=cy-HR*.3;
         ctx.strokeStyle=`rgba(197,48,92,${wfAlpha})`;ctx.lineWidth=2;ctx.lineJoin='round';
         gctx.strokeStyle=`rgba(197,48,92,${wfAlpha*.5})`;gctx.lineWidth=3;
         ctx.beginPath();gctx.beginPath();
