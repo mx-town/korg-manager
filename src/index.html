@@ -97,7 +97,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 .header{display:flex;align-items:center;gap:12px;padding:10px 18px;background:linear-gradient(180deg,#0e1428,var(--dark));border-bottom:3px solid var(--hi-d);position:relative}
 .header::before{content:'';position:absolute;bottom:-3px;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,var(--hi-d),var(--hi),var(--hi-d),transparent);background-size:200% 100%;animation:header-flow 4s ease-in-out infinite}
 .logo{display:flex;align-items:center;gap:10px}
-.logo-badge{background:var(--hi);color:#fff;font-family:var(--head);font-weight:900;font-size:9px;letter-spacing:2px;padding:5px 10px;clip-path:polygon(4px 0%,100% 0%,calc(100% - 4px) 100%,0% 100%)}
+.logo-badge{background:var(--led);color:#04060c;font-family:var(--head);font-weight:900;font-size:9px;letter-spacing:2px;padding:5px 10px;clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);text-shadow:none;box-shadow:0 0 10px rgba(0,204,255,.3)}
 .logo-t{font-family:var(--head);font-weight:800;font-size:15px;color:var(--hi);letter-spacing:3px;text-shadow:0 0 14px var(--hi-g)}
 .logo-s{font-family:var(--lcd);font-size:10px;color:var(--blue);letter-spacing:2px;text-shadow:0 0 6px var(--blue-g)}
 .ha{display:flex;gap:5px;margin-left:auto;align-items:center}
@@ -1367,7 +1367,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
   <!-- ═══ ESX-1 VIEW (existing UI) ═══ -->
   <div id="esx1-view" class="device-view active">
   <div class="header">
-    <div class="logo"><span class="logo-badge">KORG</span><div><div class="logo-t">ELECTRIBE SAMPLE WERKSTATT</div><div class="logo-s">⚠ esx-1 sample manager ⚠</div></div></div>
+    <div class="logo"><span class="logo-badge">ESW</span><div><div class="logo-t">ELECTRIBE SAMPLE WERKSTATT</div><div class="logo-s">⚠ esx-1 sample manager ⚠</div></div></div>
     <div class="ha">
       <button class="btn" onclick="openEsx()">📂 OPEN</button>
       <button class="btn" onclick="importSamples()">📥 IMPORT</button>
@@ -5313,11 +5313,13 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(DOM.smpPickerBg&
   // Start
   af=requestAnimationFrame(draw);
 
-  // Fade out at 5.6s
+  // Fade + zoom into center
   setTimeout(()=>{
     if(skipped)return;
-    ov.style.transition='opacity .5s ease';ov.style.opacity='0';
-    setTimeout(()=>{if(af)cancelAnimationFrame(af);ov.remove();},500);
+    ov.style.transition='opacity .6s ease, transform .6s ease';
+    ov.style.opacity='0';
+    ov.style.transform='scale(1.8)';
+    setTimeout(()=>{if(af)cancelAnimationFrame(af);ov.remove();},600);
   },4500);
 })();
 </script>
