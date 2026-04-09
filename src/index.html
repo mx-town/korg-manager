@@ -5251,16 +5251,6 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(DOM.smpPickerBg&
       const hexClosed=[...hexPts,hexPts[0]];
       const hexClosedInner=[...hexPtsInner,hexPtsInner[0]];
       drawHexPartial(hexClosed,embProg,2.5);
-      // Mounting bolts
-      if(embProg>.3){
-        const boltAlpha=Math.min(1,(embProg-.3)/.3);
-        hexPts.forEach(p=>{
-          ctx.strokeStyle=`rgba(0,204,255,${boltAlpha})`;ctx.lineWidth=1.5;
-          ctx.beginPath();ctx.arc(p.x,p.y,4,0,Math.PI*2);ctx.stroke();
-          ctx.fillStyle=`rgba(0,204,255,${boltAlpha*.5})`;
-          ctx.beginPath();ctx.arc(p.x,p.y,1.5,0,Math.PI*2);ctx.fill();
-        });
-      }
       // Waveform (pink) — above center
       if(embProg>.5){
         const wfAlpha=Math.min(1,(embProg-.5)/.3);
