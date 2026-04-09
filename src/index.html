@@ -518,16 +518,21 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 .px-hnum.px-b4{color:#2c4468;font-weight:600}
 .px-hnum.px-bar{margin-left:8px;color:#4a90d9;font-weight:bold}
 /* Rows — machined ridges between parts */
-.px-row{display:flex;align-items:center;gap:1px;border-radius:0;padding:1px 0;border-bottom:1px solid rgba(0,0,0,.25);contain:layout}
+.px-row{display:flex;align-items:center;gap:1px;border-radius:0;padding:1px 0;border-bottom:1px solid rgba(0,0,0,.25);contain:layout;position:relative}
 .px-row:nth-child(odd){background:rgba(255,255,255,.006)}
 .px-row:nth-child(even){background:rgba(0,0,0,.06)}
-.px-row:hover{background:rgba(0,204,255,.015)}
+.px-row:hover{background:rgba(0,204,255,.025);box-shadow:inset 0 0 20px rgba(0,204,255,.01)}
 /* Silk-screened part labels */
 .px-label{
   width:140px;flex-shrink:0;font-family:'Share Tech Mono',monospace;font-size:10px;
   text-align:right;padding-right:12px;letter-spacing:.5px;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.85;
   text-shadow:0 -1px 0 rgba(0,0,0,.8);
+  background:linear-gradient(180deg,rgba(8,12,22,.92),rgba(14,20,36,.75));
+  border-radius:3px 0 0 3px;
+  padding:3px 12px 3px 8px;
+  border-left:2px solid transparent;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.03);
 }
 /* Base cell — shared by OFF and ON */
 .px-cell{
@@ -555,7 +560,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 .px-cell.px-on{
   border:1px solid rgba(255,255,255,.15);
   border-bottom-color:rgba(255,255,255,.22);
-  box-shadow:inset 0 -1px 1px rgba(0,0,0,.2),0 0 8px currentColor;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.15),inset 0 -1px 1px rgba(0,0,0,.2),0 0 8px currentColor;
 }
 .px-cell.px-on:hover{
   opacity:.85;
@@ -1228,8 +1233,12 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 .px-ms-btn:hover{background:#0e1422;border-color:rgba(30,60,100,.35)}
 .px-ms-btn.muted{background:rgba(197,48,92,.45);color:#fff;border-color:#c5305c}
 .px-ms-btn.soloed{background:rgba(255,235,59,.45);color:#111;border-color:#ffeb3b}
-.px-row.row-muted{opacity:0.3}
+.px-row.row-muted{opacity:0.35;filter:saturate(.3)}
 .px-row.row-muted .px-label{text-decoration:line-through}
+.px-row.row-muted::after{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.08) 2px,rgba(0,0,0,.08) 4px);
+}
 
 .pat-active-dots{
   color:var(--hi);font-size:10px;letter-spacing:1px;
