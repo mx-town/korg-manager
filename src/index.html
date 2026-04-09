@@ -5141,37 +5141,13 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(DOM.smpPickerBg&
     for(let x=0;x<W;x+=gs){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
     for(let y=0;y<H;y+=gs){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
 
-    // ── Draw traces — Light Runner: sequential with glowing tip ──
-    // Helper: draw component between two points
-    function drawComp(ax,ay,bx,by,type,alpha){
-      const dx=bx-ax,dy=by-ay,len=Math.sqrt(dx*dx+dy*dy);if(len<2)return;
-      const ux=dx/len,uy=dy/len,nx=-uy,ny=ux;
-      const mx=ax+dx*.5,my=ay+dy*.5;
-      ctx.save();ctx.strokeStyle=`rgba(0,204,255,${alpha+.15})`;ctx.fillStyle=`rgba(0,204,255,${alpha+.1})`;ctx.lineWidth=.8;
-      if(type==='resistor'){
-        const hw=7,hh=3;
-        // Rotated rectangle
-        ctx.beginPath();
-        ctx.moveTo(mx-ux*hw+nx*hh,my-uy*hw+ny*hh);ctx.lineTo(mx+ux*hw+nx*hh,my+uy*hw+ny*hh);
-        ctx.lineTo(mx+ux*hw-nx*hh,my+uy*hw-ny*hh);ctx.lineTo(mx-ux*hw-nx*hh,my-uy*hw-ny*hh);
-        ctx.closePath();ctx.stroke();
-        ctx.beginPath();ctx.arc(mx-ux*hw,my-uy*hw,1.8,0,Math.PI*2);ctx.fill();
-        ctx.beginPath();ctx.arc(mx+ux*hw,my+uy*hw,1.8,0,Math.PI*2);ctx.fill();
-      } else {
-        const gap=3,ph=5;ctx.lineWidth=1.2;
-        ctx.beginPath();ctx.moveTo(mx-ux*gap+nx*ph,my-uy*gap+ny*ph);ctx.lineTo(mx-ux*gap-nx*ph,my-uy*gap-ny*ph);ctx.stroke();
-        ctx.beginPath();ctx.moveTo(mx+ux*gap+nx*ph,my+uy*gap+ny*ph);ctx.lineTo(mx+ux*gap-nx*ph,my+uy*gap-ny*ph);ctx.stroke();
-        ctx.beginPath();ctx.arc(mx-ux*(gap+3),my-uy*(gap+3),1.8,0,Math.PI*2);ctx.fill();
-        ctx.beginPath();ctx.arc(mx+ux*(gap+3),my+uy*(gap+3),1.8,0,Math.PI*2);ctx.fill();
-      }
-      ctx.restore();
-    }
-
+    // ── Draw traces — ONE continuous path per trace + glow tip ──
     traces.forEach(tr=>{
-      const trT=t-tr.drawStart; // each trace has its own start time
+      const trT=t-tr.drawStart;
       if(trT<0)return;
       const progress=Math.min(1,trT/tr.drawDur);
       const totalSegs=tr.segs.length;
+      const trAlpha=tr.alpha;
 
       // Compute total path length for smooth progress
       let totalLen=0;const cumLen=[0];
@@ -5182,85 +5158,72 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(DOM.smpPickerBg&
       }
       const drawnLen=progress*totalLen;
 
-      // Find where the drawing head is
+      // Find drawing head position
       let headX=tr.start.x,headY=tr.start.y,headSeg=0;
       for(let i=0;i<totalSegs;i++){
         if(cumLen[i+1]<=drawnLen){headSeg=i+1;}
         else{
-          const segStart=cumLen[i],segEnd=cumLen[i+1];
-          const frac=(drawnLen-segStart)/(segEnd-segStart);
+          const frac=(drawnLen-cumLen[i])/(cumLen[i+1]-cumLen[i]);
           const prev=i===0?tr.start:tr.segs[i-1];
           headX=prev.x+(tr.segs[i].x-prev.x)*frac;
           headY=prev.y+(tr.segs[i].y-prev.y)*frac;
-          headSeg=i;
-          break;
+          headSeg=i;break;
         }
         if(i===totalSegs-1){headX=tr.segs[i].x;headY=tr.segs[i].y;headSeg=totalSegs;}
       }
+      const fullSegs=Math.min(headSeg,totalSegs);
 
-      // Draw the permanent trace (dim, behind the head)
-      const trAlpha=tr.alpha;
+      // ── STEP 1: Draw ONE continuous trace line (no breaks!) ──
       ctx.strokeStyle=`rgba(0,204,255,${trAlpha})`;ctx.lineWidth=tr.width;ctx.lineCap='round';ctx.lineJoin='round';
       gctx.strokeStyle=`rgba(0,204,255,${trAlpha*.5})`;gctx.lineWidth=tr.width+1;gctx.lineCap='round';gctx.lineJoin='round';
       ctx.beginPath();gctx.beginPath();
       ctx.moveTo(tr.start.x,tr.start.y);gctx.moveTo(tr.start.x,tr.start.y);
-
-      const fullSegs=Math.min(headSeg,totalSegs);
-      for(let i=0;i<fullSegs;i++){
-        const s=tr.segs[i],prev=i===0?tr.start:tr.segs[i-1];
-        if(s.comp){
-          const dx=s.x-prev.x,dy=s.y-prev.y,len=Math.sqrt(dx*dx+dy*dy);
-          if(len>20){
-            const ux=dx/len,uy=dy/len;
-            ctx.lineTo(s.x-ux*10,s.y-uy*10);gctx.lineTo(s.x-ux*10,s.y-uy*10);
-            ctx.stroke();gctx.stroke();
-            drawComp(prev.x,prev.y,s.x,s.y,s.comp,trAlpha);
-            ctx.strokeStyle=`rgba(0,204,255,${trAlpha})`;ctx.lineWidth=tr.width;
-            gctx.strokeStyle=`rgba(0,204,255,${trAlpha*.5})`;gctx.lineWidth=tr.width+1;
-            ctx.beginPath();gctx.beginPath();
-            ctx.moveTo(s.x+ux*10,s.y+uy*10);gctx.moveTo(s.x+ux*10,s.y+uy*10);
-          } else {ctx.lineTo(s.x,s.y);gctx.lineTo(s.x,s.y);}
-        } else {ctx.lineTo(s.x,s.y);gctx.lineTo(s.x,s.y);}
-      }
-      // Draw to head position
+      for(let i=0;i<fullSegs;i++){ctx.lineTo(tr.segs[i].x,tr.segs[i].y);gctx.lineTo(tr.segs[i].x,tr.segs[i].y);}
       ctx.lineTo(headX,headY);gctx.lineTo(headX,headY);
       ctx.stroke();gctx.stroke();
 
-      // Fill corner joints — small dot at every segment bend to close gaps
-      ctx.fillStyle=`rgba(0,204,255,${trAlpha})`;
-      gctx.fillStyle=`rgba(0,204,255,${trAlpha*.5})`;
+      // ── STEP 2: Component overlays on completed segments ──
       for(let i=0;i<fullSegs;i++){
-        const s=tr.segs[i];
-        const r=tr.width*.6;
-        ctx.beginPath();ctx.arc(s.x,s.y,r,0,Math.PI*2);ctx.fill();
-        gctx.beginPath();gctx.arc(s.x,s.y,r+.5,0,Math.PI*2);gctx.fill();
+        const s=tr.segs[i];if(!s.comp)continue;
+        const prev=i===0?tr.start:tr.segs[i-1];
+        const dx=s.x-prev.x,dy=s.y-prev.y,len=Math.sqrt(dx*dx+dy*dy);
+        if(len<10)continue;
+        const ux=dx/len,uy=dy/len,nx=-uy,ny=ux;
+        const mx=(prev.x+s.x)/2,my=(prev.y+s.y)/2;
+        // Dark mask behind component
+        ctx.fillStyle='#04060c';
+        ctx.fillRect(mx-8,my-5,16,10);
+        // Component symbol
+        ctx.strokeStyle=`rgba(0,204,255,${trAlpha+.15})`;ctx.fillStyle=`rgba(0,204,255,${trAlpha+.1})`;ctx.lineWidth=.8;
+        if(s.comp==='resistor'){
+          ctx.beginPath();ctx.moveTo(mx-6+nx*3,my+ny*3-uy*6);ctx.lineTo(mx+6+nx*3,my+ny*3+uy*6);
+          ctx.lineTo(mx+6-nx*3,my-ny*3+uy*6);ctx.lineTo(mx-6-nx*3,my-ny*3-uy*6);ctx.closePath();ctx.stroke();
+          ctx.beginPath();ctx.arc(mx-ux*7,my-uy*7,1.8,0,Math.PI*2);ctx.fill();
+          ctx.beginPath();ctx.arc(mx+ux*7,my+uy*7,1.8,0,Math.PI*2);ctx.fill();
+        } else {
+          ctx.lineWidth=1.2;
+          ctx.beginPath();ctx.moveTo(mx-ux*2+nx*4,my-uy*2+ny*4);ctx.lineTo(mx-ux*2-nx*4,my-uy*2-ny*4);ctx.stroke();
+          ctx.beginPath();ctx.moveTo(mx+ux*2+nx*4,my+uy*2+ny*4);ctx.lineTo(mx+ux*2-nx*4,my+uy*2-ny*4);ctx.stroke();
+          ctx.beginPath();ctx.arc(mx-ux*5,my-uy*5,1.8,0,Math.PI*2);ctx.fill();
+          ctx.beginPath();ctx.arc(mx+ux*5,my+uy*5,1.8,0,Math.PI*2);ctx.fill();
+        }
       }
 
-      // ── GLOWING TIP — the "Light Runner" ──
+      // ── STEP 3: Glow tip ──
       if(progress<1){
-        // Bright core dot
-        const g1=ctx.createRadialGradient(headX,headY,0,headX,headY,4);
-        g1.addColorStop(0,'rgba(255,255,255,.9)');g1.addColorStop(.3,'rgba(0,220,255,.7)');g1.addColorStop(1,'rgba(0,204,255,0)');
-        ctx.fillStyle=g1;ctx.fillRect(headX-4,headY-4,8,8);
-        // Wide glow on glow canvas
-        const g2=gctx.createRadialGradient(headX,headY,0,headX,headY,16);
-        g2.addColorStop(0,'rgba(0,220,255,.6)');g2.addColorStop(1,'rgba(0,204,255,0)');
-        gctx.fillStyle=g2;gctx.fillRect(headX-16,headY-16,32,32);
+        const g1=ctx.createRadialGradient(headX,headY,0,headX,headY,5);
+        g1.addColorStop(0,'rgba(255,255,255,.95)');g1.addColorStop(.25,'rgba(0,230,255,.8)');g1.addColorStop(1,'rgba(0,204,255,0)');
+        ctx.fillStyle=g1;ctx.fillRect(headX-5,headY-5,10,10);
+        const g2=gctx.createRadialGradient(headX,headY,0,headX,headY,20);
+        g2.addColorStop(0,'rgba(0,220,255,.7)');g2.addColorStop(1,'rgba(0,204,255,0)');
+        gctx.fillStyle=g2;gctx.fillRect(headX-20,headY-20,40,40);
       }
 
-      // ── End pad (°) when trace is fully drawn ──
+      // ── STEP 4: End pad (°) ──
       if(progress>=1&&tr.segs.length>=2){
-        const endSeg=tr.segs[tr.segs.length-2];
-        ctx.fillStyle=`rgba(0,204,255,${trAlpha+.12})`;
-        ctx.beginPath();ctx.arc(endSeg.x,endSeg.y,2.5,0,Math.PI*2);ctx.fill();
-        ctx.strokeStyle=`rgba(0,204,255,${trAlpha+.15})`;ctx.lineWidth=.8;
-        ctx.beginPath();ctx.arc(endSeg.x,endSeg.y,4,0,Math.PI*2);ctx.stroke();
-      }
-      // Pads at completed segments
-      for(let i=0;i<fullSegs;i++){
-        const s=tr.segs[i];if(!s.pad||s.pad==='end')continue;
-        ctx.fillStyle=`rgba(0,204,255,${trAlpha+.1})`;
-        ctx.beginPath();ctx.arc(s.x,s.y,2.5,0,Math.PI*2);ctx.fill();
+        const es=tr.segs[tr.segs.length-2];
+        ctx.fillStyle=`rgba(0,204,255,${trAlpha+.12})`;ctx.beginPath();ctx.arc(es.x,es.y,2.5,0,Math.PI*2);ctx.fill();
+        ctx.strokeStyle=`rgba(0,204,255,${trAlpha+.15})`;ctx.lineWidth=.8;ctx.beginPath();ctx.arc(es.x,es.y,4,0,Math.PI*2);ctx.stroke();
       }
     });
 
