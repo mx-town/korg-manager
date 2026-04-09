@@ -171,7 +171,22 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
   animation:glow-pulse 6s ease-in-out infinite;
   z-index:1;
 }
-.wf-e{display:flex;align-items:center;justify-content:center;height:110px;color:var(--txt-x);font-family:var(--lcd);font-size:12px;letter-spacing:2px}
+.wf-e{
+  display:flex;align-items:center;justify-content:center;height:110px;
+  color:var(--txt-x);font-family:var(--lcd);font-size:12px;letter-spacing:2px;
+  position:relative;overflow:hidden;
+}
+.wf-e::before{
+  content:'';position:absolute;left:0;right:0;top:50%;height:1px;
+  background:linear-gradient(90deg,transparent 5%,rgba(0,204,255,.12) 20%,rgba(0,204,255,.08) 50%,rgba(0,204,255,.12) 80%,transparent 95%);
+  box-shadow:0 0 4px rgba(0,204,255,.08);
+  animation:glow-pulse 4s ease-in-out infinite;
+}
+.wf-e::after{
+  content:'';position:absolute;left:0;right:0;height:1px;
+  background:rgba(0,204,255,.04);pointer-events:none;
+  animation:scan-drift 10s linear infinite;
+}
 #wfC{width:100%;height:110px;display:block}
 .wf-i{display:flex;gap:10px;margin-top:8px;flex-wrap:wrap}
 .wf-ii{font-family:var(--lcd);font-size:11px;color:var(--txt-d)} .wf-ii span{color:var(--led)} .wf-ii.pk span{color:var(--hi)}
@@ -709,6 +724,8 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 .export-bar::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(-45deg,transparent 0px,transparent 4px,rgba(0,0,0,.3) 4px,rgba(0,0,0,.3) 8px);animation:expAnim .5s linear infinite}
 @keyframes expAnim{from{background-position:0}to{background-position:11px}}
 .export-text{font-family:var(--lcd);font-size:11px;color:var(--hi);letter-spacing:2px;white-space:nowrap}
+.export-bar.complete{background:var(--cat-time);transition:background .3s}
+.export-text.complete{color:var(--cat-time)}
 /* ═══ PATTERN TRANSPORT ═══ */
 .pat-transport{
   display:flex;align-items:center;gap:10px;
@@ -1883,7 +1900,20 @@ async function openEsx(){
 }
 async function importWav(){const r=await window.api.importWavFiles();if(!r||!r.imported)return;r.imported.filter(x=>x.error).forEach(x=>toast(`${x.originalName}: ${x.error}`,'error'));const ok=r.imported.filter(x=>x.ok).length;if(ok>0){dirty=true;toast(`${ok} IMPORTED`,'success')}updateState(r.state)}
 async function importZip(){const r=await window.api.importZip();if(!r||!r.imported)return;let ok=0,er=0;r.imported.forEach(x=>{if(x.error){er++;if(er<=3)toast(x.error,'error')}else if(x.ok)ok++});if(ok>0){dirty=true;toast(`${ok} EXTRACTED FROM ${r.zipName||'ZIP'}`,'success')}updateState(r.state)}
-async function importSamples(){const r=await window.api.importSamples();if(!r||!r.imported)return;const ok=r.imported.filter(x=>x.ok).length;const fail=r.imported.filter(x=>x.error);if(fail.length>0)fail.slice(0,3).forEach(x=>toast(`${x.originalName}: ${x.error}`,'error'));if(ok>0){dirty=true;toast(`${ok} SAMPLE${ok>1?'S':''} IMPORTED`,'success')}updateState(r.state)}
+async function importSamples(){const r=await window.api.importSamples();if(!r||!r.imported)return;const ok=r.imported.filter(x=>x.ok).length;const fail=r.imported.filter(x=>x.error);if(fail.length>0)fail.slice(0,3).forEach(x=>toast(`${x.originalName}: ${x.error}`,'error'));if(ok>0){dirty=true;toast(`${ok} SAMPLE${ok>1?'S':''} IMPORTED`,'success')}updateState(r.state);
+// Cascade glow on newly imported samples
+if(ok>0){
+  setTimeout(()=>{
+    const rows=document.querySelectorAll('.sl .ss');
+    const startIdx=Math.max(0,rows.length-ok);
+    for(let i=startIdx;i<rows.length;i++){
+      const row=rows[i];
+      row.style.animation=`cascade-flash .4s ease ${(i-startIdx)*50}ms forwards`;
+      setTimeout(()=>{row.style.animation='';},400+(i-startIdx)*50);
+    }
+  },100);
+}
+}
 async function remS(i){const s=await window.api.removeSample(i);dirty=true;if(sel===i){sel=-1;hideDet()}else if(sel>i)sel--;updateState(s)}
 async function remCur(){if(sel>=0){stopPlay();await remS(sel)}}
 async function removeChecked(){if(_fxBusy)return;if(checked.size===0)return;const count=checked.size;if(!confirm(`Delete ${count} sample${count>1?'s':''}?`))return;_fxBusy=true;try{stopPlay();const indices=[...checked].sort((a,b)=>b-a);for(const idx of indices){await window.api.removeSample(idx)}sel=-1;hideDet();checked.clear();updateSelBadge();dirty=true;updateState(await window.api.getState());toast(`${count} SAMPLES DELETED`,'success')}finally{_fxBusy=false}}
@@ -1901,14 +1931,26 @@ async function saveEsxToFile(){
   const prog=document.getElementById('expProg');
   prog.style.display='flex';
   document.getElementById('expBar').style.width='0%';
-  document.getElementById('expText').textContent='SAVING...';
+  document.getElementById('expText').textContent='WRITING 26,542,080 BYTES';
   if(window.api.onExportProgress){window.api.onExportProgress(({phase,percent})=>{
     document.getElementById('expBar').style.width=percent+'%';
-    document.getElementById('expText').textContent=phase==='building'?'REBUILDING ESX...':phase==='writing'?'WRITING FILE...':phase==='verifying'?'VERIFYING...':'DONE';
+    document.getElementById('expText').textContent=phase==='building'?'REBUILDING ESX...':phase==='writing'?'WRITING 26,542,080 BYTES':phase==='verifying'?'VERIFYING...':'DONE';
   })}
   const r=await window.api.saveEsxOverwrite(fp);
-  prog.style.display='none';
-  if(!r)return;if(r.error){toast(r.error,'error');return}dirty=false;updatePath();toast(`SAVED → ${r.filePath.split(/[\\/]/).pop()} [${(r.size/1048576).toFixed(1)}MB]`,'success')}
+  if(!r){prog.style.display='none';return}
+  if(r.error){prog.style.display='none';toast(r.error,'error');return}
+  const expBar=document.getElementById('expBar');
+  const expText=document.getElementById('expText');
+  expBar.style.width='100%';
+  expBar.classList.add('complete');
+  expText.classList.add('complete');
+  expText.textContent='SAVED';
+  setTimeout(()=>{
+    expBar.classList.remove('complete');
+    expText.classList.remove('complete');
+    prog.style.display='none';
+  },1500);
+  dirty=false;updatePath();toast(`SAVED → ${r.filePath.split(/[\\/]/).pop()} [${(r.size/1048576).toFixed(1)}MB]`,'success')}
   finally{_fxBusy=false}}
 async function exportNewEsx(){
   if(_fxBusy)return;_fxBusy=true;
@@ -1963,7 +2005,10 @@ function startCursorAnim(){stopCursorAnim();function frame(){if(!playing)return;
 function stopCursorAnim(){if(cursorAF){cancelAnimationFrame(cursorAF);cursorAF=null}}
 
 // ═══ WAVEFORM DRAWING ═══
-function drawWf(data){wfData=data;const c=document.getElementById('wfC'),e=document.getElementById('wfE'),inf=document.getElementById('wfI');c.style.display='block';e.style.display='none';inf.style.display='flex';drawWfCanvas(c,data,110,null);
+function drawWf(data){wfData=data;const c=document.getElementById('wfC'),e=document.getElementById('wfE'),inf=document.getElementById('wfI');c.style.display='block';e.style.display='none';inf.style.display='flex';
+  c.style.clipPath='inset(0 100% 0 0)';c.style.transition='none';
+  drawWfCanvas(c,data,110,null);
+  requestAnimationFrame(()=>{c.style.transition='clip-path .3s ease-out';c.style.clipPath='inset(0 0% 0 0)';});
   document.getElementById('iR').textContent=data.sampleRate;document.getElementById('iF').textContent=data.numFrames.toLocaleString();document.getElementById('iD').textContent=data.duration<1?`${(data.duration*1000).toFixed(1)}ms`:`${data.duration.toFixed(3)}s`;document.getElementById('iP').textContent=data.peakDb+'dB'}
 
 function drawWfCanvas(canvas,data,h,cursorPos){
@@ -2001,6 +2046,21 @@ function drawWfCanvas(canvas,data,h,cursorPos){
     ctx.beginPath();ctx.moveTo(cx-5,h);ctx.lineTo(cx+5,h);ctx.lineTo(cx,h-7);ctx.closePath();ctx.fill();
   }
 }
+
+// ═══ WAVEFORM HOVER REVEAL ═══
+(function setupWfHover(){
+  const wfWrap=document.getElementById('wfW');
+  if(!wfWrap)return;
+  wfWrap.addEventListener('mousemove',function(e){
+    const rect=wfWrap.getBoundingClientRect();
+    const x=e.clientX-rect.left;
+    const pct=(x/rect.width*100).toFixed(1);
+    wfWrap.style.background=`radial-gradient(circle 60px at ${pct}% 50%,rgba(0,204,255,.03),transparent),var(--void)`;
+  });
+  wfWrap.addEventListener('mouseleave',function(){
+    wfWrap.style.background='var(--void)';
+  });
+})();
 
 // Modal waveform helpers — base peak/RMS for live preview
 let _basePeakDb=null,_baseRmsDb=null;
