@@ -95,8 +95,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 
 /* ═══ HEADER ═══ */
 .header{display:flex;align-items:center;gap:12px;padding:10px 18px;background:linear-gradient(180deg,#0e1428,var(--dark));border-bottom:3px solid var(--hi-d);position:relative}
-.header::before{content:'';position:absolute;bottom:-3px;left:0;right:0;height:3px;background:repeating-linear-gradient(90deg,var(--hi) 0px,var(--hi) 6px,transparent 6px,transparent 12px);animation:hz 1.5s linear infinite}
-@keyframes hz{from{background-position:0}to{background-position:24px}}
+.header::before{content:'';position:absolute;bottom:-3px;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,var(--hi-d),var(--hi),var(--hi-d),transparent);background-size:200% 100%;animation:header-flow 4s ease-in-out infinite}
 .logo{display:flex;align-items:center;gap:10px}
 .logo-badge{background:var(--hi);color:#fff;font-family:var(--head);font-weight:900;font-size:9px;letter-spacing:2px;padding:5px 10px;clip-path:polygon(4px 0%,100% 0%,calc(100% - 4px) 100%,0% 100%)}
 .logo-t{font-family:var(--head);font-weight:800;font-size:15px;color:var(--hi);letter-spacing:3px;text-shadow:0 0 14px var(--hi-g)}
@@ -433,6 +432,9 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
   transition:color 80ms;
 }
 .vsb-item.active .vsb-icon{color:var(--led);text-shadow:0 0 8px var(--led-g)}
+.vsb-item.active .vsb-icon{animation:led-flicker 3.5s ease-in-out infinite}
+.vsb-item:nth-child(2) .vsb-icon{animation-delay:.7s}
+.vsb-item:nth-child(3) .vsb-icon{animation-delay:1.4s}
 .vsb-item:hover:not(.active) .vsb-icon{color:var(--led)}
 
 .vsb-label{
