@@ -5131,9 +5131,6 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(DOM.smpPickerBg&
     if(rng()>.5)pulses.push({traceIdx:i,progress:0,speed:.008+rng()*.006,delay:3+rng()*1.5,started:false});
   });
 
-  // ── LED data ──
-  const leds=[{color:PINK,on:false},{color:'#1E50A0',on:false},{color:CYAN,on:false},{color:'#00ff88',on:false}];
-
   // ── Animation state ──
   const startTime=performance.now();
   const TOTAL_DURATION=6000;
@@ -5228,10 +5225,10 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(DOM.smpPickerBg&
         ctx.beginPath();ctx.moveTo(cx-HR*.6,y1);ctx.lineTo(cx+HR*.6,y1);ctx.stroke();
         ctx.beginPath();ctx.moveTo(cx-HR*.6,y2);ctx.lineTo(cx+HR*.6,y2);ctx.stroke();
       }
-      // Waveform (pink)
+      // Waveform (pink) — above center
       if(embProg>.5){
         const wfAlpha=Math.min(1,(embProg-.5)/.3);
-        const wfW=HR*1.1,wfH=HR*.3,wfY=cy-HR*.15;
+        const wfW=HR*1.1,wfH=HR*.3,wfY=cy-HR*.2;
         ctx.strokeStyle=`rgba(197,48,92,${wfAlpha})`;ctx.lineWidth=2;ctx.lineJoin='round';
         gctx.strokeStyle=`rgba(197,48,92,${wfAlpha*.5})`;gctx.lineWidth=3;
         ctx.beginPath();gctx.beginPath();
@@ -5242,24 +5239,24 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(DOM.smpPickerBg&
         }
         ctx.stroke();gctx.stroke();
       }
-      // ESW text
+      // ESW text — dead center
       if(embProg>.6){
         const txtAlpha=Math.min(1,(embProg-.6)/.2);
         ctx.fillStyle=`rgba(0,204,255,${txtAlpha})`;
         ctx.font='900 '+Math.round(HR*.45)+'px Orbitron,sans-serif';
         ctx.textAlign='center';ctx.textBaseline='middle';
-        ctx.fillText('ESW',cx,cy+HR*.2);
+        ctx.fillText('ESW',cx,cy+HR*.05);
         gctx.fillStyle=`rgba(0,204,255,${txtAlpha*.4})`;
         gctx.font=ctx.font;gctx.textAlign='center';gctx.textBaseline='middle';
-        gctx.fillText('ESW',cx,cy+HR*.2);
+        gctx.fillText('ESW',cx,cy+HR*.05);
       }
-      // SAMPLE WERKSTATT
+      // SAMPLE WERKSTATT — below ESW
       if(embProg>.75){
         const stAlpha=Math.min(.5,(embProg-.75)/.2*.5);
         ctx.fillStyle=`rgba(0,204,255,${stAlpha})`;
         ctx.font='10px "Share Tech Mono",monospace';
         ctx.letterSpacing='3px';
-        ctx.fillText('SAMPLE WERKSTATT',cx,cy+HR*.42);
+        ctx.fillText('SAMPLE WERKSTATT',cx,cy+HR*.25);
       }
     }
 
@@ -5285,20 +5282,6 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(DOM.smpPickerBg&
       gg.addColorStop(0,'rgba(0,204,255,.5)');gg.addColorStop(1,'rgba(0,204,255,0)');
       gctx.fillStyle=gg;gctx.fillRect(px-10,py-10,20,20);
     });
-
-    // ── LEDs (T+4s) ──
-    if(t>4){
-      const ledY=cy+HR*.7,ledSpacing=20,ledStartX=cx-ledSpacing*1.5;
-      leds.forEach((led,i)=>{
-        const lt=t-4-i*.15;if(lt<0)return;
-        const a=Math.min(1,lt/.15);
-        ctx.fillStyle=led.color;ctx.globalAlpha=a;
-        ctx.beginPath();ctx.arc(ledStartX+i*ledSpacing,ledY,4,0,Math.PI*2);ctx.fill();
-        gctx.fillStyle=led.color;gctx.globalAlpha=a*.6;
-        gctx.beginPath();gctx.arc(ledStartX+i*ledSpacing,ledY,6,0,Math.PI*2);gctx.fill();
-        ctx.globalAlpha=1;gctx.globalAlpha=1;
-      });
-    }
 
     // ── Continue or fade out ──
     if(t<TOTAL_DURATION/1000+0.5){
