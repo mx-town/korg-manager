@@ -5264,7 +5264,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(DOM.smpPickerBg&
       // Waveform (pink) — above center
       if(embProg>.5){
         const wfAlpha=Math.min(1,(embProg-.5)/.3);
-        const wfW=HR*1.1,wfH=HR*.3,wfY=cy-HR*.3;
+        const wfW=HR*1.1,wfH=HR*.3,wfY=cy-HR*.38;
         ctx.strokeStyle=`rgba(197,48,92,${wfAlpha})`;ctx.lineWidth=2;ctx.lineJoin='round';
         gctx.strokeStyle=`rgba(197,48,92,${wfAlpha*.5})`;gctx.lineWidth=3;
         ctx.beginPath();gctx.beginPath();
