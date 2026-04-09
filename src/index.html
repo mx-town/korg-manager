@@ -1335,48 +1335,54 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 <body>
 <!-- ═══ BOOT SEQUENCE OVERLAY ═══ -->
 <div id="bootOverlay" style="position:fixed;inset:0;z-index:99999;background:#04060c;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;cursor:pointer;overflow:hidden">
-  <!-- Circuit traces SVG — full viewport, traces run from emblem center to screen edges -->
-  <svg id="bootTraces" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid meet" style="position:absolute;inset:0;width:100%;height:100%;z-index:1;opacity:0;transition:opacity .6s ease;filter:drop-shadow(0 0 3px rgba(0,204,255,.25))">
+  <!-- Circuit traces SVG — full viewport, traces grow from emblem pads to screen edges -->
+  <svg id="bootTraces" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid meet" style="position:absolute;inset:0;width:100%;height:100%;z-index:1;opacity:0;transition:opacity .6s ease;filter:drop-shadow(0 0 3px rgba(0,204,255,.2))">
     <defs>
       <filter id="traceGlow"><feGaussianBlur stdDeviation="1.5" result="g"/><feMerge><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
     </defs>
     <g filter="url(#traceGlow)" fill="none" stroke="#00ccff" stroke-width="1.2" stroke-linecap="round">
-      <!-- ── TOP traces (from hexagon top edge upward to screen top) ── -->
-      <path class="boot-trace" d="M580,340 L580,280 L520,240 L520,140 L480,100 L480,0" style="--trace-len:500;--trace-delay:0s"/>
-      <path class="boot-trace" d="M620,340 L620,270 L680,230 L680,120 L720,80 L720,0" style="--trace-len:520;--trace-delay:.15s"/>
-      <circle class="boot-pad" cx="520" cy="140" r="3" style="--pad-delay:1.2s"/>
-      <circle class="boot-pad" cx="680" cy="120" r="3" style="--pad-delay:1.35s"/>
-      <!-- ── TOP-RIGHT traces (diagonal to upper-right corner) ── -->
-      <path class="boot-trace" d="M660,360 L740,320 L740,240 L820,200 L900,200 L1000,160 L1200,160" style="--trace-len:700;--trace-delay:.2s"/>
-      <path class="boot-trace" d="M660,380 L760,340 L800,340 L800,280 L880,240 L1000,240 L1060,200 L1200,100" style="--trace-len:750;--trace-delay:.35s"/>
-      <circle class="boot-pad" cx="820" cy="200" r="3" style="--pad-delay:1.5s"/>
-      <rect class="boot-pad" x="992" y="232" width="16" height="8" rx="1" style="--pad-delay:1.7s"/>
-      <!-- ── RIGHT traces (from hexagon right edge to screen right) ── -->
-      <path class="boot-trace" d="M670,400 L760,400 L760,440 L860,440 L860,400 L1000,400 L1200,400" style="--trace-len:680;--trace-delay:.3s"/>
-      <path class="boot-trace" d="M670,420 L780,420 L780,480 L900,480 L1000,480 L1200,520" style="--trace-len:660;--trace-delay:.45s"/>
-      <circle class="boot-pad" cx="860" cy="400" r="3" style="--pad-delay:1.6s"/>
-      <rect class="boot-pad" x="892" y="472" width="16" height="8" rx="1" style="--pad-delay:1.8s"/>
-      <!-- ── BOTTOM-RIGHT traces (diagonal to lower-right) ── -->
-      <path class="boot-trace" d="M640,460 L680,520 L740,520 L740,600 L800,640 L900,640 L1200,700" style="--trace-len:750;--trace-delay:.4s"/>
-      <circle class="boot-pad" cx="740" cy="600" r="3" style="--pad-delay:1.65s"/>
-      <!-- ── BOTTOM traces (from hexagon bottom edge downward to screen bottom) ── -->
-      <path class="boot-trace" d="M580,460 L580,540 L540,580 L540,680 L500,720 L500,800" style="--trace-len:480;--trace-delay:.5s"/>
-      <path class="boot-trace" d="M620,460 L620,550 L660,590 L660,700 L700,740 L700,800" style="--trace-len:490;--trace-delay:.55s"/>
-      <circle class="boot-pad" cx="540" cy="680" r="3" style="--pad-delay:1.75s"/>
-      <circle class="boot-pad" cx="660" cy="700" r="3" style="--pad-delay:1.85s"/>
-      <!-- ── BOTTOM-LEFT traces (diagonal to lower-left) ── -->
-      <path class="boot-trace" d="M560,460 L520,520 L460,520 L460,600 L400,640 L300,640 L0,700" style="--trace-len:750;--trace-delay:.6s"/>
-      <circle class="boot-pad" cx="460" cy="600" r="3" style="--pad-delay:1.9s"/>
-      <!-- ── LEFT traces (from hexagon left edge to screen left) ── -->
-      <path class="boot-trace" d="M530,420 L440,420 L440,480 L340,480 L200,480 L0,520" style="--trace-len:660;--trace-delay:.65s"/>
-      <path class="boot-trace" d="M530,400 L420,400 L420,360 L320,360 L320,400 L200,400 L0,400" style="--trace-len:680;--trace-delay:.7s"/>
-      <rect class="boot-pad" x="312" y="352" width="16" height="8" rx="1" style="--pad-delay:1.95s"/>
-      <circle class="boot-pad" cx="200" cy="480" r="3" style="--pad-delay:2s"/>
-      <!-- ── TOP-LEFT traces (diagonal to upper-left corner) ── -->
-      <path class="boot-trace" d="M540,360 L460,320 L460,240 L380,200 L300,200 L200,160 L0,160" style="--trace-len:700;--trace-delay:.75s"/>
-      <path class="boot-trace" d="M540,380 L440,340 L400,340 L400,280 L320,240 L200,240 L140,200 L0,100" style="--trace-len:750;--trace-delay:.85s"/>
-      <circle class="boot-pad" cx="380" cy="200" r="3" style="--pad-delay:2.05s"/>
-      <rect class="boot-pad" x="192" y="232" width="16" height="8" rx="1" style="--pad-delay:2.1s"/>
+      <!-- ── From TOP pad — upward to top edge ── -->
+      <path class="boot-trace" d="M600,280 L600,200 L560,160 L560,60 L520,20 L520,0" style="--trace-len:400;--trace-delay:0s"/>
+      <path class="boot-trace" d="M600,280 L600,190 L640,150 L640,80 L680,40 L680,0" style="--trace-len:410;--trace-delay:.12s"/>
+      <circle class="boot-pad" cx="560" cy="60" r="3" style="--pad-delay:1.0s"/>
+      <circle class="boot-pad" cx="640" cy="80" r="3" style="--pad-delay:1.1s"/>
+      <!-- ── From TOP-RIGHT pad — diagonal to upper-right ── -->
+      <path class="boot-trace" d="M700,320 L760,280 L760,220 L840,180 L940,180 L1060,140 L1200,100" style="--trace-len:700;--trace-delay:.1s"/>
+      <path class="boot-trace" d="M700,320 L780,300 L820,300 L820,240 L900,200 L1000,200 L1100,160 L1200,160" style="--trace-len:680;--trace-delay:.25s"/>
+      <circle class="boot-pad" cx="840" cy="180" r="3" style="--pad-delay:1.2s"/>
+      <rect class="boot-pad" x="992" y="192" width="16" height="8" rx="1" style="--pad-delay:1.5s"/>
+      <circle class="boot-pad" cx="900" cy="200" r="3" style="--pad-delay:1.35s"/>
+      <!-- ── From RIGHT pad — horizontal to right edge ── -->
+      <path class="boot-trace" d="M730,400 L800,400 L800,370 L880,370 L880,400 L1000,400 L1200,400" style="--trace-len:620;--trace-delay:.2s"/>
+      <path class="boot-trace" d="M730,400 L810,420 L810,460 L900,460 L1000,460 L1100,480 L1200,480" style="--trace-len:630;--trace-delay:.35s"/>
+      <circle class="boot-pad" cx="880" cy="370" r="3" style="--pad-delay:1.3s"/>
+      <rect class="boot-pad" x="992" y="452" width="16" height="8" rx="1" style="--pad-delay:1.6s"/>
+      <!-- ── From BOTTOM-RIGHT pad — diagonal to lower-right ── -->
+      <path class="boot-trace" d="M700,480 L760,530 L760,600 L820,640 L920,640 L1060,680 L1200,700" style="--trace-len:700;--trace-delay:.3s"/>
+      <path class="boot-trace" d="M700,480 L740,520 L800,520 L800,580 L860,620 L1000,620 L1200,660" style="--trace-len:690;--trace-delay:.42s"/>
+      <circle class="boot-pad" cx="760" cy="600" r="3" style="--pad-delay:1.4s"/>
+      <circle class="boot-pad" cx="860" cy="620" r="3" style="--pad-delay:1.55s"/>
+      <!-- ── From BOTTOM pad — downward to bottom edge ── -->
+      <path class="boot-trace" d="M600,520 L600,600 L560,640 L560,720 L520,760 L520,800" style="--trace-len:400;--trace-delay:.4s"/>
+      <path class="boot-trace" d="M600,520 L600,610 L640,650 L640,740 L680,780 L680,800" style="--trace-len:400;--trace-delay:.5s"/>
+      <circle class="boot-pad" cx="560" cy="720" r="3" style="--pad-delay:1.65s"/>
+      <circle class="boot-pad" cx="640" cy="740" r="3" style="--pad-delay:1.7s"/>
+      <!-- ── From BOTTOM-LEFT pad — diagonal to lower-left ── -->
+      <path class="boot-trace" d="M500,480 L440,530 L440,600 L380,640 L280,640 L140,680 L0,700" style="--trace-len:700;--trace-delay:.48s"/>
+      <path class="boot-trace" d="M500,480 L460,520 L400,520 L400,580 L340,620 L200,620 L0,660" style="--trace-len:690;--trace-delay:.58s"/>
+      <circle class="boot-pad" cx="440" cy="600" r="3" style="--pad-delay:1.75s"/>
+      <circle class="boot-pad" cx="340" cy="620" r="3" style="--pad-delay:1.85s"/>
+      <!-- ── From LEFT pad — horizontal to left edge ── -->
+      <path class="boot-trace" d="M470,400 L400,400 L400,370 L320,370 L320,400 L200,400 L0,400" style="--trace-len:620;--trace-delay:.55s"/>
+      <path class="boot-trace" d="M470,400 L390,420 L390,460 L300,460 L200,460 L100,480 L0,480" style="--trace-len:630;--trace-delay:.65s"/>
+      <circle class="boot-pad" cx="320" cy="370" r="3" style="--pad-delay:1.8s"/>
+      <rect class="boot-pad" x="192" y="452" width="16" height="8" rx="1" style="--pad-delay:1.95s"/>
+      <!-- ── From TOP-LEFT pad — diagonal to upper-left ── -->
+      <path class="boot-trace" d="M500,320 L440,280 L440,220 L360,180 L260,180 L140,140 L0,100" style="--trace-len:700;--trace-delay:.62s"/>
+      <path class="boot-trace" d="M500,320 L420,300 L380,300 L380,240 L300,200 L200,200 L100,160 L0,160" style="--trace-len:680;--trace-delay:.75s"/>
+      <circle class="boot-pad" cx="360" cy="180" r="3" style="--pad-delay:1.9s"/>
+      <rect class="boot-pad" x="192" y="192" width="16" height="8" rx="1" style="--pad-delay:2.05s"/>
+      <circle class="boot-pad" cx="300" cy="200" r="3" style="--pad-delay:2.0s"/>
     </g>
   </svg>
   <style>
@@ -1405,7 +1411,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
       100%{opacity:.35;transform:scale(1)}
     }
   </style>
-  <img id="bootEmblem" src="assets/esw-emblem.png" style="width:240px;height:auto;opacity:0;filter:brightness(0) saturate(0);transition:opacity .8s ease,filter 1.2s ease;position:relative;z-index:2" alt="ESW">
+  <img id="bootEmblem" src="assets/esw-emblem.png" style="width:280px;height:auto;opacity:0;filter:brightness(0) saturate(0);transition:opacity .8s ease,filter 1.2s ease;position:relative;z-index:2;mix-blend-mode:lighten" alt="ESW">
   <div id="bootLeds" style="display:flex;gap:8px;opacity:0;transition:opacity .3s;position:relative;z-index:2;margin-top:20px">
     <span class="boot-led" style="width:8px;height:8px;border-radius:50%;background:#C5305C;opacity:0;transform:scale(0);transition:opacity .15s,transform .2s"></span>
     <span class="boot-led" style="width:8px;height:8px;border-radius:50%;background:#1E50A0;opacity:0;transform:scale(0);transition:opacity .15s,transform .2s"></span>
