@@ -5094,32 +5094,40 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(DOM.smpPickerBg&
   // ── Generate traces — "Light Runner" approach ──
   // Fewer, cleaner traces. Each drawn sequentially with a glowing tip.
   const traces=[];const rng=()=>Math.random();
-  // 3-4 traces per vertex = ~20 total. All start together, glow tips race outward.
+  // 3-4 traces per vertex = ~20 total. Manhattan routing (H/V only, 90° turns).
   hexPts.forEach((vt,vi)=>{
     const baseAngle=Math.PI/2+vi*Math.PI/3;
-    const numT=3+(vi%2); // alternating 3 and 4 per vertex
+    // Primary direction from center: decompose into H and V bias
+    const dirX=Math.cos(baseAngle),dirY=-Math.sin(baseAngle);
+    // Decide primary axis: if more horizontal, start H; if more vertical, start V
+    const startH=Math.abs(dirX)>Math.abs(dirY);
+    const signX=dirX>=0?1:-1,signY=dirY>=0?1:-1;
+
+    const numT=3+(vi%2);
     for(let t=0;t<numT;t++){
-      const spread=(t/(numT-1||1)-.5)*.5; // fan within ~28° cone
-      const a=baseAngle+spread;
-      const perpSign=t<numT/2?-1:1;
-      const segs=[];let px=vt.x,py=vt.y;
-      const segCount=8+Math.floor(rng()*4);
+      const fanOffset=(t/(numT-1||1)-.5)*60; // ±30px lateral offset at start
+      const segs=[];
+      let px=vt.x+(startH?0:fanOffset),py=vt.y+(startH?fanOffset:0);
+      const segCount=8+Math.floor(rng()*3);
+      let doH=startH; // alternate H and V segments
       for(let s=0;s<segCount;s++){
-        const len=50+rng()*60;
-        if(s%2===0){px+=Math.cos(a)*len;py-=Math.sin(a)*len;}
-        else{const perp=a+Math.PI/2*perpSign;px+=Math.cos(perp)*len*.25;py-=Math.sin(perp)*len*.25;}
+        const len=50+rng()*80;
+        if(doH){px+=signX*len;} else{py+=signY*len;}
+        // Add slight perpendicular fan so traces spread
+        if(s===1){if(doH)py+=fanOffset*.3;else px+=fanOffset*.3;}
         let comp=null;
-        if(s===3||s===6)comp=rng()>.5?'resistor':'cap'; // max 2 components per trace
+        if(s===3||s===6)comp=rng()>.5?'resistor':'cap';
         segs.push({x:px,y:py,pad:null,comp});
+        doH=!doH; // alternate axis
       }
-      // Extend to screen edge
+      // Extend last segment to screen edge (along its axis)
       const last=segs[segs.length-1];
-      const dx=last.x-cx,dy=last.y-cy;
-      const edgeScale=Math.max(Math.abs(dx)<1?999:((dx>0?W:0)-cx)/dx,Math.abs(dy)<1?999:((dy>0?H:0)-cy)/dy);
-      segs.push({x:cx+dx*Math.min(Math.max(edgeScale,.5),4),y:cy+dy*Math.min(Math.max(edgeScale,.5),4),pad:null,comp:null});
-      segs[segs.length-2].pad='end'; // terminal pad before edge
-      // All traces start together at T+1.0s, slight random duration variation
-      traces.push({start:{x:vt.x,y:vt.y},segs,drawStart:1.0,drawDur:2.5+rng()*1.0,width:1,alpha:.3});
+      const prev=segs.length>=2?segs[segs.length-2]:{x:vt.x,y:vt.y};
+      const isLastH=Math.abs(last.x-prev.x)>Math.abs(last.y-prev.y);
+      if(isLastH){segs.push({x:last.x>cx?W+10:-10,y:last.y,pad:null,comp:null});}
+      else{segs.push({x:last.x,y:last.y>cy?H+10:-10,pad:null,comp:null});}
+      segs[segs.length-2].pad='end';
+      traces.push({start:{x:vt.x+(startH?0:fanOffset),y:vt.y+(startH?fanOffset:0)},segs,drawStart:1.0,drawDur:2.5+rng()*1.0,width:1,alpha:.3});
     }
   });
 
