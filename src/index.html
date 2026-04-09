@@ -2105,6 +2105,18 @@ function redrawModalWf(){
     ctx.beginPath();ctx.moveTo(ex,0);ctx.lineTo(ex,H);ctx.stroke();
     ctx.beginPath();ctx.moveTo(ex-5,0);ctx.lineTo(ex+5,0);ctx.lineTo(ex,9);ctx.closePath();ctx.fill();
     ctx.beginPath();ctx.moveTo(ex-5,H);ctx.lineTo(ex+5,H);ctx.lineTo(ex,H-9);ctx.closePath();ctx.fill();
+    // Draw playback cursor within selection when playing
+    if(playing&&seekPos>=modalRangeStart&&seekPos<=modalRangeEnd){
+      const cx=seekPos*W;
+      const cg=ctx.createLinearGradient(cx-6,0,cx+6,0);
+      cg.addColorStop(0,'transparent');cg.addColorStop(.5,'rgba(197,48,92,.3)');cg.addColorStop(1,'transparent');
+      ctx.fillStyle=cg;ctx.fillRect(cx-6,0,12,H);
+      ctx.strokeStyle='#C5305C';ctx.lineWidth=2;
+      ctx.beginPath();ctx.moveTo(cx,0);ctx.lineTo(cx,H);ctx.stroke();
+      ctx.fillStyle='#C5305C';
+      ctx.beginPath();ctx.moveTo(cx-5,0);ctx.lineTo(cx+5,0);ctx.lineTo(cx,7);ctx.closePath();ctx.fill();
+      ctx.beginPath();ctx.moveTo(cx-5,H);ctx.lineTo(cx+5,H);ctx.lineTo(cx,H-7);ctx.closePath();ctx.fill();
+    }
     const s=S.samples.find(x=>x.index===sel);
     if(s){
       const dur=s.duration||1;
@@ -3619,7 +3631,7 @@ function esxFilterName(v){return ESX_FILTER_NAMES[v]||String(v);}
 const ESX_PART_PARAMS={
   drum:[
     {section:'OSCILLATOR',params:[
-      {key:'pitch',label:'PITCH',min:-24,max:24,defaultVal:0,color:'#00ccff',fmt:v=>(v>0?'+':'')+v+' st'},
+      {key:'pitch',label:'PITCH',min:0,max:127,defaultVal:64,color:'#00ccff',fmt:v=>{const s=v-64;return(s>0?'+':'')+s}},
       {key:'glideTime',label:'GLIDE',min:0,max:127,defaultVal:0,color:'#00ccff',fmt:v=>String(v)},
       {key:'startPoint',label:'START',min:0,max:127,defaultVal:0,color:'#00ccff',fmt:v=>String(v)},
       {key:'modSpeed',label:'M.SPD',min:0,max:127,defaultVal:64,color:'#00ccff',fmt:v=>String(v)},
@@ -5118,13 +5130,13 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(DOM.smpPickerBg&
     typeChar();
   },2000);
 
-  // T+4200ms: Reveal app
+  // T+5600ms: Reveal app
   setTimeout(()=>{
     if(skipped)return;
     ov.style.transition='opacity .4s ease';
     ov.style.opacity='0';
     setTimeout(()=>ov.remove(),400);
-  },4200);
+  },5600);
 })();
 </script>
 <div class="ctx-menu" id="ctxMenu"><div class="ctx-title">SET TYPE</div><div class="ctx-items" id="ctxItems"></div></div>
