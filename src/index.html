@@ -5119,7 +5119,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(DOM.smpPickerBg&
       segs.push({x:cx+dx*Math.min(Math.max(edgeScale,.5),4),y:cy+dy*Math.min(Math.max(edgeScale,.5),4),pad:null,comp:null});
       segs[segs.length-2].pad='end'; // terminal pad before edge
       // All traces start together at T+1.0s, slight random duration variation
-      traces.push({start:{x:vt.x,y:vt.y},segs,drawStart:1.0,drawDur:2.0+rng()*.8,width:1,alpha:.3});
+      traces.push({start:{x:vt.x,y:vt.y},segs,drawStart:1.0,drawDur:2.0+rng()*.8,width:1,alpha:.3,vertexEven:vi%2===0});
     }
   });
 
@@ -5174,10 +5174,9 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(DOM.smpPickerBg&
       const fullSegs=Math.min(headSeg,totalSegs);
 
       // ── STEP 1: Draw ONE continuous trace line ──
-      // A/B: left side = red trace + blue glow, right side = blue trace + red glow
-      const isLeft=tr.start.x<cx;
-      const traceR=isLeft?'197,48,92':'0,204,255';   // trace color RGB
-      const glowR=isLeft?'0,204,255':'197,48,92';     // glow tip color RGB
+      // Alternating per vertex: even=cyan, odd=pink. Glow = opposite color.
+      const traceR=tr.vertexEven?'0,204,255':'197,48,92';
+      const glowR=tr.vertexEven?'197,48,92':'0,204,255';
       ctx.strokeStyle=`rgba(${traceR},${trAlpha})`;ctx.lineWidth=tr.width;ctx.lineCap='round';ctx.lineJoin='round';
       gctx.strokeStyle=`rgba(${traceR},${trAlpha*.5})`;gctx.lineWidth=tr.width+1;gctx.lineCap='round';gctx.lineJoin='round';
       ctx.beginPath();gctx.beginPath();
