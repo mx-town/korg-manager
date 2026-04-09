@@ -5091,54 +5091,40 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(DOM.smpPickerBg&
   const hexPtsInner=[];
   for(let i=0;i<6;i++){const a=Math.PI/2+i*Math.PI/3;hexPtsInner.push({x:cx+HR*.82*Math.cos(a),y:cy-HR*.82*Math.sin(a)});}
 
-  // ── Generate traces procedurally ──
+  // ── Generate traces — "Light Runner" approach ──
+  // Fewer, cleaner traces. Each drawn sequentially with a glowing tip.
   const traces=[];const rng=()=>Math.random();
-  // From each hex vertex, spawn 4-5 traces fanning outward (no crossing)
+  // 2 traces per vertex = 12 total. Clean, deliberate, no chaos.
   hexPts.forEach((vt,vi)=>{
-    const baseAngle=Math.PI/2+vi*Math.PI/3; // outward direction from center
-    const numTraces=4+Math.floor(rng()*2); // 4-5 per vertex
-    // Spread evenly within a ~45° cone centered on the outward direction
-    const coneWidth=Math.PI/4;
-    for(let t=0;t<numTraces;t++){
-      const a=baseAngle-coneWidth/2+coneWidth*(t/(numTraces-1||1));
+    const baseAngle=Math.PI/2+vi*Math.PI/3;
+    for(let t=0;t<2;t++){
+      const spread=(t===0?-0.2:0.2); // slight fan
+      const a=baseAngle+spread;
+      const perpSign=t===0?-1:1;
       const segs=[];let px=vt.x,py=vt.y;
-      const segCount=6+Math.floor(rng()*5); // 6-10 segments
-      // Perpendicular direction: always fan further outward (alternating consistently)
-      const perpSign=t<numTraces/2?-1:1;
+      const segCount=8+Math.floor(rng()*4); // 8-11 segments (longer paths to edge)
       for(let s=0;s<segCount;s++){
-        const len=40+rng()*70;
-        if(s%2===0){
-          px+=Math.cos(a)*len;py-=Math.sin(a)*len;
-        } else {
-          const perp=a+Math.PI/2*perpSign;
-          px+=Math.cos(perp)*len*.3;py-=Math.sin(perp)*len*.3;
-        }
-        // Component: 'resistor' or 'cap' — trace breaks around it
+        const len=50+rng()*60;
+        if(s%2===0){px+=Math.cos(a)*len;py-=Math.sin(a)*len;}
+        else{const perp=a+Math.PI/2*perpSign;px+=Math.cos(perp)*len*.25;py-=Math.sin(perp)*len*.25;}
         let comp=null;
-        if(s>0&&s<segCount-1&&rng()>.7)comp=rng()>.5?'resistor':'cap';
+        if(s===3||s===6)comp=rng()>.5?'resistor':'cap'; // max 2 components per trace
         segs.push({x:px,y:py,pad:null,comp});
       }
-      // Extend last segment to screen edge
+      // Extend to screen edge
       const last=segs[segs.length-1];
       const dx=last.x-cx,dy=last.y-cy;
       const edgeScale=Math.max(Math.abs(dx)<1?999:((dx>0?W:0)-cx)/dx,Math.abs(dy)<1?999:((dy>0?H:0)-cy)/dy);
-      const clampScale=Math.min(Math.max(edgeScale,.5),4);
-      const edgeX=cx+dx*clampScale,edgeY=cy+dy*clampScale;
-      segs.push({x:edgeX,y:edgeY,pad:null,comp:null});
-      // Terminal pad on the last visible segment (before edge)
-      segs[segs.length-2].pad='circle';
-      traces.push({start:{x:vt.x,y:vt.y},segs,delay:vi*0.12+t*0.06,width:.6+rng()*.8,alpha:.15+rng()*.2});
+      segs.push({x:cx+dx*Math.min(Math.max(edgeScale,.5),4),y:cy+dy*Math.min(Math.max(edgeScale,.5),4),pad:null,comp:null});
+      segs[segs.length-2].pad='end'; // terminal pad before edge
+      // Sequential timing: each trace starts 0.3s after the previous
+      const traceIdx=vi*2+t;
+      traces.push({start:{x:vt.x,y:vt.y},segs,drawStart:1.0+traceIdx*0.25,drawDur:1.2+rng()*.3,width:1,alpha:.3});
     }
   });
 
   // ── Waveform data ──
   const wfPts=[];for(let i=0;i<80;i++)wfPts.push(Math.sin(i*.3)*(.3+rng()*.7)*(i<10||i>70?.3:1));
-
-  // ── Energy pulses ──
-  const pulses=[];
-  traces.forEach((tr,i)=>{
-    if(rng()>.5)pulses.push({traceIdx:i,progress:0,speed:.008+rng()*.006,delay:3+rng()*1.5,started:false});
-  });
 
   // ── Animation state ──
   const startTime=performance.now();
@@ -5155,30 +5141,26 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(DOM.smpPickerBg&
     for(let x=0;x<W;x+=gs){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
     for(let y=0;y<H;y+=gs){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
 
-    // ── Draw traces (progressive reveal) ──
-    // Helper: draw a component symbol between two points
-    function drawComponent(ax,ay,bx,by,type,alpha){
-      const dx=bx-ax,dy=by-ay,len=Math.sqrt(dx*dx+dy*dy);
-      if(len<2)return;
-      const ux=dx/len,uy=dy/len; // unit vector along trace
-      const nx=-uy,ny=ux; // normal (perpendicular)
-      const mx=ax+dx*.5,my=ay+dy*.5; // midpoint
-      const ca=`rgba(0,204,255,${alpha+.1})`;
-      ctx.save();ctx.strokeStyle=ca;ctx.fillStyle=ca;ctx.lineWidth=.8;
+    // ── Draw traces — Light Runner: sequential with glowing tip ──
+    // Helper: draw component between two points
+    function drawComp(ax,ay,bx,by,type,alpha){
+      const dx=bx-ax,dy=by-ay,len=Math.sqrt(dx*dx+dy*dy);if(len<2)return;
+      const ux=dx/len,uy=dy/len,nx=-uy,ny=ux;
+      const mx=ax+dx*.5,my=ay+dy*.5;
+      ctx.save();ctx.strokeStyle=`rgba(0,204,255,${alpha+.15})`;ctx.fillStyle=`rgba(0,204,255,${alpha+.1})`;ctx.lineWidth=.8;
       if(type==='resistor'){
-        // ─┤▯├─  Trace stops 8px before mid, rect body, trace resumes 8px after
         const hw=7,hh=3;
-        ctx.strokeRect(mx-ux*hw-nx*hh,my-uy*hw-ny*hh,ux*hw*2+nx*hh*2||hw*2,uy*hw*2+ny*hh*2||hh*2);
-        // Solder pads at body ends
+        // Rotated rectangle
+        ctx.beginPath();
+        ctx.moveTo(mx-ux*hw+nx*hh,my-uy*hw+ny*hh);ctx.lineTo(mx+ux*hw+nx*hh,my+uy*hw+ny*hh);
+        ctx.lineTo(mx+ux*hw-nx*hh,my+uy*hw-ny*hh);ctx.lineTo(mx-ux*hw-nx*hh,my-uy*hw-ny*hh);
+        ctx.closePath();ctx.stroke();
         ctx.beginPath();ctx.arc(mx-ux*hw,my-uy*hw,1.8,0,Math.PI*2);ctx.fill();
         ctx.beginPath();ctx.arc(mx+ux*hw,my+uy*hw,1.8,0,Math.PI*2);ctx.fill();
       } else {
-        // ─┤||├─  Capacitor: two parallel lines perpendicular to trace
-        const gap=3,ph=5;
-        ctx.lineWidth=1.2;
+        const gap=3,ph=5;ctx.lineWidth=1.2;
         ctx.beginPath();ctx.moveTo(mx-ux*gap+nx*ph,my-uy*gap+ny*ph);ctx.lineTo(mx-ux*gap-nx*ph,my-uy*gap-ny*ph);ctx.stroke();
         ctx.beginPath();ctx.moveTo(mx+ux*gap+nx*ph,my+uy*gap+ny*ph);ctx.lineTo(mx+ux*gap-nx*ph,my+uy*gap-ny*ph);ctx.stroke();
-        // Solder pads
         ctx.beginPath();ctx.arc(mx-ux*(gap+3),my-uy*(gap+3),1.8,0,Math.PI*2);ctx.fill();
         ctx.beginPath();ctx.arc(mx+ux*(gap+3),my+uy*(gap+3),1.8,0,Math.PI*2);ctx.fill();
       }
@@ -5186,70 +5168,89 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(DOM.smpPickerBg&
     }
 
     traces.forEach(tr=>{
-      const trT=t-0.8-tr.delay;
+      const trT=t-tr.drawStart; // each trace has its own start time
       if(trT<0)return;
-      const progress=Math.min(1,trT/2.8);
+      const progress=Math.min(1,trT/tr.drawDur);
       const totalSegs=tr.segs.length;
-      const visibleSegs=Math.floor(progress*totalSegs);
-      const partialProg=(progress*totalSegs)%1;
-      const col=`rgba(0,204,255,${tr.alpha})`,colG=`rgba(0,204,255,${tr.alpha*.6})`;
 
-      // Build list of visible points
-      const pts=[tr.start];
-      for(let i=0;i<visibleSegs;i++)pts.push(tr.segs[i]);
-      // Add partial point
-      if(visibleSegs<totalSegs){
-        const prev=visibleSegs>0?tr.segs[visibleSegs-1]:tr.start;
-        const next=tr.segs[visibleSegs];
-        pts.push({x:prev.x+(next.x-prev.x)*partialProg,y:prev.y+(next.y-prev.y)*partialProg,comp:null,pad:null});
+      // Compute total path length for smooth progress
+      let totalLen=0;const cumLen=[0];
+      for(let i=0;i<totalSegs;i++){
+        const prev=i===0?tr.start:tr.segs[i-1];
+        const dx=tr.segs[i].x-prev.x,dy=tr.segs[i].y-prev.y;
+        totalLen+=Math.sqrt(dx*dx+dy*dy);cumLen.push(totalLen);
+      }
+      const drawnLen=progress*totalLen;
+
+      // Find where the drawing head is
+      let headX=tr.start.x,headY=tr.start.y,headSeg=0;
+      for(let i=0;i<totalSegs;i++){
+        if(cumLen[i+1]<=drawnLen){headSeg=i+1;}
+        else{
+          const segStart=cumLen[i],segEnd=cumLen[i+1];
+          const frac=(drawnLen-segStart)/(segEnd-segStart);
+          const prev=i===0?tr.start:tr.segs[i-1];
+          headX=prev.x+(tr.segs[i].x-prev.x)*frac;
+          headY=prev.y+(tr.segs[i].y-prev.y)*frac;
+          headSeg=i;
+          break;
+        }
+        if(i===totalSegs-1){headX=tr.segs[i].x;headY=tr.segs[i].y;headSeg=totalSegs;}
       }
 
-      // Draw trace line, breaking at components
-      ctx.strokeStyle=col;ctx.lineWidth=tr.width;ctx.lineCap='round';
-      gctx.strokeStyle=colG;gctx.lineWidth=tr.width+1;gctx.lineCap='round';
+      // Draw the permanent trace (dim, behind the head)
+      const trAlpha=tr.alpha;
+      ctx.strokeStyle=`rgba(0,204,255,${trAlpha})`;ctx.lineWidth=tr.width;ctx.lineCap='round';
+      gctx.strokeStyle=`rgba(0,204,255,${trAlpha*.5})`;gctx.lineWidth=tr.width+1;gctx.lineCap='round';
       ctx.beginPath();gctx.beginPath();
-      ctx.moveTo(pts[0].x,pts[0].y);gctx.moveTo(pts[0].x,pts[0].y);
+      ctx.moveTo(tr.start.x,tr.start.y);gctx.moveTo(tr.start.x,tr.start.y);
 
-      for(let i=1;i<pts.length;i++){
-        const p=pts[i];
-        if(p.comp){
-          // Stop trace 10px before this point
-          const prev=pts[i-1];
-          const dx=p.x-prev.x,dy=p.y-prev.y,len=Math.sqrt(dx*dx+dy*dy);
+      const fullSegs=Math.min(headSeg,totalSegs);
+      for(let i=0;i<fullSegs;i++){
+        const s=tr.segs[i],prev=i===0?tr.start:tr.segs[i-1];
+        if(s.comp){
+          const dx=s.x-prev.x,dy=s.y-prev.y,len=Math.sqrt(dx*dx+dy*dy);
           if(len>20){
             const ux=dx/len,uy=dy/len;
-            // Trace ends before component
-            ctx.lineTo(p.x-ux*10,p.y-uy*10);gctx.lineTo(p.x-ux*10,p.y-uy*10);
+            ctx.lineTo(s.x-ux*10,s.y-uy*10);gctx.lineTo(s.x-ux*10,s.y-uy*10);
             ctx.stroke();gctx.stroke();
-            // Draw component at this point
-            drawComponent(prev.x,prev.y,p.x,p.y,p.comp,tr.alpha);
-            // Resume trace after component
+            drawComp(prev.x,prev.y,s.x,s.y,s.comp,trAlpha);
+            ctx.strokeStyle=`rgba(0,204,255,${trAlpha})`;ctx.lineWidth=tr.width;
+            gctx.strokeStyle=`rgba(0,204,255,${trAlpha*.5})`;gctx.lineWidth=tr.width+1;
             ctx.beginPath();gctx.beginPath();
-            ctx.moveTo(p.x+ux*10,p.y+uy*10);gctx.moveTo(p.x+ux*10,p.y+uy*10);
-          } else {
-            ctx.lineTo(p.x,p.y);gctx.lineTo(p.x,p.y);
-          }
-        } else {
-          ctx.lineTo(p.x,p.y);gctx.lineTo(p.x,p.y);
-        }
+            ctx.moveTo(s.x+ux*10,s.y+uy*10);gctx.moveTo(s.x+ux*10,s.y+uy*10);
+          } else {ctx.lineTo(s.x,s.y);gctx.lineTo(s.x,s.y);}
+        } else {ctx.lineTo(s.x,s.y);gctx.lineTo(s.x,s.y);}
       }
+      // Draw to head position
+      ctx.lineTo(headX,headY);gctx.lineTo(headX,headY);
       ctx.stroke();gctx.stroke();
 
-      // Draw pads: filled circle (°) at pad points and open trace ends
-      for(let i=0;i<visibleSegs;i++){
-        const s=tr.segs[i];if(!s.pad)continue;
-        ctx.fillStyle=`rgba(0,204,255,${tr.alpha+.1})`;
-        ctx.beginPath();ctx.arc(s.x,s.y,2.5,0,Math.PI*2);ctx.fill();
-        ctx.strokeStyle=`rgba(0,204,255,${tr.alpha+.15})`;ctx.lineWidth=.8;
-        ctx.beginPath();ctx.arc(s.x,s.y,4,0,Math.PI*2);ctx.stroke();
+      // ── GLOWING TIP — the "Light Runner" ──
+      if(progress<1){
+        // Bright core dot
+        const g1=ctx.createRadialGradient(headX,headY,0,headX,headY,4);
+        g1.addColorStop(0,'rgba(255,255,255,.9)');g1.addColorStop(.3,'rgba(0,220,255,.7)');g1.addColorStop(1,'rgba(0,204,255,0)');
+        ctx.fillStyle=g1;ctx.fillRect(headX-4,headY-4,8,8);
+        // Wide glow on glow canvas
+        const g2=gctx.createRadialGradient(headX,headY,0,headX,headY,16);
+        g2.addColorStop(0,'rgba(0,220,255,.6)');g2.addColorStop(1,'rgba(0,204,255,0)');
+        gctx.fillStyle=g2;gctx.fillRect(headX-16,headY-16,32,32);
       }
-      // End pad (°) on the last real segment (before edge extension)
+
+      // ── End pad (°) when trace is fully drawn ──
       if(progress>=1&&tr.segs.length>=2){
-        const endSeg=tr.segs[tr.segs.length-2]; // second-to-last = real end
-        ctx.fillStyle=`rgba(0,204,255,${tr.alpha+.1})`;
+        const endSeg=tr.segs[tr.segs.length-2];
+        ctx.fillStyle=`rgba(0,204,255,${trAlpha+.12})`;
         ctx.beginPath();ctx.arc(endSeg.x,endSeg.y,2.5,0,Math.PI*2);ctx.fill();
-        ctx.strokeStyle=`rgba(0,204,255,${tr.alpha+.15})`;ctx.lineWidth=.8;
+        ctx.strokeStyle=`rgba(0,204,255,${trAlpha+.15})`;ctx.lineWidth=.8;
         ctx.beginPath();ctx.arc(endSeg.x,endSeg.y,4,0,Math.PI*2);ctx.stroke();
+      }
+      // Pads at completed segments
+      for(let i=0;i<fullSegs;i++){
+        const s=tr.segs[i];if(!s.pad||s.pad==='end')continue;
+        ctx.fillStyle=`rgba(0,204,255,${trAlpha+.1})`;
+        ctx.beginPath();ctx.arc(s.x,s.y,2.5,0,Math.PI*2);ctx.fill();
       }
     });
 
@@ -5332,29 +5333,6 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(DOM.smpPickerBg&
         ctx.fillText('SAMPLE WERKSTATT',cx,cy+HR*.25);
       }
     }
-
-    // ── Energy pulses (travel along traces after T+3s) ──
-    pulses.forEach(p=>{
-      if(t<p.delay)return;
-      if(!p.started){p.started=true;p.progress=0;}
-      p.progress+=p.speed;
-      if(p.progress>1)p.progress=0; // loop
-      const tr=traces[p.traceIdx];if(!tr)return;
-      const totalSegs=tr.segs.length;
-      const segF=p.progress*totalSegs;
-      const si=Math.floor(segF),sf=segF-si;
-      const p1=si===0?tr.start:tr.segs[Math.min(si-1,totalSegs-1)];
-      const p2=tr.segs[Math.min(si,totalSegs-1)];
-      const px=p1.x+(p2.x-p1.x)*sf,py=p1.y+(p2.y-p1.y)*sf;
-      // Bright dot
-      const grad=ctx.createRadialGradient(px,py,0,px,py,6);
-      grad.addColorStop(0,'rgba(0,204,255,.8)');grad.addColorStop(1,'rgba(0,204,255,0)');
-      ctx.fillStyle=grad;ctx.fillRect(px-6,py-6,12,12);
-      // Glow layer
-      const gg=gctx.createRadialGradient(px,py,0,px,py,10);
-      gg.addColorStop(0,'rgba(0,204,255,.5)');gg.addColorStop(1,'rgba(0,204,255,0)');
-      gctx.fillStyle=gg;gctx.fillRect(px-10,py-10,20,20);
-    });
 
     // ── Continue or fade out ──
     if(t<TOTAL_DURATION/1000+0.5){
