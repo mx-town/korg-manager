@@ -5119,7 +5119,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(DOM.smpPickerBg&
       segs.push({x:cx+dx*Math.min(Math.max(edgeScale,.5),4),y:cy+dy*Math.min(Math.max(edgeScale,.5),4),pad:null,comp:null});
       segs[segs.length-2].pad='end'; // terminal pad before edge
       // All traces start together at T+1.0s, slight random duration variation
-      traces.push({start:{x:vt.x,y:vt.y},segs,drawStart:1.0,drawDur:2.5+rng()*1.0,width:1,alpha:.3});
+      traces.push({start:{x:vt.x,y:vt.y},segs,drawStart:1.0,drawDur:2.0+rng()*.8,width:1,alpha:.3});
     }
   });
 
@@ -5222,12 +5222,6 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(DOM.smpPickerBg&
         gctx.fillStyle=g2;gctx.fillRect(headX-20,headY-20,40,40);
       }
 
-      // ── STEP 4: End pad (°) ──
-      if(progress>=1&&tr.segs.length>=2){
-        const es=tr.segs[tr.segs.length-2];
-        ctx.fillStyle=`rgba(0,204,255,${trAlpha+.12})`;ctx.beginPath();ctx.arc(es.x,es.y,2.5,0,Math.PI*2);ctx.fill();
-        ctx.strokeStyle=`rgba(0,204,255,${trAlpha+.15})`;ctx.lineWidth=.8;ctx.beginPath();ctx.arc(es.x,es.y,4,0,Math.PI*2);ctx.stroke();
-      }
     });
 
     // ── Emblem (draws at T+0.2s) ──
@@ -5324,7 +5318,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(DOM.smpPickerBg&
     if(skipped)return;
     ov.style.transition='opacity .5s ease';ov.style.opacity='0';
     setTimeout(()=>{if(af)cancelAnimationFrame(af);ov.remove();},500);
-  },5600);
+  },4500);
 })();
 </script>
 <div class="ctx-menu" id="ctxMenu"><div class="ctx-title">SET TYPE</div><div class="ctx-items" id="ctxItems"></div></div>
