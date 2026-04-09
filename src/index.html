@@ -5093,34 +5093,34 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(DOM.smpPickerBg&
 
   // ── Generate traces procedurally ──
   const traces=[];const rng=()=>Math.random();
-  // From each hex vertex, spawn 4-6 traces going outward
+  // From each hex vertex, spawn 4-5 traces fanning outward (no crossing)
   hexPts.forEach((vt,vi)=>{
-    const angle=Math.PI/2+vi*Math.PI/3; // outward direction from center
-    const numTraces=4+Math.floor(rng()*3); // 4-6 per vertex
+    const baseAngle=Math.PI/2+vi*Math.PI/3; // outward direction from center
+    const numTraces=4+Math.floor(rng()*2); // 4-5 per vertex
+    // Spread evenly within a ~45° cone centered on the outward direction
+    const coneWidth=Math.PI/4;
     for(let t=0;t<numTraces;t++){
-      const spread=(t-numTraces/2)*0.25; // angular spread
-      const a=angle+spread;
+      const a=baseAngle-coneWidth/2+coneWidth*(t/(numTraces-1||1));
       const segs=[];let px=vt.x,py=vt.y;
       const segCount=6+Math.floor(rng()*5); // 6-10 segments
+      // Perpendicular direction: always fan further outward (alternating consistently)
+      const perpSign=t<numTraces/2?-1:1;
       for(let s=0;s<segCount;s++){
-        // Alternate horizontal/vertical moves (PCB style)
-        const len=30+rng()*80;
-        if(s%2===0){px+=Math.cos(a)*len;py-=Math.sin(a)*len;}
-        else{const perp=a+Math.PI/2*(rng()>.5?1:-1);px+=Math.cos(perp)*len*.4;py-=Math.sin(perp)*len*.4;}
+        const len=40+rng()*70;
+        if(s%2===0){
+          // Forward move along trace direction
+          px+=Math.cos(a)*len;py-=Math.sin(a)*len;
+        } else {
+          // Perpendicular jog — consistent direction per trace (no crossing)
+          const perp=a+Math.PI/2*perpSign;
+          px+=Math.cos(perp)*len*.3;py-=Math.sin(perp)*len*.3;
+        }
         segs.push({x:px,y:py});
-        // Random pad at segment end
         if(rng()>.6)segs[segs.length-1].pad=rng()>.5?'circle':'rect';
       }
       traces.push({start:{x:vt.x,y:vt.y},segs,delay:vi*0.12+t*0.06,width:.6+rng()*.8,alpha:.15+rng()*.2});
     }
   });
-  // Add extra cross-traces between vertices
-  for(let i=0;i<8;i++){
-    const v1=hexPts[Math.floor(rng()*6)],v2=hexPts[Math.floor(rng()*6)];
-    const mx=(v1.x+v2.x)/2+rng()*100-50,my=(v1.y+v2.y)/2+rng()*100-50;
-    const segs=[{x:mx,y:my},{x:mx+rng()*200-100,y:my+rng()*200-100}];
-    traces.push({start:{x:v1.x,y:v1.y},segs,delay:.5+i*.08,width:.5,alpha:.1});
-  }
 
   // ── Waveform data ──
   const wfPts=[];for(let i=0;i<80;i++)wfPts.push(Math.sin(i*.3)*(.3+rng()*.7)*(i<10||i>70?.3:1));
