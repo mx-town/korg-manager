@@ -1,0 +1,75 @@
+<h2>Phase 1 Design — Section 3: Idle Ambiance</h2>
+<p class="subtitle">The app breathes when you're not touching it</p>
+
+<div class="section">
+  <h3>The Concept</h3>
+  <p style="color: #aaa; line-height: 1.7; font-size: 14px;">Real hardware doesn't sit perfectly still. LEDs flicker imperceptibly. Displays have a faint refresh shimmer. Power indicators glow with slight warmth variation. The app should feel <em>alive</em> — like it's powered on and waiting, not frozen in a screenshot.</p>
+</div>
+
+<div class="section" style="margin-top: 20px;">
+  <h3>Ambiance Layers</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 12px;">
+
+    <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 16px;">
+      <div style="color: #00ff88; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px;">Layer 1: LED Flicker</div>
+      <div style="display: flex; gap: 6px; margin-bottom: 12px;">
+        <div style="width: 8px; height: 8px; border-radius: 50%; background: #C5305C; box-shadow: 0 0 6px rgba(197,48,92,.5); animation: flicker1 3s ease-in-out infinite;"></div>
+        <div style="width: 8px; height: 8px; border-radius: 50%; background: #00ccff; box-shadow: 0 0 6px rgba(0,204,255,.5); animation: flicker2 4s ease-in-out infinite;"></div>
+        <div style="width: 8px; height: 8px; border-radius: 50%; background: #00ff88; box-shadow: 0 0 6px rgba(0,255,136,.5); animation: flicker3 3.5s ease-in-out infinite;"></div>
+      </div>
+      <p style="color: #888; font-size: 12px; margin: 0; line-height: 1.6;"><strong style="color:#ccc;">Where:</strong> Active part indicators, sidebar device icons, power/status LEDs<br><strong style="color:#ccc;">How:</strong> <code style="color:#00ccff;">led-flicker</code> with staggered delays (no two LEDs sync). Opacity oscillates 0.85↔1.0 over 3-5s. Barely noticeable — felt more than seen.</p>
+    </div>
+
+    <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 16px;">
+      <div style="color: #ff0088; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px;">Layer 2: Glow Breathing</div>
+      <div style="height: 24px; margin-bottom: 12px; border-radius: 4px; background: linear-gradient(90deg, transparent, rgba(0,204,255,.06), transparent); animation: breathe 6s ease-in-out infinite; background-size: 200% 100%;"></div>
+      <p style="color: #888; font-size: 12px; margin: 0; line-height: 1.6;"><strong style="color:#ccc;">Where:</strong> Selected pattern card border, active tab underline, waveform container border<br><strong style="color:#ccc;">How:</strong> <code style="color:#00ccff;">glow-pulse</code> on box-shadow. Very slow (5-8s cycle). The selected/active element gently pulses its glow as if power is flowing through it.</p>
+    </div>
+
+    <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 16px;">
+      <div style="color: #00d9ff; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px;">Layer 3: Scan Line Drift</div>
+      <div style="height: 40px; margin-bottom: 12px; border-radius: 4px; background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,204,255,.015) 2px, rgba(0,204,255,.015) 4px); position: relative; overflow: hidden;">
+        <div style="position: absolute; top: 0; left: 0; right: 0; height: 1px; background: rgba(0,204,255,.08); animation: scanDrift 8s linear infinite;"></div>
+      </div>
+      <p style="color: #888; font-size: 12px; margin: 0; line-height: 1.6;"><strong style="color:#ccc;">Where:</strong> Waveform display background, pattern grid background (subtle)<br><strong style="color:#ccc;">How:</strong> A single 1px bright line drifts top→bottom over 8-10s. Very faint. Evokes CRT monitor feel. CSS-only via <code style="color:#00ccff;">translateY</code> animation on a pseudo-element.</p>
+    </div>
+
+    <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 16px;">
+      <div style="color: #ffe600; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px;">Layer 4: Header Pulse</div>
+      <div style="height: 3px; margin-bottom: 12px; border-radius: 2px; background: linear-gradient(90deg, #62182E, #C5305C, #62182E); background-size: 200% 100%; animation: headerPulse 4s ease-in-out infinite;"></div>
+      <p style="color: #888; font-size: 12px; margin: 0; line-height: 1.6;"><strong style="color:#ccc;">Where:</strong> The 3px pink border at the bottom of the header bar<br><strong style="color:#ccc;">How:</strong> Gradient position shifts slowly left↔right. The "power line" along the top of the app gently shimmers. Like electricity flowing through a circuit trace.</p>
+    </div>
+
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>Performance Rules</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+    <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; padding: 12px; text-align: center;">
+      <div style="color: #00ff88; font-size: 24px; margin-bottom: 4px;">CSS only</div>
+      <p style="color: #888; font-size: 12px; margin: 0;">No JS animation loops. All ambiance is pure CSS @keyframes + transitions. Zero main-thread cost.</p>
+    </div>
+    <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; padding: 12px; text-align: center;">
+      <div style="color: #ffe600; font-size: 24px; margin-bottom: 4px;">opacity + transform</div>
+      <p style="color: #888; font-size: 12px; margin: 0;">Only animate compositor-friendly properties. No layout triggers. No repaints on box-shadow (use pseudo-elements for glow).</p>
+    </div>
+    <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; padding: 12px; text-align: center;">
+      <div style="color: #ff0088; font-size: 24px; margin-bottom: 4px;">prefers-reduced-motion</div>
+      <p style="color: #888; font-size: 12px; margin: 0;">All ambiance respects <code style="color:#00ccff;">@media (prefers-reduced-motion: reduce)</code>. Turns off all idle animations.</p>
+    </div>
+  </div>
+</div>
+
+<style>
+  @keyframes flicker1 { 0%,100%{opacity:1} 50%{opacity:0.85} }
+  @keyframes flicker2 { 0%,100%{opacity:0.88} 50%{opacity:1} }
+  @keyframes flicker3 { 0%,100%{opacity:1} 33%{opacity:0.87} 66%{opacity:0.95} }
+  @keyframes breathe { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }
+  @keyframes scanDrift { 0%{transform:translateY(0)} 100%{transform:translateY(40px)} }
+  @keyframes headerPulse { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }
+</style>
+
+<div style="margin-top: 24px; padding: 14px; background: rgba(0,255,200,0.04); border: 1px solid rgba(0,255,200,0.12); border-radius: 8px; text-align: center;">
+  <p style="color: #00ffc8; font-size: 13px; margin: 0;">This completes Phase 1. Next: Phase 2 overview (theatrical moments).</p>
+</div>

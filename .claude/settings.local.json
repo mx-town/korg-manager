@@ -3,7 +3,8 @@
     "allow": [
       "Bash(cd \"C:\\\\Users\\\\mel2497\\\\OneDrive - Melecs\\\\Dokumente\\\\Schule\\\\korg-esx-manager\" && npm install electribe 2>&1)",
       "Bash(cd /c/Users/mel2497/OneDrive\\\\ -\\\\ Melecs/Dokumente/Schule/korg-esx-manager && find . -name \"*.html\" -o -name \"*renderer*\" -o -name \"*grid*\" -o -name \"*play*\" | grep -v node_modules | head -20)",
-      "Bash(cd \"C:\\\\Users\\\\mel2497\\\\OneDrive - Melecs\\\\Dokumente\\\\Schule\\\\korg-esx-manager\" && npx jest tests/parsers/esx-patterns.test.js 2>&1)"
+      "Bash(cd \"C:\\\\Users\\\\mel2497\\\\OneDrive - Melecs\\\\Dokumente\\\\Schule\\\\korg-esx-manager\" && npx jest tests/parsers/esx-patterns.test.js 2>&1)",
+      "Bash(bash:*)"
     ]
   }
 }

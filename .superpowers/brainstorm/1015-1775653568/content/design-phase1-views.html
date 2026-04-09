@@ -1,0 +1,116 @@
+<h2>Phase 1 Design — Section 2: View-by-View Polish</h2>
+<p class="subtitle">Bringing every view up to PARTS-level quality</p>
+
+<!-- STEPS VIEW -->
+<div class="section">
+  <h3 style="color: #00ccff;">STEPS View</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+    <div style="background: rgba(255,68,68,0.04); border: 1px solid rgba(255,68,68,0.12); border-radius: 8px; padding: 16px;">
+      <div style="color: #ff4444; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Current</div>
+      <div style="display: grid; grid-template-columns: repeat(8,1fr); gap: 3px; margin-bottom: 10px;">
+        <div style="aspect-ratio:1; background: rgba(255,255,255,.025); border: 2px solid #253050; border-radius: 6px;"></div>
+        <div style="aspect-ratio:1; background: rgba(255,255,255,.025); border: 2px solid #253050; border-radius: 6px;"></div>
+        <div style="aspect-ratio:1; background: #C5305C; border: 2px solid #253050; border-radius: 6px;"></div>
+        <div style="aspect-ratio:1; background: rgba(255,255,255,.025); border: 2px solid #253050; border-radius: 6px;"></div>
+        <div style="aspect-ratio:1; background: #C5305C; border: 2px solid #253050; border-radius: 6px;"></div>
+        <div style="aspect-ratio:1; background: rgba(255,255,255,.025); border: 2px solid #253050; border-radius: 6px;"></div>
+        <div style="aspect-ratio:1; background: rgba(255,255,255,.025); border: 2px solid #253050; border-radius: 6px;"></div>
+        <div style="aspect-ratio:1; background: #C5305C; border: 2px solid #253050; border-radius: 6px;"></div>
+      </div>
+      <p style="color: #888; font-size: 12px; margin: 0;">Flat fill, uniform border, no depth distinction between on/off. Feels like a wireframe.</p>
+    </div>
+    <div style="background: rgba(0,255,136,0.04); border: 1px solid rgba(0,255,136,0.12); border-radius: 8px; padding: 16px;">
+      <div style="color: #00ff88; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Proposed</div>
+      <div style="display: grid; grid-template-columns: repeat(8,1fr); gap: 3px; margin-bottom: 10px;">
+        <div style="aspect-ratio:1; background: linear-gradient(180deg, rgba(8,12,22,.92), rgba(14,20,36,.75)); border: 1.5px solid #1a2035; border-radius: 5px; box-shadow: inset 0 1px 0 rgba(255,255,255,.03), inset 0 -1px 0 rgba(0,0,0,.4);"></div>
+        <div style="aspect-ratio:1; background: linear-gradient(180deg, rgba(8,12,22,.92), rgba(14,20,36,.75)); border: 1.5px solid #1a2035; border-radius: 5px; box-shadow: inset 0 1px 0 rgba(255,255,255,.03), inset 0 -1px 0 rgba(0,0,0,.4);"></div>
+        <div style="aspect-ratio:1; background: linear-gradient(180deg, #C5305C, #8a2040); border: 1.5px solid #C5305C; border-radius: 5px; box-shadow: 0 0 10px rgba(197,48,92,.35), inset 0 1px 0 rgba(255,255,255,.12);"></div>
+        <div style="aspect-ratio:1; background: linear-gradient(180deg, rgba(8,12,22,.92), rgba(14,20,36,.75)); border: 1.5px solid #1a2035; border-radius: 5px; box-shadow: inset 0 1px 0 rgba(255,255,255,.03), inset 0 -1px 0 rgba(0,0,0,.4);"></div>
+        <div style="aspect-ratio:1; background: linear-gradient(180deg, #C5305C, #8a2040); border: 1.5px solid #C5305C; border-radius: 5px; box-shadow: 0 0 10px rgba(197,48,92,.35), inset 0 1px 0 rgba(255,255,255,.12);"></div>
+        <div style="aspect-ratio:1; background: linear-gradient(180deg, rgba(8,12,22,.92), rgba(14,20,36,.75)); border: 1.5px solid #1a2035; border-radius: 5px; box-shadow: inset 0 1px 0 rgba(255,255,255,.03), inset 0 -1px 0 rgba(0,0,0,.4);"></div>
+        <div style="aspect-ratio:1; background: linear-gradient(180deg, rgba(8,12,22,.92), rgba(14,20,36,.75)); border: 1.5px solid #1a2035; border-radius: 5px; box-shadow: inset 0 1px 0 rgba(255,255,255,.03), inset 0 -1px 0 rgba(0,0,0,.4);"></div>
+        <div style="aspect-ratio:1; background: linear-gradient(180deg, #C5305C, #8a2040); border: 1.5px solid #C5305C; border-radius: 5px; box-shadow: 0 0 10px rgba(197,48,92,.35), inset 0 1px 0 rgba(255,255,255,.12);"></div>
+      </div>
+      <p style="color: #888; font-size: 12px; margin: 0;">Gradient fill, LED glow on active steps, inset highlights for depth. OFF steps feel like recessed rubber pads.</p>
+    </div>
+  </div>
+  <div style="margin-top: 10px; padding: 10px 14px; background: rgba(255,255,255,.02); border-radius: 4px;">
+    <p style="color: #aaa; font-size: 12px; margin: 0; line-height: 1.7;"><strong style="color:#fff;">Changes:</strong> OFF steps get <code style="color:#00ccff;">hw-panel</code> gradient + inset shadows (rubber pad feel). ON steps get gradient fill (bright→dark of their color) + outer glow + inset top highlight (lit LED cap). Velocity drives glow intensity. 4-beat markers get subtle vertical accent lines like GRID already has.</p>
+  </div>
+</div>
+
+<!-- GRID VIEW -->
+<div class="section" style="margin-top: 24px;">
+  <h3 style="color: #00ccff;">GRID View</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+    <div style="background: rgba(255,68,68,0.04); border: 1px solid rgba(255,68,68,0.12); border-radius: 8px; padding: 16px;">
+      <div style="color: #ff4444; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Current (already decent)</div>
+      <p style="color: #888; font-size: 12px; margin: 0; line-height: 1.7;">Beveled borders are solid hardware-feel. ON cells use currentColor glow. But: part names column is unstyled, row headers have no depth, no velocity visualization beyond color.</p>
+    </div>
+    <div style="background: rgba(0,255,136,0.04); border: 1px solid rgba(0,255,136,0.12); border-radius: 8px; padding: 16px;">
+      <div style="color: #00ff88; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Proposed enhancements</div>
+      <ul style="margin: 0; padding-left: 16px; color: #aaa; font-size: 12px; line-height: 1.8;">
+        <li>Part name column: <code style="color:#00ccff;">hw-panel</code> gradient + type-colored left accent border</li>
+        <li>Row hover: subtle horizontal highlight strip across all 128 cells</li>
+        <li>ON cells: add inset top highlight (the "lit LED cap" look)</li>
+        <li>Velocity → glow radius mapping (low vel = tight glow, high vel = wide bloom)</li>
+        <li>Muted rows: scanline overlay + desaturate, not just opacity</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- TRANSPORT BAR -->
+<div class="section" style="margin-top: 24px;">
+  <h3 style="color: #00ccff;">Transport Bar</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+    <div style="background: rgba(255,68,68,0.04); border: 1px solid rgba(255,68,68,0.12); border-radius: 8px; padding: 16px;">
+      <div style="color: #ff4444; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Current</div>
+      <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 10px;">
+        <div style="padding: 6px 14px; background: #04060c; border: 2px solid #62182E; border-radius: 4px; color: #C5305C; font-size: 12px; font-family: monospace;">PLAY</div>
+        <div style="padding: 4px 10px; background: #04060c; border: 1px solid #253050; border-radius: 3px; color: #8898aa; font-size: 11px;">BPM: 120.0</div>
+      </div>
+      <p style="color: #888; font-size: 12px; margin: 0;">Flat black buttons. BPM is plain text. No visual connection to the music.</p>
+    </div>
+    <div style="background: rgba(0,255,136,0.04); border: 1px solid rgba(0,255,136,0.12); border-radius: 8px; padding: 16px;">
+      <div style="color: #00ff88; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Proposed</div>
+      <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 10px;">
+        <div style="padding: 6px 14px; background: linear-gradient(180deg, rgba(197,48,92,.15), rgba(197,48,92,.05)); border: 2px solid #C5305C; border-radius: 5px; color: #C5305C; font-size: 12px; font-family: monospace; box-shadow: 0 0 12px rgba(197,48,92,.2), inset 0 1px 0 rgba(255,255,255,.06);">PLAY</div>
+        <div style="padding: 4px 10px; background: linear-gradient(180deg, rgba(8,12,22,.92), rgba(14,20,36,.75)); border: 1.5px solid #253050; border-radius: 5px; color: #00ccff; font-size: 11px; font-family: 'Share Tech Mono', monospace; box-shadow: inset 0 1px 0 rgba(255,255,255,.04); text-shadow: 0 0 8px rgba(0,204,255,.3);">BPM: 120.0</div>
+      </div>
+      <p style="color: #888; font-size: 12px; margin: 0;"><code style="color:#00ccff;">hw-panel</code> on all controls. BPM gets LCD glow. PLAY button: gradient fill with pink ambient glow. During playback: glow pulses on beat.</p>
+    </div>
+  </div>
+</div>
+
+<!-- E2S VIEW -->
+<div class="section" style="margin-top: 24px;">
+  <h3 style="color: #00ccff;">E2S Sampler</h3>
+  <div style="padding: 16px; background: rgba(255,255,255,.02); border: 1px solid rgba(255,255,255,.06); border-radius: 8px;">
+    <p style="color: #aaa; font-size: 13px; line-height: 1.7; margin: 0 0 10px 0;">The E2S view is the furthest behind — it's functional but looks like a prototype next to the ESX manager. The fix:</p>
+    <ul style="margin: 0; padding-left: 18px; color: #aaa; font-size: 13px; line-height: 1.8;">
+      <li><strong style="color:#fff;">Toolbar:</strong> Match ESX header style — <code style="color:#00ccff;">hw-panel</code> gradient background, bottom border glow</li>
+      <li><strong style="color:#fff;">Sample list:</strong> Adopt ESX's row styling (selected glow, hover lift, category color accents)</li>
+      <li><strong style="color:#fff;">Controls panel:</strong> Category dropdown, tune slider, loop type — all get <code style="color:#00ccff;">hw-panel</code> treatment with focus glows</li>
+      <li><strong style="color:#fff;">Waveform:</strong> Already shared with ESX — no changes needed</li>
+      <li><strong style="color:#fff;">Memory bar:</strong> Add the same fill animation + gradient that ESX uses</li>
+    </ul>
+  </div>
+</div>
+
+<!-- PATTERN LIST -->
+<div class="section" style="margin-top: 24px;">
+  <h3 style="color: #00ccff;">Pattern List / Selector</h3>
+  <div style="padding: 16px; background: rgba(255,255,255,.02); border: 1px solid rgba(255,255,255,.06); border-radius: 8px;">
+    <ul style="margin: 0; padding-left: 18px; color: #aaa; font-size: 13px; line-height: 1.8;">
+      <li><strong style="color:#fff;">Pattern cards:</strong> <code style="color:#00ccff;">hw-panel</code> gradient with device-colored left accent (pink=ESX, blue=EMX, cyan=E2S)</li>
+      <li><strong style="color:#fff;">Selected pattern:</strong> Brighter gradient + color glow halo + inset scanline texture</li>
+      <li><strong style="color:#fff;">Empty patterns:</strong> Very dim with subtle crosshatch overlay (like unused hardware slots)</li>
+      <li><strong style="color:#fff;">Search field:</strong> LCD-style input with cyan text-shadow, focus glow ring</li>
+    </ul>
+  </div>
+</div>
+
+<div style="margin-top: 24px; padding: 14px; background: rgba(0,255,200,0.04); border: 1px solid rgba(0,255,200,0.12); border-radius: 8px; text-align: center;">
+  <p style="color: #00ffc8; font-size: 13px; margin: 0;">Does this view-by-view plan look right? Next section: Idle Ambiance system.</p>
+</div>

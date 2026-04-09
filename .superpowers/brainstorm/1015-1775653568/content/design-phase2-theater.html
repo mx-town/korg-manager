@@ -1,0 +1,196 @@
+<h2>Phase 2 Design — Theatrical Moments</h2>
+<p class="subtitle">The 5 moments that make people say "holy shit"</p>
+
+<!-- BOOT SEQUENCE -->
+<div class="section">
+  <h3 style="color: #C5305C;">1. Boot Sequence</h3>
+  <p class="subtitle">First impression = everything</p>
+
+  <div style="background: #04060c; border: 1px solid #1a2035; border-radius: 8px; padding: 20px; overflow: hidden; position: relative;">
+    <div style="display: flex; flex-direction: column; gap: 14px; font-family: 'Courier New', monospace; font-size: 12px;">
+      <div style="display: flex; gap: 12px; align-items: center;">
+        <div style="color: #253050; font-size: 10px; min-width: 40px;">T+0ms</div>
+        <div style="flex:1;">
+          <div style="color: #0a0e18; font-size: 10px;">Screen is black. 200ms of nothing. Anticipation.</div>
+        </div>
+      </div>
+      <div style="display: flex; gap: 12px; align-items: center;">
+        <div style="color: #3a5070; font-size: 10px; min-width: 40px;">T+200</div>
+        <div style="flex:1;">
+          <div style="color: #C5305C; text-shadow: 0 0 12px rgba(197,48,92,.4);">ELECTRIBE SAMPLE WERKSTATT</div>
+          <div style="color: #555; font-size: 10px; margin-top: 2px;">Logo fades in with warm-up animation (cold blue → warm pink). Text-shadow blooms outward.</div>
+        </div>
+      </div>
+      <div style="display: flex; gap: 12px; align-items: center;">
+        <div style="color: #3a5070; font-size: 10px; min-width: 40px;">T+800</div>
+        <div style="flex:1;">
+          <div style="display: flex; gap: 3px;">
+            <div style="width: 5px; height: 5px; border-radius: 50%; background: #C5305C; box-shadow: 0 0 4px rgba(197,48,92,.5);"></div>
+            <div style="width: 5px; height: 5px; border-radius: 50%; background: #1E50A0; box-shadow: 0 0 4px rgba(30,80,160,.5);"></div>
+            <div style="width: 5px; height: 5px; border-radius: 50%; background: #00ccff; box-shadow: 0 0 4px rgba(0,204,255,.5);"></div>
+            <div style="width: 5px; height: 5px; border-radius: 50%; background: #00ff88; box-shadow: 0 0 4px rgba(0,255,136,.5);"></div>
+          </div>
+          <div style="color: #555; font-size: 10px; margin-top: 2px;">System check LEDs light up left→right. Each one "pops" on with a tiny scale overshoot.</div>
+        </div>
+      </div>
+      <div style="display: flex; gap: 12px; align-items: center;">
+        <div style="color: #3a5070; font-size: 10px; min-width: 40px;">T+1200</div>
+        <div style="flex:1;">
+          <div style="color: #00ccff; font-size: 10px; text-shadow: 0 0 6px rgba(0,204,255,.3);">
+            <span style="color:#3a5070;">SYS</span> PARSERS OK &nbsp;
+            <span style="color:#3a5070;">MEM</span> 26.5MB FREE &nbsp;
+            <span style="color:#3a5070;">VER</span> 1.0.0-beta.1
+          </div>
+          <div style="color: #555; font-size: 10px; margin-top: 2px;">System readout types in character-by-character (typewriter effect). Shows real values from get-version/get-state IPC.</div>
+        </div>
+      </div>
+      <div style="display: flex; gap: 12px; align-items: center;">
+        <div style="color: #3a5070; font-size: 10px; min-width: 40px;">T+1800</div>
+        <div style="flex:1;">
+          <div style="height: 3px; background: linear-gradient(90deg, transparent, #C5305C, transparent); border-radius: 2px; width: 60%;"></div>
+          <div style="color: #555; font-size: 10px; margin-top: 2px;">Header power line sweeps in. Sidebar slides in from left. Main panel fades up. Ambiance begins.</div>
+        </div>
+      </div>
+      <div style="display: flex; gap: 12px; align-items: center;">
+        <div style="color: #00ff88; font-size: 10px; min-width: 40px;">T+2200</div>
+        <div style="flex:1;">
+          <div style="color: #00ff88;">READY</div>
+          <div style="color: #555; font-size: 10px; margin-top: 2px;">Full UI visible. Total boot: ~2.2 seconds. Fast enough to not annoy, slow enough to impress.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div style="margin-top: 10px; padding: 10px 14px; background: rgba(255,255,255,.02); border-radius: 4px;">
+    <p style="color: #aaa; font-size: 12px; margin: 0; line-height: 1.7;"><strong style="color:#fff;">Implementation:</strong> CSS overlay with @keyframes choreography. System readout calls real IPC handlers (get-version, get-features). Runs once per app launch. Skip with Escape key or click. <code style="color:#00ccff;">localStorage</code> flag to disable permanently via settings.</p>
+  </div>
+</div>
+
+<!-- WAVEFORM THEATER -->
+<div class="section" style="margin-top: 28px;">
+  <h3 style="color: #00ccff;">2. Waveform Theater</h3>
+  <p class="subtitle">Samples come alive visually</p>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+    <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 16px;">
+      <div style="color: #00ccff; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Playback Glow</div>
+      <p style="color: #888; font-size: 12px; margin: 0; line-height: 1.6;">During audio playback, the waveform canvas gets a subtle animated glow border that pulses with the playhead position. The cursor line emits a soft bloom. When it reaches a peak in the waveform, the glow intensifies briefly.</p>
+    </div>
+    <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 16px;">
+      <div style="color: #ff0088; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Hover Reveal</div>
+      <p style="color: #888; font-size: 12px; margin: 0; line-height: 1.6;">Hovering over the waveform shows a vertical "scan line" at cursor position. Tooltip displays time position + sample value. The waveform area directly under the cursor brightens slightly — like a spotlight following your mouse.</p>
+    </div>
+    <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 16px;">
+      <div style="color: #00ff88; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Import Animation</div>
+      <p style="color: #888; font-size: 12px; margin: 0; line-height: 1.6;">When a new sample is imported, the waveform doesn't just appear — it "draws in" left→right over 300ms, as if being recorded onto tape. Peak/RMS analysis numbers count up from 0 to their final value.</p>
+    </div>
+    <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 16px;">
+      <div style="color: #ffe600; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">FX Preview</div>
+      <p style="color: #888; font-size: 12px; margin: 0; line-height: 1.6;">In the Modify modal, when you adjust an FX slider, the waveform preview updates in real-time with a "ghost" overlay showing the before/after. The ghost is a dimmer copy of the original that fades as you commit.</p>
+    </div>
+  </div>
+</div>
+
+<!-- PATTERN PLAYBACK LIGHT SHOW -->
+<div class="section" style="margin-top: 28px;">
+  <h3 style="color: #ffe600;">3. Pattern Playback Light Show</h3>
+  <p class="subtitle">The step grid becomes a live performance display</p>
+
+  <div style="background: #04060c; border: 1px solid #1a2035; border-radius: 8px; padding: 20px;">
+    <div style="display: grid; grid-template-columns: repeat(16,1fr); gap: 3px; margin-bottom: 16px;">
+      <div style="aspect-ratio:1; background: linear-gradient(180deg, #C5305C, #8a2040); border-radius: 3px; box-shadow: 0 0 12px rgba(197,48,92,.5), inset 0 1px 0 rgba(255,255,255,.15); outline: 2px solid rgba(0,240,255,.8);"></div>
+      <div style="aspect-ratio:1; background: rgba(8,12,22,.9); border-radius: 3px; box-shadow: inset 0 1px 2px rgba(0,0,0,.5);"></div>
+      <div style="aspect-ratio:1; background: rgba(8,12,22,.9); border-radius: 3px; box-shadow: inset 0 1px 2px rgba(0,0,0,.5);"></div>
+      <div style="aspect-ratio:1; background: linear-gradient(180deg, #C5305C, #8a2040); border-radius: 3px; box-shadow: 0 0 8px rgba(197,48,92,.3), inset 0 1px 0 rgba(255,255,255,.1);"></div>
+      <div style="aspect-ratio:1; background: rgba(8,12,22,.9); border-radius: 3px; box-shadow: inset 0 1px 2px rgba(0,0,0,.5);"></div>
+      <div style="aspect-ratio:1; background: rgba(8,12,22,.9); border-radius: 3px; box-shadow: inset 0 1px 2px rgba(0,0,0,.5);"></div>
+      <div style="aspect-ratio:1; background: rgba(8,12,22,.9); border-radius: 3px; box-shadow: inset 0 1px 2px rgba(0,0,0,.5);"></div>
+      <div style="aspect-ratio:1; background: linear-gradient(180deg, #C5305C, #8a2040); border-radius: 3px; box-shadow: 0 0 8px rgba(197,48,92,.3), inset 0 1px 0 rgba(255,255,255,.1);"></div>
+      <div style="aspect-ratio:1; background: linear-gradient(180deg, #C5305C, #8a2040); border-radius: 3px; box-shadow: 0 0 8px rgba(197,48,92,.3), inset 0 1px 0 rgba(255,255,255,.1);"></div>
+      <div style="aspect-ratio:1; background: rgba(8,12,22,.9); border-radius: 3px; box-shadow: inset 0 1px 2px rgba(0,0,0,.5);"></div>
+      <div style="aspect-ratio:1; background: rgba(8,12,22,.9); border-radius: 3px; box-shadow: inset 0 1px 2px rgba(0,0,0,.5);"></div>
+      <div style="aspect-ratio:1; background: rgba(8,12,22,.9); border-radius: 3px; box-shadow: inset 0 1px 2px rgba(0,0,0,.5);"></div>
+      <div style="aspect-ratio:1; background: linear-gradient(180deg, #C5305C, #8a2040); border-radius: 3px; box-shadow: 0 0 8px rgba(197,48,92,.3), inset 0 1px 0 rgba(255,255,255,.1);"></div>
+      <div style="aspect-ratio:1; background: rgba(8,12,22,.9); border-radius: 3px; box-shadow: inset 0 1px 2px rgba(0,0,0,.5);"></div>
+      <div style="aspect-ratio:1; background: rgba(8,12,22,.9); border-radius: 3px; box-shadow: inset 0 1px 2px rgba(0,0,0,.5);"></div>
+      <div style="aspect-ratio:1; background: linear-gradient(180deg, #C5305C, #8a2040); border-radius: 3px; box-shadow: 0 0 8px rgba(197,48,92,.3), inset 0 1px 0 rgba(255,255,255,.1);"></div>
+    </div>
+    <p style="color: #555; font-size: 11px; text-align: center; margin: 0;">Step 1 is the current playhead — brighter glow + cyan outline. Other ON steps glow at their velocity level.</p>
+  </div>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px;">
+    <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; padding: 12px;">
+      <div style="color: #00ccff; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">Playhead March</div>
+      <p style="color: #888; font-size: 12px; margin: 0; line-height: 1.6;">Current step gets boosted glow + cyan outline (already exists). New: a faint "trail" — the 2 steps behind the playhead keep a dimming afterglow. Creates sense of motion direction.</p>
+    </div>
+    <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; padding: 12px;">
+      <div style="color: #ff0088; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">Velocity Bloom</div>
+      <p style="color: #888; font-size: 12px; margin: 0; line-height: 1.6;">When the playhead hits an ON step, the glow flares momentarily — bigger bloom for higher velocity. Like the LED is being struck. Decays over 150ms back to resting glow.</p>
+    </div>
+    <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; padding: 12px;">
+      <div style="color: #ffe600; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">Part Color Rows</div>
+      <p style="color: #888; font-size: 12px; margin: 0; line-height: 1.6;">In GRID view, each part row uses its type color for ON cells. During playback, the active column gets a vertical highlight strip across all rows — a "now line" that sweeps across the grid.</p>
+    </div>
+    <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; padding: 12px;">
+      <div style="color: #00ff88; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">Beat Pulse</div>
+      <p style="color: #888; font-size: 12px; margin: 0; line-height: 1.6;">On every downbeat (step 1, 5, 9, 13), the transport PLAY button glow flares. BPM display briefly brightens. The header power line pulses. The whole UI "breathes" with the tempo.</p>
+    </div>
+  </div>
+</div>
+
+<!-- IMPORT/EXPORT SPECTACLE -->
+<div class="section" style="margin-top: 28px;">
+  <h3 style="color: #00ff88;">4. Import/Export Spectacle</h3>
+  <p class="subtitle">File operations become visual events</p>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+    <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 16px;">
+      <div style="color: #00ccff; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Sample Import</div>
+      <div style="margin-bottom: 10px;">
+        <div style="height: 6px; border-radius: 3px; background: #0a0e18; overflow: hidden; position: relative;">
+          <div style="position: absolute; left: 0; top: 0; bottom: 0; width: 65%; background: linear-gradient(90deg, #00ccff, #00ff88); border-radius: 3px; box-shadow: 0 0 10px rgba(0,204,255,.4);"></div>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-top: 4px;">
+          <span style="color: #3a5070; font-size: 10px; font-family: monospace;">LOADING SAMPLES...</span>
+          <span style="color: #00ccff; font-size: 10px; font-family: monospace;">13/20</span>
+        </div>
+      </div>
+      <p style="color: #888; font-size: 12px; margin: 0; line-height: 1.6;">Batch imports show a VU-meter style progress bar (gradient cyan→green). Each sample "lands" in the list with a brief flash. Counter ticks up. On complete: all new samples do a quick cascade glow top→bottom.</p>
+    </div>
+    <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 16px;">
+      <div style="color: #C5305C; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">File Save / Export</div>
+      <div style="margin-bottom: 10px;">
+        <div style="height: 6px; border-radius: 3px; background: #0a0e18; overflow: hidden; position: relative;">
+          <div style="position: absolute; left: 0; top: 0; bottom: 0; width: 100%; background: repeating-linear-gradient(-45deg, #C5305C, #C5305C 8px, #8a2040 8px, #8a2040 16px); background-size: 22px 100%; border-radius: 3px; box-shadow: 0 0 10px rgba(197,48,92,.3);"></div>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-top: 4px;">
+          <span style="color: #3a5070; font-size: 10px; font-family: monospace;">WRITING 26,542,080 BYTES</span>
+          <span style="color: #00ff88; font-size: 10px; font-family: monospace;">COMPLETE</span>
+        </div>
+      </div>
+      <p style="color: #888; font-size: 12px; margin: 0; line-height: 1.6;">Save/export shows the existing diagonal stripe animation (already built!) but enhanced: real byte count displayed, pink→green color shift on completion, brief "SAVED" flash in the header. The stripes use the existing <code style="color:#00ccff;">expAnim</code> keyframe.</p>
+    </div>
+  </div>
+</div>
+
+<!-- WAVEFORM IDLE -->
+<div class="section" style="margin-top: 28px;">
+  <h3 style="color: #ff6b35;">5. Waveform Idle Ambiance</h3>
+  <p class="subtitle">The waveform display is never truly still</p>
+
+  <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 16px;">
+    <p style="color: #aaa; font-size: 13px; line-height: 1.7; margin: 0;">When a sample is loaded but not playing, the waveform display shows subtle life:</p>
+    <ul style="margin: 8px 0 0 0; padding-left: 18px; color: #aaa; font-size: 13px; line-height: 1.8;">
+      <li><strong style="color:#fff;">Scan line:</strong> The Phase 1 scan-line-drift runs across the waveform background</li>
+      <li><strong style="color:#fff;">Border glow:</strong> The waveform container border gently breathes with <code style="color:#00ccff;">glow-pulse</code></li>
+      <li><strong style="color:#fff;">Peak markers:</strong> The highest peaks in the waveform get tiny dot indicators that flicker with <code style="color:#00ccff;">led-flicker</code></li>
+      <li><strong style="color:#fff;">No sample loaded:</strong> Empty state shows a flat line with slow noise animation — like a powered-on oscilloscope with no input signal</li>
+    </ul>
+  </div>
+</div>
+
+<div style="margin-top: 24px; padding: 16px; background: rgba(0,255,200,0.04); border: 1px solid rgba(0,255,200,0.12); border-radius: 8px;">
+  <div style="color: #00ffc8; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Design Complete</div>
+  <p style="color: #ccc; font-size: 13px; line-height: 1.7; margin: 0;">
+    That's the full design — Phase 1 (foundation + views + ambiance) and Phase 2 (boot + waveform theater + pattern light show + import/export spectacle + waveform idle). If this looks good, I'll write the spec doc.
+  </p>
+</div>

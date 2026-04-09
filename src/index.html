@@ -1331,13 +1331,73 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 </style>
 <script src="https://unpkg.com/tone@14/build/Tone.js"></script>
 <script src="https://unpkg.com/meyda/dist/web/meyda.min.js"></script>
-<script src="https://unpkg.com/lottie-web@5/build/player/lottie.min.js"></script>
 </head>
 <body>
 <!-- ═══ BOOT SEQUENCE OVERLAY ═══ -->
 <div id="bootOverlay" style="position:fixed;inset:0;z-index:99999;background:#04060c;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;cursor:pointer;overflow:hidden">
-  <div id="bootLottie" style="position:absolute;inset:0;opacity:0;transition:opacity 1.5s ease"></div>
-  <img id="bootEmblem" src="assets/esw-emblem.png" style="width:240px;height:auto;opacity:0;filter:brightness(0) saturate(0);transition:opacity .8s ease,filter 1.2s ease,box-shadow 1s ease;position:relative;z-index:2;drop-shadow:none" alt="ESW">
+  <!-- Circuit traces SVG — positioned behind emblem, traces emanate from hexagon edges -->
+  <svg id="bootTraces" viewBox="0 0 600 600" style="position:absolute;width:600px;height:600px;z-index:1;opacity:0;transition:opacity .6s ease;filter:drop-shadow(0 0 4px rgba(0,204,255,.3))">
+    <defs>
+      <filter id="traceGlow"><feGaussianBlur stdDeviation="2" result="g"/><feMerge><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    </defs>
+    <g filter="url(#traceGlow)" fill="none" stroke="#00ccff" stroke-width="1.5" stroke-linecap="round">
+      <!-- Top-right traces -->
+      <path class="boot-trace" d="M340,230 L380,210 L380,170 L420,170" style="--trace-len:180;--trace-delay:0s"/>
+      <path class="boot-trace" d="M350,240 L400,215 L400,180 L440,180 L440,150" style="--trace-len:220;--trace-delay:.1s"/>
+      <circle class="boot-pad" cx="420" cy="170" r="3" fill="none" stroke="#00ccff" stroke-width="1" style="--pad-delay:.5s"/>
+      <circle class="boot-pad" cx="440" cy="150" r="3" fill="none" stroke="#00ccff" stroke-width="1" style="--pad-delay:.6s"/>
+      <!-- Right traces -->
+      <path class="boot-trace" d="M360,290 L410,290 L410,320 L460,320" style="--trace-len:160;--trace-delay:.15s"/>
+      <path class="boot-trace" d="M360,310 L420,310 L420,360 L470,360 L470,400" style="--trace-len:230;--trace-delay:.2s"/>
+      <circle class="boot-pad" cx="460" cy="320" r="3" fill="none" stroke="#00ccff" stroke-width="1" style="--pad-delay:.65s"/>
+      <rect class="boot-pad" x="462" y="392" width="16" height="8" rx="1" fill="none" stroke="#00ccff" stroke-width="0.8" style="--pad-delay:.7s"/>
+      <!-- Bottom-right traces -->
+      <path class="boot-trace" d="M320,370 L340,410 L380,410 L380,450" style="--trace-len:170;--trace-delay:.25s"/>
+      <circle class="boot-pad" cx="380" cy="450" r="3" fill="none" stroke="#00ccff" stroke-width="1" style="--pad-delay:.75s"/>
+      <!-- Bottom-left traces -->
+      <path class="boot-trace" d="M280,370 L260,410 L220,410 L220,450" style="--trace-len:170;--trace-delay:.3s"/>
+      <path class="boot-trace" d="M270,360 L240,400 L190,400 L190,430 L160,430" style="--trace-len:220;--trace-delay:.35s"/>
+      <circle class="boot-pad" cx="220" cy="450" r="3" fill="none" stroke="#00ccff" stroke-width="1" style="--pad-delay:.8s"/>
+      <circle class="boot-pad" cx="160" cy="430" r="3" fill="none" stroke="#00ccff" stroke-width="1" style="--pad-delay:.85s"/>
+      <!-- Left traces -->
+      <path class="boot-trace" d="M240,310 L180,310 L180,280 L130,280" style="--trace-len:180;--trace-delay:.4s"/>
+      <path class="boot-trace" d="M240,290 L190,290 L190,250 L140,250 L140,220" style="--trace-len:210;--trace-delay:.45s"/>
+      <rect class="boot-pad" x="122" y="272" width="16" height="8" rx="1" fill="none" stroke="#00ccff" stroke-width="0.8" style="--pad-delay:.9s"/>
+      <circle class="boot-pad" cx="140" cy="220" r="3" fill="none" stroke="#00ccff" stroke-width="1" style="--pad-delay:.95s"/>
+      <!-- Top-left traces -->
+      <path class="boot-trace" d="M260,230 L220,210 L220,170 L180,170" style="--trace-len:180;--trace-delay:.5s"/>
+      <path class="boot-trace" d="M250,240 L200,215 L160,215 L160,180" style="--trace-len:200;--trace-delay:.55s"/>
+      <circle class="boot-pad" cx="180" cy="170" r="3" fill="none" stroke="#00ccff" stroke-width="1" style="--pad-delay:1s"/>
+      <circle class="boot-pad" cx="160" cy="180" r="3" fill="none" stroke="#00ccff" stroke-width="1" style="--pad-delay:1.05s"/>
+    </g>
+  </svg>
+  <style>
+    .boot-trace{
+      stroke-dasharray:var(--trace-len);
+      stroke-dashoffset:var(--trace-len);
+      opacity:.4;
+    }
+    .boot-trace.draw{
+      animation:traceDraw .8s ease-out forwards;
+      animation-delay:var(--trace-delay);
+    }
+    .boot-pad{opacity:0}
+    .boot-pad.show{
+      animation:padPop .2s ease-out forwards;
+      animation-delay:var(--pad-delay);
+    }
+    @keyframes traceDraw{
+      0%{stroke-dashoffset:var(--trace-len);opacity:.2}
+      60%{opacity:.5}
+      100%{stroke-dashoffset:0;opacity:.35}
+    }
+    @keyframes padPop{
+      0%{opacity:0;transform:scale(0)}
+      60%{opacity:.6;transform:scale(1.3)}
+      100%{opacity:.4;transform:scale(1)}
+    }
+  </style>
+  <img id="bootEmblem" src="assets/esw-emblem.png" style="width:240px;height:auto;opacity:0;filter:brightness(0) saturate(0);transition:opacity .8s ease,filter 1.2s ease;position:relative;z-index:2" alt="ESW">
   <div id="bootLeds" style="display:flex;gap:8px;opacity:0;transition:opacity .3s;position:relative;z-index:2;margin-top:16px">
     <span class="boot-led" style="width:8px;height:8px;border-radius:50%;background:#C5305C;opacity:0;transform:scale(0);transition:opacity .15s,transform .2s"></span>
     <span class="boot-led" style="width:8px;height:8px;border-radius:50%;background:#1E50A0;opacity:0;transform:scale(0);transition:opacity .15s,transform .2s"></span>
@@ -5069,10 +5129,8 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(DOM.smpPickerBg&
   if(!ov)return;
 
   let skipped=false;
-  let lottieAnim=null;
   function skipBoot(){
     if(skipped)return;skipped=true;
-    if(lottieAnim)try{lottieAnim.destroy();}catch(e){}
     ov.style.transition='opacity .3s';ov.style.opacity='0';
     setTimeout(()=>ov.remove(),300);
   }
@@ -5082,24 +5140,10 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(DOM.smpPickerBg&
   });
 
   const emblem=document.getElementById('bootEmblem');
-  const lottieContainer=document.getElementById('bootLottie');
+  const tracesSvg=document.getElementById('bootTraces');
   const leds=document.getElementById('bootLeds');
   const readout=document.getElementById('bootReadout');
   const ledEls=ov.querySelectorAll('.boot-led');
-
-  // T+0ms: Start Lottie circuit board background
-  try{
-    if(typeof lottie!=='undefined'){
-      lottieAnim=lottie.loadAnimation({
-        container:lottieContainer,
-        renderer:'svg',
-        loop:true,
-        autoplay:true,
-        path:'assets/circuit-board.json'
-      });
-      lottieContainer.style.opacity='.15';
-    }
-  }catch(e){console.warn('Lottie not available:',e)}
 
   // T+400ms: Emblem appears — dark silhouette first
   setTimeout(()=>{
@@ -5112,8 +5156,15 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(DOM.smpPickerBg&
   setTimeout(()=>{
     if(skipped)return;
     emblem.style.filter='brightness(1) saturate(1)';
-    emblem.style.boxShadow='0 0 40px rgba(0,204,255,.2),0 0 80px rgba(0,204,255,.08)';
   },800);
+
+  // T+1000ms: Circuit traces start drawing from emblem edges
+  setTimeout(()=>{
+    if(skipped)return;
+    tracesSvg.style.opacity='1';
+    tracesSvg.querySelectorAll('.boot-trace').forEach(t=>t.classList.add('draw'));
+    tracesSvg.querySelectorAll('.boot-pad').forEach(p=>p.classList.add('show'));
+  },1000);
 
   // T+1800ms: LED check
   setTimeout(()=>{

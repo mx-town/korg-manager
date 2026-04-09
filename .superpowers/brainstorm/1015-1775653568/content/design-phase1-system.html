@@ -1,0 +1,79 @@
+<h2>Phase 1 Design — Section 1: Animation & Depth System</h2>
+<p class="subtitle">The CSS foundation everything else builds on</p>
+
+<div class="section">
+  <h3>The Gap Today</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+    <div style="background: rgba(0,255,136,0.04); border: 1px solid rgba(0,255,136,0.15); border-radius: 8px; padding: 16px;">
+      <div style="color: #00ff88; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px;">PARTS View (Premium)</div>
+      <ul style="margin: 0; padding-left: 16px; color: #aaa; font-size: 13px; line-height: 1.8;">
+        <li>Gradient backgrounds (180deg dark→darker)</li>
+        <li>Multi-layer box-shadows (inset highlight + inset bottom + outer)</li>
+        <li>Text-shadow glows on labels</li>
+        <li>Hover lift (translateY -1px)</li>
+        <li>Param popup: cyan border + triple glow + backdrop blur + scanlines</li>
+      </ul>
+    </div>
+    <div style="background: rgba(255,68,68,0.04); border: 1px solid rgba(255,68,68,0.15); border-radius: 8px; padding: 16px;">
+      <div style="color: #ff4444; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px;">Everything Else (Flat)</div>
+      <ul style="margin: 0; padding-left: 16px; color: #aaa; font-size: 13px; line-height: 1.8;">
+        <li>STEPS: flat bg, simple border, basic pulse animation</li>
+        <li>GRID: beveled borders are good, but no gradients, no text glows</li>
+        <li>E2S: no gradients, no inner shadows, minimal hover states</li>
+        <li>Transport: play button is flat black, no depth</li>
+        <li>Pattern list: functional but zero visual personality</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>Proposed: Shared Depth Classes</h3>
+  <p class="subtitle">Reusable CSS classes that bring any element to "PARTS-level" quality</p>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 12px;">
+    <div style="background: linear-gradient(180deg, rgba(8,12,22,.92), rgba(14,20,36,.75)); border: 1.5px solid #253050; border-radius: 7px; padding: 16px; box-shadow: inset 0 1px 0 rgba(255,255,255,.05), inset 0 -1px 0 rgba(0,0,0,.4), 0 2px 8px rgba(0,0,0,.3);">
+      <div style="color: #00ccff; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">hw-panel</div>
+      <p style="color: #999; font-size: 12px; margin: 0; line-height: 1.6;">The PARTS-view gradient + multi-shadow combo. For buttons, cells, controls that should feel like hardware panels.</p>
+    </div>
+    <div style="background: rgba(8,12,22,.9); border: 1.5px solid #253050; border-radius: 4px; padding: 16px; box-shadow: inset 0 2px 8px rgba(0,0,0,.6), 0 2px 12px rgba(0,0,0,.4);">
+      <div style="color: #00ccff; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">hw-recess</div>
+      <p style="color: #999; font-size: 12px; margin: 0; line-height: 1.6;">Sunken inset look. For grids, sequencer backgrounds, display areas — things recessed into the hardware chassis.</p>
+    </div>
+    <div style="background: linear-gradient(180deg, rgba(14,18,30,.95), rgba(22,28,48,.8)); border: 1.5px solid #3a5070; border-radius: 7px; padding: 16px; box-shadow: inset 0 1px 0 rgba(255,255,255,.06), inset 0 -1px 0 rgba(0,0,0,.4), 0 4px 16px rgba(0,0,0,.4); transform: translateY(-1px);">
+      <div style="color: #00ccff; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">hw-panel:hover</div>
+      <p style="color: #999; font-size: 12px; margin: 0; line-height: 1.6;">Lifted state with brighter gradient + deeper shadow. Consistent hover across all interactive panels.</p>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>Proposed: Animation Primitives</h3>
+  <p class="subtitle">Reusable @keyframes that theatrical moments build on</p>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px;">
+    <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; padding: 14px;">
+      <div style="color: #00ff88; font-size: 11px; font-family: monospace; margin-bottom: 6px;">@keyframes glow-pulse</div>
+      <p style="color: #888; font-size: 12px; margin: 0;">Box-shadow + opacity oscillation. For LED states, active indicators, breathing elements. Replaces the 4 different pulse animations currently duplicated.</p>
+    </div>
+    <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; padding: 14px;">
+      <div style="color: #ff0088; font-size: 11px; font-family: monospace; margin-bottom: 6px;">@keyframes led-flicker</div>
+      <p style="color: #888; font-size: 12px; margin: 0;">Subtle brightness jitter (opacity 0.85→1.0). Simulates real LED behavior. For idle ambiance on active parts, playing indicators.</p>
+    </div>
+    <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; padding: 14px;">
+      <div style="color: #00d9ff; font-size: 11px; font-family: monospace; margin-bottom: 6px;">@keyframes scan-sweep</div>
+      <p style="color: #888; font-size: 12px; margin: 0;">Horizontal gradient sweep (left→right). For loading states, import progress, active scan lines. The signature "cyberpunk" motion.</p>
+    </div>
+    <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; padding: 14px;">
+      <div style="color: #ffe600; font-size: 11px; font-family: monospace; margin-bottom: 6px;">@keyframes warm-up</div>
+      <p style="color: #888; font-size: 12px; margin: 0;">Opacity 0→1 with slight color temperature shift (cold→warm). For boot sequence, element reveal, panel power-on.</p>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top: 24px; padding: 16px; background: rgba(0,255,200,0.04); border: 1px solid rgba(0,255,200,0.12); border-radius: 8px;">
+  <div style="color: #00ffc8; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Key Principle</div>
+  <p style="color: #ccc; font-size: 13px; line-height: 1.7; margin: 0;">
+    No new CSS files — everything stays inline in index.html. The depth classes and animation primitives go into the existing <code style="color:#00ccff;">&lt;style&gt;</code> block near the top. Views adopt them by adding classes, not by rewriting their CSS from scratch. Existing GRID bevel styling is good — we enhance it, not replace it.
+  </p>
+</div>

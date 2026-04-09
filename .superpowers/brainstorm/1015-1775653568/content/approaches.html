@@ -1,0 +1,104 @@
+<h2>Three Approaches: "Make It Shine"</h2>
+<p class="subtitle">Pick the approach that matches how you want to ship this</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>The Full Show — Ship It All</h3>
+      <p style="color: #aaa; margin-bottom: 12px;">Every theatrical moment, every view polished. One massive prompt, one cohesive vision.</p>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px;">
+        <div>
+          <div style="color: #00ffc8; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">Includes</div>
+          <ul style="margin: 0; padding-left: 16px; color: #999; font-size: 13px; line-height: 1.7;">
+            <li>Boot sequence</li>
+            <li>All 5 theatrical moments</li>
+            <li>STEPS/GRID/transport/E2S polish</li>
+            <li>Idle ambiance system</li>
+            <li>Unified animation library</li>
+          </ul>
+        </div>
+        <div>
+          <div style="color: #ff6b35; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">Trade-offs</div>
+          <ul style="margin: 0; padding-left: 16px; color: #999; font-size: 13px; line-height: 1.7;">
+            <li>Biggest single prompt (~2000 lines touched)</li>
+            <li>Higher risk of visual inconsistency</li>
+            <li>Hard to course-correct mid-flight</li>
+            <li>One shot to get the vibe right</li>
+          </ul>
+        </div>
+      </div>
+      <div style="margin-top: 12px; padding: 8px 12px; background: rgba(255,107,53,0.1); border-radius: 4px; font-size: 12px; color: #ff6b35;">
+        Effort: HIGH — but you like comprehensive prompts and it ships everything at once
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>The Layered Build — Foundation First</h3>
+      <p style="color: #aaa; margin-bottom: 12px;">Build the animation/polish system first, then add theatrical moments on top. Two phases, each internally cohesive.</p>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px;">
+        <div>
+          <div style="color: #00ffc8; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">Phase 1: Polish Foundation</div>
+          <ul style="margin: 0; padding-left: 16px; color: #999; font-size: 13px; line-height: 1.7;">
+            <li>CSS animation primitives (glow, pulse, fade, slide)</li>
+            <li>STEPS/GRID/transport/E2S visual uplift</li>
+            <li>Unified depth system (gradients, shadows, borders)</li>
+            <li>Idle ambiance (subtle life everywhere)</li>
+          </ul>
+        </div>
+        <div>
+          <div style="color: #00ffc8; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">Phase 2: Theater</div>
+          <ul style="margin: 0; padding-left: 16px; color: #999; font-size: 13px; line-height: 1.7;">
+            <li>Boot sequence</li>
+            <li>Waveform theater</li>
+            <li>Pattern playback light show</li>
+            <li>Import/export spectacle</li>
+          </ul>
+        </div>
+      </div>
+      <div style="margin-top: 12px; padding: 8px 12px; background: rgba(0,255,200,0.1); border-radius: 4px; font-size: 12px; color: #00ffc8;">
+        Effort: MEDIUM per phase — can validate the visual system before adding motion
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>The Hero Reel — Maximum Impact First</h3>
+      <p style="color: #aaa; margin-bottom: 12px;">Start with the 2-3 most impressive moments (boot + pattern playback + waveform). Polish views later. Ship the sizzle reel first.</p>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px;">
+        <div>
+          <div style="color: #00ffc8; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">First Drop</div>
+          <ul style="margin: 0; padding-left: 16px; color: #999; font-size: 13px; line-height: 1.7;">
+            <li>Boot sequence (first impression = everything)</li>
+            <li>Pattern playback light show (the "wow" demo)</li>
+            <li>Waveform theater (daily-use delight)</li>
+          </ul>
+        </div>
+        <div>
+          <div style="color: #ff6b35; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">Trade-offs</div>
+          <ul style="margin: 0; padding-left: 16px; color: #999; font-size: 13px; line-height: 1.7;">
+            <li>STEPS/GRID/E2S still flat until later</li>
+            <li>Risk of "amazing in spots, meh everywhere else"</li>
+            <li>Great for demo videos / beta buzz</li>
+            <li>View polish becomes a follow-up project</li>
+          </ul>
+        </div>
+      </div>
+      <div style="margin-top: 12px; padding: 8px 12px; background: rgba(255,200,0,0.1); border-radius: 4px; font-size: 12px; color: #ffcc00;">
+        Effort: LOW-MEDIUM — max wow-per-line-of-code, perfect for a demo video
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top: 24px; padding: 16px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px;">
+  <div style="color: #00ffc8; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">My Recommendation</div>
+  <p style="color: #ccc; font-size: 14px; line-height: 1.7; margin: 0;">
+    <strong style="color: #fff;">Approach B (Layered Build)</strong> — You want comprehensive prompts and your CLAUDE.md says so. But doing it all at once risks the animation system being inconsistent across 5000+ lines of HTML. Building the foundation first means the theatrical moments inherit a proven visual language. Phase 1 makes everything feel premium; Phase 2 makes it unforgettable.
+  </p>
+</div>
