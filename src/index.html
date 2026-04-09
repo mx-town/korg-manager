@@ -97,7 +97,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 .header{display:flex;align-items:center;gap:12px;padding:10px 18px;background:linear-gradient(180deg,#0e1428,var(--dark));border-bottom:3px solid var(--hi-d);position:relative}
 .header::before{content:'';position:absolute;bottom:-3px;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,var(--hi-d),var(--hi),var(--hi-d),transparent);background-size:200% 100%;animation:header-flow 4s ease-in-out infinite}
 .logo{display:flex;align-items:center;gap:10px}
-.logo-badge{background:var(--led);color:#04060c;font-family:var(--head);font-weight:900;font-size:9px;letter-spacing:2px;padding:5px 10px;clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);text-shadow:none;box-shadow:0 0 10px rgba(0,204,255,.3)}
+.logo-badge{background:var(--hi);color:#fff;font-family:var(--head);font-weight:900;font-size:9px;letter-spacing:2px;padding:5px 10px;clip-path:polygon(4px 0%,100% 0%,calc(100% - 4px) 100%,0% 100%)}
 .logo-t{font-family:var(--head);font-weight:800;font-size:15px;color:var(--hi);letter-spacing:3px;text-shadow:0 0 14px var(--hi-g)}
 .logo-s{font-family:var(--lcd);font-size:10px;color:var(--blue);letter-spacing:2px;text-shadow:0 0 6px var(--blue-g)}
 .ha{display:flex;gap:5px;margin-left:auto;align-items:center}
@@ -5212,13 +5212,13 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(DOM.smpPickerBg&
         ctx.restore();
       }
 
-      // ── STEP 3: Glow tip ──
+      // ── STEP 3: Glow tip (pink/red — contrasts against cyan traces) ──
       if(progress<1){
         const g1=ctx.createRadialGradient(headX,headY,0,headX,headY,5);
-        g1.addColorStop(0,'rgba(255,255,255,.95)');g1.addColorStop(.25,'rgba(0,230,255,.8)');g1.addColorStop(1,'rgba(0,204,255,0)');
+        g1.addColorStop(0,'rgba(255,255,255,.95)');g1.addColorStop(.25,'rgba(197,48,92,.85)');g1.addColorStop(1,'rgba(197,48,92,0)');
         ctx.fillStyle=g1;ctx.fillRect(headX-5,headY-5,10,10);
         const g2=gctx.createRadialGradient(headX,headY,0,headX,headY,20);
-        g2.addColorStop(0,'rgba(0,220,255,.7)');g2.addColorStop(1,'rgba(0,204,255,0)');
+        g2.addColorStop(0,'rgba(197,48,92,.7)');g2.addColorStop(1,'rgba(197,48,92,0)');
         gctx.fillStyle=g2;gctx.fillRect(headX-20,headY-20,40,40);
       }
 
