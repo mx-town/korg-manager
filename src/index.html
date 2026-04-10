@@ -5091,25 +5091,28 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(DOM.smpPickerBg&
   const hexPtsInner=[];
   for(let i=0;i<6;i++){const a=Math.PI/2+i*Math.PI/3;hexPtsInner.push({x:cx+HR*.82*Math.cos(a),y:cy-HR*.82*Math.sin(a)});}
 
-  // ── Generate traces — "Light Runner" approach ──
-  // Fewer, cleaner traces. Each drawn sequentially with a glowing tip.
+  // ── Generate traces — origin at center, visible only outside hexagon ──
   const traces=[];const rng=()=>Math.random();
-  // 3-4 traces per vertex = ~20 total. All start together, glow tips race outward.
+  // ~20 traces total. All originate from (cx,cy), fan outward through hex vertices.
+  // Clipped: only drawn outside the hexagon radius.
   hexPts.forEach((vt,vi)=>{
     const baseAngle=Math.PI/2+vi*Math.PI/3;
-    const numT=3+(vi%2); // alternating 3 and 4 per vertex
+    const numT=3+(vi%2);
     for(let t=0;t<numT;t++){
-      const spread=(t/(numT-1||1)-.5)*.5; // fan within ~28° cone
+      const spread=(t/(numT-1||1)-.5)*.5;
       const a=baseAngle+spread;
       const perpSign=t<numT/2?-1:1;
-      const segs=[];let px=vt.x,py=vt.y;
-      const segCount=8+Math.floor(rng()*4);
+      // Start from center, build outward
+      const segs=[];let px=cx,py=cy;
+      const segCount=10+Math.floor(rng()*4); // more segments since path is longer
       for(let s=0;s<segCount;s++){
-        const len=50+rng()*60;
+        const len=40+rng()*60;
         if(s%2===0){px+=Math.cos(a)*len;py-=Math.sin(a)*len;}
         else{const perp=a+Math.PI/2*perpSign;px+=Math.cos(perp)*len*.25;py-=Math.sin(perp)*len*.25;}
         let comp=null;
-        if(s===3||s===6)comp=rng()>.5?'resistor':'cap'; // max 2 components per trace
+        // Components only on outer segments (after hex boundary)
+        const distFromCenter=Math.sqrt((px-cx)**2+(py-cy)**2);
+        if(distFromCenter>HR*1.5&&(s===5||s===8))comp=rng()>.5?'resistor':'cap';
         segs.push({x:px,y:py,pad:null,comp});
       }
       // Extend to screen edge
@@ -5117,9 +5120,8 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(DOM.smpPickerBg&
       const dx=last.x-cx,dy=last.y-cy;
       const edgeScale=Math.max(Math.abs(dx)<1?999:((dx>0?W:0)-cx)/dx,Math.abs(dy)<1?999:((dy>0?H:0)-cy)/dy);
       segs.push({x:cx+dx*Math.min(Math.max(edgeScale,.5),4),y:cy+dy*Math.min(Math.max(edgeScale,.5),4),pad:null,comp:null});
-      segs[segs.length-2].pad='end'; // terminal pad before edge
-      // All traces start together at T+1.0s, slight random duration variation
-      traces.push({start:{x:vt.x,y:vt.y},segs,drawStart:1.0,drawDur:2.0+rng()*.8,width:1.2,alpha:.5,vertexEven:vi%2===0});
+      segs[segs.length-2].pad='end';
+      traces.push({start:{x:cx,y:cy},segs,drawStart:1.0,drawDur:2.0+rng()*.8,width:1.2,alpha:.5,vertexEven:vi%2===0,hexClip:true});
     }
   });
 
@@ -5179,11 +5181,38 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(DOM.smpPickerBg&
       const glowR=tr.vertexEven?'197,48,92':'0,204,255';
       ctx.strokeStyle=`rgba(${traceR},${trAlpha})`;ctx.lineWidth=tr.width;ctx.lineCap='round';ctx.lineJoin='round';
       gctx.strokeStyle=`rgba(${traceR},${trAlpha*.5})`;gctx.lineWidth=tr.width+1;gctx.lineCap='round';gctx.lineJoin='round';
+      // Clip: only draw segments outside the hexagon
+      const clipR=HR*1.05; // slightly outside hex edge
+      let started=false;
       ctx.beginPath();gctx.beginPath();
-      ctx.moveTo(tr.start.x,tr.start.y);gctx.moveTo(tr.start.x,tr.start.y);
-      for(let i=0;i<fullSegs;i++){ctx.lineTo(tr.segs[i].x,tr.segs[i].y);gctx.lineTo(tr.segs[i].x,tr.segs[i].y);}
-      ctx.lineTo(headX,headY);gctx.lineTo(headX,headY);
+      const allPts=[tr.start,...tr.segs.slice(0,fullSegs),{x:headX,y:headY}];
+      for(let i=0;i<allPts.length;i++){
+        const p=allPts[i];
+        const dist=Math.sqrt((p.x-cx)**2+(p.y-cy)**2);
+        if(dist<clipR){
+          // Inside hex — if we were drawing, end the subpath
+          if(started){started=false;}
+          continue;
+        }
+        // Outside hex — find entry point if transitioning from inside
+        if(!started){
+          // Interpolate to find where the line crosses the hex boundary
+          const prev=i>0?allPts[i-1]:p;
+          const prevDist=Math.sqrt((prev.x-cx)**2+(prev.y-cy)**2);
+          if(prevDist<clipR&&dist>=clipR){
+            const frac=(clipR-prevDist)/(dist-prevDist);
+            const entryX=prev.x+(p.x-prev.x)*frac,entryY=prev.y+(p.y-prev.y)*frac;
+            ctx.moveTo(entryX,entryY);gctx.moveTo(entryX,entryY);
+          } else {
+            ctx.moveTo(p.x,p.y);gctx.moveTo(p.x,p.y);
+          }
+          started=true;
+        }
+        ctx.lineTo(p.x,p.y);gctx.lineTo(p.x,p.y);
+      }
       ctx.stroke();gctx.stroke();
+      // Also clip head position for glow tip
+      const headDist=Math.sqrt((headX-cx)**2+(headY-cy)**2);
 
       // ── STEP 2: Component overlays — rotated to align with trace ──
       for(let i=0;i<fullSegs;i++){
@@ -5215,8 +5244,8 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(DOM.smpPickerBg&
         ctx.restore();
       }
 
-      // ── STEP 3: Glow tip (opposite color to trace for contrast) ──
-      if(progress<1){
+      // ── STEP 3: Glow tip (only outside hexagon) ──
+      if(progress<1&&headDist>=clipR){
         const g1=ctx.createRadialGradient(headX,headY,0,headX,headY,5);
         g1.addColorStop(0,'rgba(255,255,255,.95)');g1.addColorStop(.25,`rgba(${glowR},.85)`);g1.addColorStop(1,`rgba(${glowR},0)`);
         ctx.fillStyle=g1;ctx.fillRect(headX-5,headY-5,10,10);
