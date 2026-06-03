@@ -1235,13 +1235,9 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 .pk-knob-svg{cursor:pointer;transition:filter .12s}
 .pk-knob-svg:active{cursor:grabbing}
 .pk-knob-value{font-family:var(--lcd);font-size:clamp(9px,0.8vw,12px);letter-spacing:.5px;min-height:14px;text-align:center}
-.pk-sep{
-  width:1px;align-self:stretch;flex-shrink:0;margin:0 clamp(2px,0.3vw,6px);
-  background:linear-gradient(180deg,transparent 10%,var(--brd-h) 40%,var(--brd-h) 60%,transparent 90%);opacity:.6;
-}
 /* ── Responsive: laptop screens (~1500px and below) ── */
 @media (max-width:1500px){
-  /* Knob sections: force wrap, hide separators */
+  /* Knob sections: tighten gap at laptop widths */
   .pk-sections{gap:6px 10px}
 
   /* Knobs: ~20% smaller */
