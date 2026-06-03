@@ -1063,12 +1063,12 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 #patPartsWrap.emx-active .seq-steps{padding:clamp(4px,0.6vh,10px) clamp(12px,1.5vw,20px) clamp(4px,0.5vh,8px);gap:clamp(3px,0.4vw,6px)}
 #patPartsWrap.emx-active .seq-step{font-size:clamp(9px,1vw,12px);border-radius:4px}
 #patPartsWrap.emx-active .seq-bar-nav{padding:clamp(3px,0.4vh,6px) 16px clamp(4px,0.5vh,8px)}
-#emxSynthInline{overflow:auto;flex:1;min-height:0}
+#emxSynthInline{overflow:hidden;flex:none}
 #emxSynthInline .emx-panel{padding:8px 20px 6px;border-top:none}
 #emxSynthInline .emx-sections{gap:8px}
 #emxSynthInline .emx-bot-row{gap:8px;margin-top:8px}
 #emxSynthInline .emx-section{padding:8px 10px}
-#emxSynthInline .emx-viz svg{height:80px}
+#emxSynthInline .emx-viz svg{height:34px}
 .emx-inline-hdr{
   padding:clamp(6px,0.8vh,12px) clamp(12px,1.5vw,20px);font-family:var(--lcd);font-size:clamp(10px,1vw,13px);color:var(--led);
   border-top:1px solid var(--brd);letter-spacing:1px;
@@ -3996,8 +3996,8 @@ function emxSynthPanel(part,partIndex){
   h+=`</div>`;
 
   if(isSynth){
-    // ── 3-column top row: OSC | FILTER | AMP/ENVELOPE ──
-    h+=`<div class="emx-sections">`;
+    // ── single row: OSC | FILTER | AMP/ENV | MOD | FX/PITCH ──
+    h+=`<div class="emx-sections" style="grid-template-columns:repeat(5,1fr)">`;
 
     // OSCILLATOR
     h+=`<div class="emx-section">`;
@@ -4031,11 +4031,6 @@ function emxSynthPanel(part,partIndex){
     h+=emxKnob('DEC',part.egDecay!=null?part.egDecay:(part.eg!=null?part.eg:'—'),'clr-green');
     h+=`</div></div>`;
 
-    h+=`</div>`; // end emx-sections
-
-    // ── 2-column bottom row: MOD | FX/PITCH ──
-    h+=`<div class="emx-bot-row">`;
-
     // MODULATION
     h+=`<div class="emx-section">`;
     h+=`<div class="emx-sec-label clr-purple">MODULATION</div>`;
@@ -4056,11 +4051,11 @@ function emxSynthPanel(part,partIndex){
     h+=emxKnob('ROLL',part.roll!=null?part.roll:'—','clr-dim');
     h+=`</div></div>`;
 
-    h+=`</div>`; // end emx-bot-row
+    h+=`</div>`; // end emx-sections
 
   } else {
-    // ── DRUM PART: 2-column layout ──
-    h+=`<div class="emx-sections" style="grid-template-columns:1fr 1fr">`;
+    // ── DRUM PART: single row layout ──
+    h+=`<div class="emx-sections" style="grid-template-columns:repeat(4,1fr)">`;
 
     // FILTER
     h+=`<div class="emx-section">`;
@@ -4084,11 +4079,6 @@ function emxSynthPanel(part,partIndex){
     h+=emxKnob('PITCH',emxPitchStr(part.pitch!=null?part.pitch:64),'clr-green');
     h+=`</div></div>`;
 
-    h+=`</div>`;
-
-    // ── Bottom row: MOD | FX ──
-    h+=`<div class="emx-bot-row">`;
-
     // MOD
     h+=`<div class="emx-section">`;
     h+=`<div class="emx-sec-label clr-purple">MODULATION</div>`;
@@ -4107,22 +4097,8 @@ function emxSynthPanel(part,partIndex){
     h+=emxKnob('ROLL',part.roll!=null?part.roll:'—','clr-dim');
     h+=`</div></div>`;
 
-    h+=`</div>`;
+    h+=`</div>`; // end emx-sections
   }
-
-  // ── Step sequence row ──
-  const steps=part.steps||[];
-  const vels=part.velocities||[];
-  const nSteps=Math.min(steps.length,16);
-  h+=`<div class="emx-steps-row">`;
-  for(let s=0;s<nSteps;s++){
-    const on=steps[s];
-    const vel=vels[s]||0;
-    const ht=on?Math.max(4,Math.round((vel/127)*24)):2;
-    const cls=on?(vel>110?'accent':'on'):'off';
-    h+=`<div class="emx-step ${cls}" style="height:${ht}px"></div>`;
-  }
-  h+=`</div>`;
 
   h+=`</div>`; // end emx-panel
   return h;
