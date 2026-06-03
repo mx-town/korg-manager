@@ -897,9 +897,9 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 .part-btn{
   border:1.5px solid var(--brd-h);border-radius:7px;
   background:linear-gradient(180deg,rgba(8,12,22,.92) 0%,rgba(14,20,36,.75) 100%);
-  padding:clamp(6px,0.8vh,20px) clamp(3px,0.3vw,10px) clamp(4px,0.6vh,14px);
+  padding:clamp(4px,0.55vh,13px) clamp(2px,0.25vw,7px) clamp(3px,0.45vh,9px);
   cursor:pointer;display:flex;flex-direction:column;
-  align-items:center;gap:clamp(2px,0.5vh,8px);position:relative;
+  align-items:center;gap:clamp(2px,0.4vh,5px);position:relative;
   flex:1;min-width:0;
   transition:border-color .15s ease,background .15s ease,opacity .15s ease,box-shadow .15s ease,transform .1s ease;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.05),inset 0 -1px 0 rgba(0,0,0,.4),0 2px 8px rgba(0,0,0,.3);
@@ -926,13 +926,13 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 .part-mute-toggle{cursor:pointer}
 .part-mute-toggle:hover{text-decoration:line-through}
 .part-type-lbl{
-  font-family:var(--head);font-size:clamp(14px,1.8vw,20px);font-weight:700;
+  font-family:var(--head);font-size:clamp(11px,1.3vw,15px);font-weight:700;
   letter-spacing:1px;line-height:1;
 }
 .part-sample-lbl{
-  font-family:var(--lcd);font-size:clamp(9px,1vw,12px);color:#8a9aac;
+  font-family:var(--lcd);font-size:clamp(8px,0.8vw,10px);color:#8a9aac;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-  max-width:100%;text-align:center;padding:clamp(2px,0.4vh,6px) 2px;
+  max-width:100%;text-align:center;padding:clamp(1px,0.3vh,4px) 2px;
 }
 .part-sample-pick{cursor:pointer;transition:color .12s,text-decoration .12s}
 .part-sample-pick:hover{color:var(--led)!important;text-decoration:underline}
@@ -1128,7 +1128,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 
 /* ── Mini step bar in part buttons ── */
 .part-step-bar{
-  display:flex;gap:1px;width:100%;height:clamp(4px,0.6vh,8px);margin-top:auto;
+  display:flex;gap:1px;width:100%;height:clamp(3px,0.45vh,6px);margin-top:auto;
   padding:0 2px;box-sizing:border-box;
 }
 .part-step-bar .psb{flex:1;border-radius:0;min-width:0}
