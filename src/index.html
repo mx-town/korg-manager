@@ -1196,15 +1196,15 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 .part-knobs-panel{
   padding:clamp(4px,0.5vh,10px) clamp(8px,1.5vw,32px);
   border-top:1px solid var(--brd);border-bottom:1px solid var(--brd);
-  flex:2;min-height:0;overflow-x:hidden;overflow-y:auto;max-height:35vh;
+  flex:2;min-height:0;overflow:hidden;
   display:flex;flex-direction:column;
 }
 .part-knobs-header{display:flex;align-items:baseline;gap:10px;margin-bottom:clamp(2px,0.4vh,8px);flex-wrap:wrap}
 .part-knobs-name{font-family:var(--head);font-size:clamp(12px,1.4vw,16px);font-weight:700;color:var(--hi);letter-spacing:2px}
 .part-knobs-sample{font-family:var(--lcd);font-size:clamp(10px,1vw,13px);color:var(--txt-d)}
 .part-knobs-type{font-family:var(--lcd);font-size:clamp(8px,0.7vw,10px);color:var(--txt-x);letter-spacing:2px;margin-left:auto}
-.pk-sections{display:flex;gap:clamp(4px,0.6vw,16px);align-items:flex-start;flex-wrap:wrap;justify-content:center;flex:1;min-height:0}
-.pk-section{display:flex;flex-direction:column;align-items:center;gap:clamp(1px,0.2vh,4px);flex:1 1 clamp(160px,22vw,280px);min-width:clamp(140px,18vw,200px)}
+.pk-sections{display:grid;grid-template-columns:repeat(4,1fr);gap:clamp(4px,0.6vw,16px);align-items:start;flex:1;min-height:0}
+.pk-section{display:flex;flex-direction:column;align-items:center;gap:clamp(1px,0.2vh,4px);min-width:0}
 .pk-section-label{
   font-family:var(--head);font-size:clamp(7px,0.6vw,9px);color:var(--txt-x);
   letter-spacing:3px;text-transform:uppercase;text-align:center;width:100%;
@@ -1242,9 +1242,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 /* ── Responsive: laptop screens (~1500px and below) ── */
 @media (max-width:1500px){
   /* Knob sections: force wrap, hide separators */
-  .pk-sep{display:none}
   .pk-sections{gap:6px 10px}
-  .pk-section{flex:1 1 200px;min-width:180px}
 
   /* Knobs: ~20% smaller */
   .pk-knob{width:clamp(34px,3vw,52px);min-width:40px;min-height:40px;padding:3px 2px}
@@ -1269,13 +1267,12 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
   .seq-bar-nav{padding:clamp(2px,0.3vh,6px) 12px clamp(4px,0.6vh,10px)}
 
   /* Knobs panel: less padding */
-  .part-knobs-panel{padding:clamp(2px,0.4vh,6px) clamp(6px,1vw,16px);max-height:30vh}
+  .part-knobs-panel{padding:clamp(2px,0.4vh,6px) clamp(6px,1vw,16px)}
 }
 /* ── Responsive: narrow windows (~1200px and below) ── */
 @media (max-width:1200px){
   /* Knob sections: 2x2 grid layout */
-  .pk-sections{gap:4px 8px}
-  .pk-section{flex:1 1 45%;min-width:150px}
+  .pk-sections{grid-template-columns:repeat(2,1fr);gap:4px 8px}
 
   /* Even smaller knobs */
   .pk-knob{width:clamp(32px,4vw,44px);min-width:36px;min-height:36px;padding:2px 1px}
@@ -1295,7 +1292,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
   .seq-steps{gap:clamp(2px,0.3vw,4px);flex:1.5}
 
   /* Knobs panel */
-  .part-knobs-panel{max-height:28vh;flex:1.5}
+  .part-knobs-panel{flex:1.5}
 }
 
 /* ── GRID view: mute/solo toggles ── */
@@ -3743,7 +3740,6 @@ function renderPartKnobs(pat,partIndex){
   // Build sections
   let html='<div class="pk-sections">';
   layout.forEach((section,si)=>{
-    if(si>0)html+='<div class="pk-sep"></div>';
     html+='<div class="pk-section">';
     html+=`<div class="pk-section-label">${section.section}</div>`;
     html+='<div class="pk-knobs-row">';
