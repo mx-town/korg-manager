@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Electribe Sample Werkstatt</title>
+<title>Electribe Sample Manager</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&family=Orbitron:wght@400;500;600;700;800;900&display=swap');
 :root{
@@ -1327,7 +1327,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
   <div class="app-body">
     <!-- ═══ VERTICAL SIDEBAR ═══ -->
     <nav class="vsb" id="vSidebar">
-      <div class="vsb-logo" title="Electribe Sample Werkstatt">⬡</div>
+      <div class="vsb-logo" title="Electribe Sample Manager">⬡</div>
       <div class="vsb-items">
         <button class="vsb-item active" data-device="esx1" onclick="switchDevice('esx1')" title="ESX-1 Sampler">
           <span class="vsb-icon">◆</span>
@@ -1352,7 +1352,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
   <!-- ═══ ESX-1 VIEW (existing UI) ═══ -->
   <div id="esx1-view" class="device-view active">
   <div class="header">
-    <div class="logo"><span class="logo-badge">ESW</span><div><div class="logo-t">ELECTRIBE SAMPLE WERKSTATT</div><div class="logo-s">⚠ esx-1 sample manager ⚠</div></div></div>
+    <div class="logo"><span class="logo-badge">ESM</span><div><div class="logo-t">ELECTRIBE SAMPLE MANAGER</div><div class="logo-s">⚠ esx-1 sample manager ⚠</div></div></div>
     <div class="ha">
       <button class="btn" onclick="openEsx()">📂 OPEN</button>
       <button class="btn" onclick="importSamples()">📥 IMPORT</button>
@@ -1399,7 +1399,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
         </div>
       </div>
       <div class="ms" style="margin-top:auto">
-        <div class="sbt">SPEICHER</div>
+        <div class="sbt">STORAGE</div>
         <div class="mo"><div class="mi" id="mB" style="width:0%"></div><div class="mt" id="mT">0%</div></div>
         <div class="mst"><div class="msi"><span id="mU">0</span> / 24.0 MB</div><div class="msi"><span id="mD">0.0</span>s / 285s</div></div>
       </div>
@@ -1426,7 +1426,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
         <div class="sl-hdr"><h2>▸ e2sSample.all</h2><span class="sc" id="e2sSC">0/499</span></div>
         <div class="ch"><span>#</span><span>NAME</span><span>CAT</span><span style="text-align:right">RATE</span><span style="text-align:right">LEN</span><span style="text-align:right">SIZE</span><span></span></div>
         <div class="sl" id="e2sSL">
-          <div class="es"><div class="dz" id="e2sDZ" onclick="e2sImportWav()"><i>⚡</i><p><strong>E2S SAMPLES</strong><br><br>wav → 16bit mono 48kHz<br>.all → e2sSample.all laden</p></div></div>
+          <div class="es"><div class="dz" id="e2sDZ" onclick="e2sImportWav()"><i>⚡</i><p><strong>E2S SAMPLES</strong><br><br>wav → 16bit mono 48kHz<br>.all → load e2sSample.all</p></div></div>
         </div>
       </div>
       <div class="sb">
@@ -1468,7 +1468,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
           </div>
         </div>
         <div class="ms" style="margin-top:auto">
-          <div class="sbt">SPEICHER</div>
+          <div class="sbt">STORAGE</div>
           <div class="mo"><div class="mi" id="e2sMB" style="width:0%"></div><div class="mt" id="e2sMT">0%</div></div>
           <div class="mst"><div class="msi"><span id="e2sMU">0</span> / 24.0 MB</div><div class="msi"><span id="e2sMD">0</span>/499 slots</div></div>
         </div>
@@ -1559,7 +1559,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 
   <!-- ═══ STATUS BAR ═══ -->
   <div class="status-bar" id="statusBar">
-    <div class="fs" id="statusLeft">electribe sample werkstatt</div>
+    <div class="fs" id="statusLeft">electribe sample manager</div>
     <div class="fs" id="statusRight">ESX-1 | 16-bit mono pcm // big endian // 44.1khz</div>
   </div>
     </div><!-- /app-content -->
@@ -1704,7 +1704,7 @@ async function applyFeatureFlags() {
     const sl = document.getElementById('statusLeft');
     const disabledCount = Object.values(F).filter(v => v === false).length;
     const beta = disabledCount > 0 ? ' — <span style="color:var(--yel)">BETA</span>' : '';
-    if (sl) sl.innerHTML = `electribe sample werkstatt v${window.appVersion}${beta}`;
+    if (sl) sl.innerHTML = `electribe sample manager v${window.appVersion}${beta}`;
   });
   // If active tab is hidden, auto-select first visible tab
   const tabs = document.querySelectorAll('.vsb-item');
@@ -2498,150 +2498,150 @@ function tryCloseGuide(){
 }
 const GUIDE_HTML = `
 <div class="g-sec">
-  <div class="g-h">⚠ BETA SOFTWARE — ZUERST LESEN</div>
+  <div class="g-h">⚠ BETA SOFTWARE — READ FIRST</div>
   <div class="g-box" style="border-color:var(--hi)">
-    <strong>Das ist BETA Software — kein fertiges Produkt.</strong><br><br>
-    <strong>1.</strong> Keine Garantie. Der Entwickler haftet nicht für Datenverlust oder Schäden.<br>
-    <strong>2.</strong> Du bist für deine Daten verantwortlich. Sichere IMMER deine .esx Dateien bevor du die App benutzt.<br>
-    <strong>3.</strong> Benutze die App nicht mit Dateien, die du nicht verlieren kannst. Teste mit Kopien, nicht mit Originalen.<br>
-    <strong>4.</strong> Features können unvollständig sein oder unerwartet reagieren. Wenn was kaputt geht, nimm dein Backup.
+    <strong>This is BETA software — not a finished product.</strong><br><br>
+    <strong>1.</strong> No warranty. The developer is not liable for data loss or damage.<br>
+    <strong>2.</strong> You are responsible for your data. ALWAYS back up your .esx files before using the app.<br>
+    <strong>3.</strong> Do not use the app with files you cannot afford to lose. Test with copies, not originals.<br>
+    <strong>4.</strong> Features may be incomplete or behave unexpectedly. If something breaks, restore your backup.
   </div>
 </div>
 
 <div class="g-sec">
-  <div class="g-h">💾 ZUERST BACKUP MACHEN</div>
-  <div class="g-p">Bevor du irgendwas machst, sichere deine .esx Dateien. Das ist der wichtigste Schritt.</div>
-  <div class="g-sub">VON SD / SMARTMEDIA KARTE</div>
+  <div class="g-h">💾 BACK UP FIRST</div>
+  <div class="g-p">Before you do anything, back up your .esx files. This is the most important step.</div>
+  <div class="g-sub">FROM SD / SMARTMEDIA CARD</div>
   <ul class="g-list">
-    <li><strong>Schritt 1:</strong> SD-Karte (oder SmartMedia-Karte) aus der ESX-1 nehmen</li>
-    <li><strong>Schritt 2:</strong> In einen Kartenleser am PC stecken</li>
-    <li><strong>Schritt 3:</strong> Windows Explorer öffnen — die Karte erscheint als Laufwerk (z.B. D: oder E:)</li>
-    <li><strong>Schritt 4:</strong> ALLE <strong>.esx Dateien</strong> in einen sicheren Ordner auf deinem PC kopieren</li>
-    <li><strong>Schritt 5:</strong> Prüfen: jede .esx Datei muss genau <strong>25,3 MB</strong> (26.542.080 Bytes) groß sein</li>
+    <li><strong>Step 1:</strong> Remove the SD card (or SmartMedia card) from the ESX-1</li>
+    <li><strong>Step 2:</strong> Insert it into a card reader on your PC</li>
+    <li><strong>Step 3:</strong> Open Windows Explorer — the card appears as a drive (e.g. D: or E:)</li>
+    <li><strong>Step 4:</strong> Copy ALL <strong>.esx files</strong> into a safe folder on your PC</li>
+    <li><strong>Step 5:</strong> Check: every .esx file must be exactly <strong>25.3 MB</strong> (26,542,080 bytes)</li>
   </ul>
-  <div class="g-tip">Backup-Ordner nicht anfassen. In der App nur mit KOPIEN arbeiten.</div>
+  <div class="g-tip">Don't touch the backup folder. Work only with COPIES in the app.</div>
 </div>
 
 <div class="g-sec">
-  <div class="g-h">🚀 SCHNELLSTART</div>
-  <div class="g-sub">.ESX DATEI ÖFFNEN</div>
+  <div class="g-h">🚀 QUICK START</div>
+  <div class="g-sub">OPEN AN .ESX FILE</div>
   <ul class="g-list">
-    <li><strong>OPEN</strong> — Klick zum Laden deiner Backup .esx Datei (nicht das Original!)</li>
-    <li>Die Sample-Liste zeigt alle Mono-Samples mit Name, Rate, Länge und Größe</li>
-    <li>Klick auf ein Sample um die Wellenform zu sehen. <strong>Leertaste</strong> zum Abspielen/Stoppen</li>
-    <li><strong>Pfeiltasten</strong> zum Navigieren durch die Samples</li>
+    <li><strong>OPEN</strong> — click to load your backup .esx file (not the original!)</li>
+    <li>The sample list shows all mono samples with name, rate, length and size</li>
+    <li>Click a sample to see its waveform. <strong>Spacebar</strong> to play/stop</li>
+    <li><strong>Arrow keys</strong> to navigate through the samples</li>
   </ul>
-  <div class="g-sub">NEUE SAMPLES IMPORTIEREN</div>
+  <div class="g-sub">IMPORT NEW SAMPLES</div>
   <ul class="g-list">
-    <li><strong>IMPORT</strong> — WAV, AIF oder ZIP Dateien auswählen (Mehrfachauswahl möglich)</li>
-    <li>Dateien werden automatisch ins ESX-1 Format konvertiert: 16-Bit Mono PCM @ 44.100 Hz</li>
-    <li>Stereo-Dateien werden zu Mono gemischt. Namen werden auf 8 Zeichen gekürzt</li>
+    <li><strong>IMPORT</strong> — select WAV, AIF or ZIP files (multiple selection possible)</li>
+    <li>Files are automatically converted to ESX-1 format: 16-bit mono PCM @ 44,100 Hz</li>
+    <li>Stereo files are mixed down to mono. Names are truncated to 8 characters</li>
   </ul>
-  <div class="g-sub">SAMPLES BEARBEITEN</div>
+  <div class="g-sub">EDIT SAMPLES</div>
   <ul class="g-list">
-    <li>Sample auswählen, <strong>MODIFY</strong> klicken (oder <strong>M</strong> drücken)</li>
-    <li>Das Popup zeigt die Wellenform + drei Effekt-Tabs: TIME, TONE, DYNAMICS</li>
-    <li>Auf der Wellenform ziehen um einen Bereich zu markieren → <strong>CUT HERE</strong> oder <strong>TRIM TO SELECTION</strong></li>
-    <li>Alle Änderungen sind sofort mit <strong>UNDO</strong> (bis zu 50 Schritte) und <strong>RESET</strong> rückgängig machbar</li>
-    <li><strong>NORMALIZE</strong> Button neben PLAY normalisiert auf -1 dBFS</li>
+    <li>Select a sample, click <strong>MODIFY</strong> (or press <strong>M</strong>)</li>
+    <li>The popup shows the waveform + three effect tabs: TIME, TONE, DYNAMICS</li>
+    <li>Drag on the waveform to mark a region → <strong>CUT HERE</strong> or <strong>TRIM TO SELECTION</strong></li>
+    <li>Every change is instantly reversible with <strong>UNDO</strong> (up to 50 steps) and <strong>RESET</strong></li>
+    <li>The <strong>NORMALIZE</strong> button next to PLAY normalizes to -1 dBFS</li>
   </ul>
-  <div class="g-sub">ARBEIT SPEICHERN</div>
+  <div class="g-sub">SAVE YOUR WORK</div>
   <div class="g-box">
-    <strong>SAVE</strong> — Überschreibt die geöffnete .esx Datei. Patterns und Songs bleiben erhalten.<br>
-    <strong>EXPORT NEW</strong> — Erstellt eine komplett neue .esx Datei (keine Patterns, nur Samples).<br><br>
-    SAVE zum Bearbeiten einer bestehenden Datei. EXPORT NEW wenn du von Null anfängst.
+    <strong>SAVE</strong> — overwrites the opened .esx file. Patterns and songs are preserved.<br>
+    <strong>EXPORT NEW</strong> — creates a completely new .esx file (no patterns, samples only).<br><br>
+    Use SAVE to edit an existing file. Use EXPORT NEW when starting from scratch.
   </div>
-  <div class="g-sub">AUF DEN ESX-1 LADEN</div>
+  <div class="g-sub">LOAD ONTO THE ESX-1</div>
   <ul class="g-list">
-    <li>Die gespeicherte .esx Datei auf deine SD / SmartMedia Karte kopieren</li>
-    <li>Karte in die ESX-1 stecken</li>
-    <li>An der ESX-1: <strong>GLOBAL → DATA → LOAD → ALL DATA</strong></li>
-    <li>Datei auswählen und bestätigen — deine neuen Samples sind bereit</li>
+    <li>Copy the saved .esx file to your SD / SmartMedia card</li>
+    <li>Insert the card into the ESX-1</li>
+    <li>On the ESX-1: <strong>GLOBAL → DATA → LOAD → ALL DATA</strong></li>
+    <li>Select the file and confirm — your new samples are ready</li>
   </ul>
 </div>
 
 <div class="g-sec">
-  <div class="g-h">⚡ VERFÜGBARE EFFEKTE</div>
+  <div class="g-h">⚡ AVAILABLE EFFECTS</div>
   <div class="g-sub">TIME</div>
   <div class="g-box">
-    <strong>REVERSE</strong> — Sample rückwärts abspielen<br>
-    <strong>TIMESTRETCH</strong> — Länge ändern ohne Tonhöhenverschiebung (0,25× bis 4×)<br>
-    <strong>FADE IN / OUT</strong> — Sanfte logarithmische Fades (1ms–2000ms)<br>
-    <strong>CHOP</strong> — In 2–32 gleiche Teile schneiden (erzeugt neue Samples)<br>
-    <strong>STUTTER</strong> — Grain-Wiederholung (5–500ms Grains, 2–64 Reps)<br>
-    <strong>TURNTABLE STOP</strong> — Vinyl-Bremseffekt<br>
-    <strong>TRIM SILENCE</strong> — Stille am Anfang und Ende entfernen
+    <strong>REVERSE</strong> — play the sample backwards<br>
+    <strong>TIMESTRETCH</strong> — change length without pitch shift (0.25× to 4×)<br>
+    <strong>FADE IN / OUT</strong> — smooth logarithmic fades (1ms–2000ms)<br>
+    <strong>CHOP</strong> — cut into 2–32 equal parts (creates new samples)<br>
+    <strong>STUTTER</strong> — grain repetition (5–500ms grains, 2–64 reps)<br>
+    <strong>TURNTABLE STOP</strong> — vinyl brake effect<br>
+    <strong>TRIM SILENCE</strong> — remove silence at the start and end
   </div>
   <div class="g-sub">TONE</div>
   <div class="g-box">
-    <strong>BITCRUSH</strong> — Lo-Fi Bit-Reduktion (1–16 Bit)<br>
-    <strong>PITCH</strong> — Halbton-Verschiebung (-24 bis +24)<br>
-    <strong>DISTORTION</strong> — Drei Modi: Soft (tanh), Hard (clip), Fold (wavefold)<br>
-    <strong>FILTER SWEEP</strong> — Tiefpass- oder Hochpass-Frequenzsweep<br>
-    <strong>RING MOD</strong> — Ringmodulation (10–5000 Hz)
+    <strong>BITCRUSH</strong> — lo-fi bit reduction (1–16 bit)<br>
+    <strong>PITCH</strong> — semitone shift (-24 to +24)<br>
+    <strong>DISTORTION</strong> — three modes: Soft (tanh), Hard (clip), Fold (wavefold)<br>
+    <strong>FILTER SWEEP</strong> — low-pass or high-pass frequency sweep<br>
+    <strong>RING MOD</strong> — ring modulation (10–5000 Hz)
   </div>
   <div class="g-sub">DYNAMICS</div>
   <div class="g-box">
-    <strong>GAIN</strong> — Lautstärke anpassen (-24 bis +24 dB)<br>
-    <strong>RHYTHMIC GATE</strong> — BPM-synchrones Chopping<br>
-    <strong>ENVELOPE</strong> — ADSR Hüllkurvenformung
+    <strong>GAIN</strong> — adjust volume (-24 to +24 dB)<br>
+    <strong>RHYTHMIC GATE</strong> — BPM-synced chopping<br>
+    <strong>ENVELOPE</strong> — ADSR envelope shaping
   </div>
 </div>
 
 <div class="g-sec">
-  <div class="g-h">⌨ TASTENKÜRZEL</div>
+  <div class="g-h">⌨ KEYBOARD SHORTCUTS</div>
   <div class="g-box">
-    <strong>Leertaste</strong> — Abspielen / Stoppen<br>
-    <strong>M</strong> — Modify-Popup öffnen<br>
-    <strong>Entf</strong> — Ausgewählte(s) Sample(s) löschen<br>
-    <strong>F2</strong> — Sample umbenennen<br>
-    <strong>↑ / ↓</strong> — Durch Samples navigieren<br>
-    <strong>Strg+Z</strong> — Rückgängig<br>
-    <strong>Strg+Y</strong> — Wiederherstellen<br>
-    <strong>Strg+B</strong> — Seitenleiste ein-/ausblenden<br>
-    <strong>Shift+Klick</strong> — Bereichsauswahl (Checkboxen)<br>
-    <strong>Rechtsklick</strong> — Sample-Kategorie setzen (TYPE Sortierung)
+    <strong>Spacebar</strong> — Play / Stop<br>
+    <strong>M</strong> — Open Modify popup<br>
+    <strong>Del</strong> — Delete selected sample(s)<br>
+    <strong>F2</strong> — Rename sample<br>
+    <strong>↑ / ↓</strong> — Navigate through samples<br>
+    <strong>Ctrl+Z</strong> — Undo<br>
+    <strong>Ctrl+Y</strong> — Redo<br>
+    <strong>Ctrl+B</strong> — Show/hide sidebar<br>
+    <strong>Shift+Click</strong> — Range selection (checkboxes)<br>
+    <strong>Right-click</strong> — Set sample category (TYPE sorting)
   </div>
 </div>
 
 <div class="g-sec">
-  <div class="g-h">🐛 BUGS MELDEN</div>
-  <div class="g-p">Dein Feedback formt die Zukunft dieses Tools. Wenn was schiefgeht, bitte melden:</div>
+  <div class="g-h">🐛 REPORT BUGS</div>
+  <div class="g-p">Your feedback shapes the future of this tool. If something goes wrong, please report:</div>
   <ul class="g-list">
-    <li><strong>Was du gemacht hast</strong> — Schritt für Schritt</li>
-    <li><strong>Was du erwartet hast</strong></li>
-    <li><strong>Was tatsächlich passiert ist</strong> — Fehlermeldung, Absturz, falsches Verhalten</li>
-    <li><strong>Screenshot</strong> wenn möglich</li>
-    <li><strong>Die .esx Datei</strong> die das Problem verursacht hat (wenn teilbar)</li>
+    <li><strong>What you did</strong> — step by step</li>
+    <li><strong>What you expected</strong></li>
+    <li><strong>What actually happened</strong> — error message, crash, wrong behavior</li>
+    <li><strong>Screenshot</strong> if possible</li>
+    <li><strong>The .esx file</strong> that caused the problem (if shareable)</li>
   </ul>
-  <div class="g-tip">Schreib "ESW BETA" in deine Nachricht damit sie leicht zu finden ist.</div>
+  <div class="g-tip">Write "ESM BETA" in your message so it's easy to find.</div>
 </div>
 
 <div class="g-sec">
-  <div class="g-h">🔮 KOMMT BALD</div>
-  <div class="g-p">Diese Beta enthält nur die ESX-1 Sample Manager. In zukünftigen Updates:</div>
+  <div class="g-h">🔮 COMING SOON</div>
+  <div class="g-p">This beta contains only the ESX-1 Sample Manager. In future updates:</div>
   <ul class="g-list">
-    <li><strong>E2S Sample Manager</strong> — Korg Electribe 2 Sampler Dateien verwalten</li>
-    <li><strong>Pattern Viewer</strong> — ESX-1 Patterns mit echten Samples ansehen und abspielen</li>
-    <li><strong>EMX-1 Support</strong> — Visuelles Synth-Panel für EMX-1 Patterns</li>
+    <li><strong>E2S Sample Manager</strong> — manage Korg Electribe 2 sampler files</li>
+    <li><strong>Pattern Viewer</strong> — view and play ESX-1 patterns with real samples</li>
+    <li><strong>EMX-1 Support</strong> — visual synth panel for EMX-1 patterns</li>
   </ul>
 </div>
 
 <div class="g-sec" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--brd)">
   <div style="font-family:var(--ui);font-size:11px;color:var(--txt-x);line-height:1.7;letter-spacing:.5px">
-    Diese Software steht in keiner Verbindung zu KORG Inc. und wird von dieser weder unterstützt noch autorisiert.
-    Korg, Electribe, ESX-1, EMX-1, E2S und ES-1 sind eingetragene Marken der KORG Inc.
-    Alle Produktnamen dienen ausschließlich zur Beschreibung der Kompatibilität.
+    This software is not affiliated with, endorsed by, or authorized by KORG Inc.
+    Korg, Electribe, ESX-1, EMX-1, E2S and ES-1 are registered trademarks of KORG Inc.
+    All product names are used solely to describe compatibility.
   </div>
 </div>
 
 <div class="g-sec" id="guideAcceptArea" style="margin-top:24px;padding:20px;background:var(--void);border:2px solid var(--hi-d);clip-path:polygon(8px 0%,100% 0%,100% calc(100% - 8px),calc(100% - 8px) 100%,0% 100%,0% 8px)">
-  <div style="font-family:var(--head);font-size:11px;font-weight:700;color:var(--hi);letter-spacing:3px;margin-bottom:14px">⚠ BESTÄTIGUNG ERFORDERLICH</div>
+  <div style="font-family:var(--head);font-size:11px;font-weight:700;color:var(--hi);letter-spacing:3px;margin-bottom:14px">⚠ CONFIRMATION REQUIRED</div>
   <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-family:var(--ui);font-size:13px;color:var(--txt);line-height:1.6">
     <input type="checkbox" id="guideAcceptCb" onchange="var b=document.getElementById('guideAcceptBtn');if(this.checked)b.removeAttribute('disabled');else b.setAttribute('disabled','')" style="accent-color:var(--hi);margin-top:4px;flex-shrink:0;width:16px;height:16px">
-    Ich habe den Beta-Hinweis gelesen und verstanden. Ich bin allein dafür verantwortlich, meine Daten vor der Nutzung dieser Software zu sichern.
+    I have read and understood the beta notice. I am solely responsible for backing up my data before using this software.
   </label>
-  <button id="guideAcceptBtn" disabled onclick="acceptGuideDisclaimer()">AKZEPTIEREN — WEITER</button>
+  <button id="guideAcceptBtn" disabled onclick="acceptGuideDisclaimer()">ACCEPT — CONTINUE</button>
 </div>
 `;
 
@@ -2694,7 +2694,7 @@ function switchDevice(dev){
 function updateStatusBar(){
   const l=document.getElementById('statusLeft'),r=document.getElementById('statusRight');
   if(activeDevice==='esx1'){
-    l.innerHTML=`electribe sample werkstatt v${window.appVersion||''}`;
+    l.innerHTML=`electribe sample manager v${window.appVersion||''}`;
     const n=S.numSamples||0,pct=S.usedPercent||'0',dur=(S.totalDuration||0).toFixed(1);
     r.innerHTML=`ESX-1 | <span class="bl">${n}/256</span> mono | <span class="bl">${pct}%</span> mem | <span class="bl">${dur}s</span> / 285s`;
   } else if(activeDevice==='e2s'){
@@ -2766,7 +2766,7 @@ function e2sRenderList(){
   const l=document.getElementById('e2sSL');
   document.getElementById('e2sSC').textContent=`${e2sSamples.filter(s=>s&&!s.empty).length}/499`;
   if(!e2sSamples.length||e2sSamples.every(s=>!s||s.empty)){
-    l.innerHTML=`<div class="es"><div class="dz" onclick="e2sImportWav()"><i>⚡</i><p><strong>E2S SAMPLES</strong><br><br>wav → 16bit mono 48kHz<br>.all → e2sSample.all laden</p></div></div>`;return}
+    l.innerHTML=`<div class="es"><div class="dz" onclick="e2sImportWav()"><i>⚡</i><p><strong>E2S SAMPLES</strong><br><br>wav → 16bit mono 48kHz<br>.all → load e2sSample.all</p></div></div>`;return}
   let h='';
   for(let i=0;i<e2sSamples.length;i++){
     const s=e2sSamples[i];
@@ -5254,24 +5254,24 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(DOM.smpPickerBg&
         }
         ctx.stroke();gctx.stroke();
       }
-      // ESW text — dead center
+      // ESM text — dead center
       if(embProg>.6){
         const txtAlpha=Math.min(1,(embProg-.6)/.2);
         ctx.fillStyle=`rgba(0,204,255,${txtAlpha})`;
         ctx.font='900 '+Math.round(HR*.45)+'px Orbitron,sans-serif';
         ctx.textAlign='center';ctx.textBaseline='middle';
-        ctx.fillText('ESW',cx,cy+HR*.05);
+        ctx.fillText('ESM',cx,cy+HR*.05);
         gctx.fillStyle=`rgba(0,204,255,${txtAlpha*.4})`;
         gctx.font=ctx.font;gctx.textAlign='center';gctx.textBaseline='middle';
-        gctx.fillText('ESW',cx,cy+HR*.05);
+        gctx.fillText('ESM',cx,cy+HR*.05);
       }
-      // SAMPLE WERKSTATT — below ESW
+      // SAMPLE MANAGER — below ESM
       if(embProg>.75){
         const stAlpha=Math.min(.5,(embProg-.75)/.2*.5);
         ctx.fillStyle=`rgba(0,204,255,${stAlpha})`;
         ctx.font='10px "Share Tech Mono",monospace';
         ctx.letterSpacing='3px';
-        ctx.fillText('SAMPLE WERKSTATT',cx,cy+HR*.35);
+        ctx.fillText('SAMPLE MANAGER',cx,cy+HR*.35);
       }
     }
 
