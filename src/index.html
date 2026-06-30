@@ -5033,12 +5033,31 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(DOM.smpPickerBg&
   });
 
   // ── Setup canvases ──
-  const dpr=window.devicePixelRatio||1;
   const W=window.innerWidth,H=window.innerHeight;
-  c.width=W*dpr;c.height=H*dpr;c.style.width=W+'px';c.style.height=H+'px';
-  cg.width=W*dpr;cg.height=H*dpr;cg.style.width=W+'px';cg.style.height=H+'px';
-  const ctx=c.getContext('2d');ctx.scale(dpr,dpr);
-  const gctx=cg.getContext('2d');gctx.scale(dpr,dpr);
+  c.style.width=W+'px';c.style.height=H+'px';
+  cg.style.width=W+'px';cg.style.height=H+'px';
+  const ctx=c.getContext('2d');
+  const gctx=cg.getContext('2d');
+  // DPR-aware backing store, self-correcting. In packaged builds devicePixelRatio
+  // can report late (e.g. 1 then 1.5), leaving the canvas locked at a low
+  // resolution → blurry. Re-apply whenever the ratio settles so the boot screen
+  // stays as crisp as `npm start`. Setting canvas.width clears it, but draw()
+  // fully repaints every frame, so a re-size mid-animation is invisible.
+  function applyDPR(){
+    const d=window.devicePixelRatio||1;
+    const bw=Math.round(W*d),bh=Math.round(H*d);
+    if(c.width===bw&&c.height===bh)return;
+    c.width=bw;c.height=bh;cg.width=bw;cg.height=bh;
+    ctx.setTransform(d,0,0,d,0,0);
+    gctx.setTransform(d,0,0,d,0,0);
+  }
+  applyDPR();
+  window.addEventListener('resize',applyDPR);
+  (function watchDPR(){
+    const mq=window.matchMedia(`(resolution: ${window.devicePixelRatio||1}dppx)`);
+    mq.addEventListener('change',()=>{applyDPR();watchDPR();},{once:true});
+  })();
+  requestAnimationFrame(applyDPR); // re-check after first layout/paint
   const cx=W/2,cy=H/2;
 
   // ── Colors ──
