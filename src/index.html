@@ -1227,6 +1227,18 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 .pk-knob-svg{cursor:pointer;transition:filter .12s}
 .pk-knob-svg:active{cursor:grabbing}
 .pk-knob-value{font-family:var(--lcd);font-size:clamp(9px,0.8vw,12px);letter-spacing:.5px;min-height:14px;text-align:center}
+/* ── Responsive: short windows (e.g. maximized laptop wider than 1500px but
+   under ~890px tall) — reuse the compact knob sizing so the 4-section
+   param panel never clips vertically. Placed BEFORE the width breakpoints
+   so narrower windows keep their own (smaller) knob sizing. ── */
+@media (max-height:890px){
+  .pk-knob{width:clamp(34px,3vw,52px);min-width:40px;min-height:40px;padding:3px 2px}
+  .pk-knob-label{font-size:clamp(5.5px,0.5vw,7px)}
+  .pk-knob-value{font-size:clamp(8px,0.7vw,11px)}
+  .pk-knob-svg{width:28px!important;height:28px!important}
+  .pk-section-label{font-size:clamp(6px,0.55vw,8px);letter-spacing:2px}
+  .part-knobs-panel{padding:clamp(2px,0.4vh,6px) clamp(6px,1vw,16px)}
+}
 /* ── Responsive: laptop screens (~1500px and below) ── */
 @media (max-width:1500px){
   /* Knob sections: tighten gap at laptop widths */
