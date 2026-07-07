@@ -3738,10 +3738,10 @@ function attachKnobDrag(knobEl,param,onUpdate,onCommit){
     if(newVal!==param.value){param.value=newVal;onUpdate(param);}
   });
   document.addEventListener('mouseup',()=>{
-    if(dragging){dragging=false;knobEl.classList.remove('dragging');document.body.style.cursor='';if(onCommit)onCommit(param);}
+    if(dragging){dragging=false;knobEl.classList.remove('dragging');document.body.style.cursor='';if(onCommit&&param.value!==startVal)onCommit(param);}
   });
   knobEl.addEventListener('dblclick',()=>{
-    if(param.defaultVal!=null){param.value=param.defaultVal;onUpdate(param);if(onCommit)onCommit(param);}
+    if(param.defaultVal!=null&&param.value!==param.defaultVal){param.value=param.defaultVal;onUpdate(param);if(onCommit)onCommit(param);}
   });
 }
 
@@ -3793,7 +3793,8 @@ async function pkCommitParam(partIdx,key,value){
   const pat=patData[patSel];if(!pat)return;
   const part=pat.parts[partIdx];if(!part)return;
   part[key]=value;
-  if(patFormat==='ESX-1'&&window.api.esx.updatePatternParam){
+  if(patFormat!=='ESX-1')return; // no PARTS-view write path for E2/EMX — don't flag dirty
+  if(window.api.esx.updatePatternParam){
     const r=await window.api.esx.updatePatternParam({patIdx:patSel,partIdx,paramKey:key,value});
     if(r&&r.error)toast(r.error,'error');
   }
