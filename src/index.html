@@ -3750,6 +3750,7 @@ let pkLcdParams=[];   // flat param defs for the selected part
 let pkLcdIdx=0;       // which param the LCD shows
 let pkLcdPartIdx=-1;  // part index the LCD belongs to
 let pkLcdBound=false;
+let pkLcdHlTimer=null;
 
 function pkLcdPart(){
   const pat=patData[patSel];
@@ -3773,11 +3774,14 @@ function pkLcdStep(dir){
   const p=pkLcdParams[pkLcdIdx];
   const knob=document.getElementById(`pk_${pkLcdPartIdx}_${p.key}`);
   if(knob){
+    document.querySelectorAll('.pk-knob.pk-lcd-hl').forEach(k=>k.classList.remove('pk-lcd-hl'));
+    clearTimeout(pkLcdHlTimer);
     knob.classList.add('pk-lcd-hl');
-    setTimeout(()=>knob.classList.remove('pk-lcd-hl'),800);
+    pkLcdHlTimer=setTimeout(()=>knob.classList.remove('pk-lcd-hl'),800);
   }
 }
 function pkLcdBind(){
+  // once per page: the LCD markup is static, listeners survive part re-renders
   if(pkLcdBound)return;pkLcdBound=true;
   document.getElementById('pkLcdPrev').addEventListener('click',()=>pkLcdStep(-1));
   document.getElementById('pkLcdNext').addEventListener('click',()=>pkLcdStep(1));
