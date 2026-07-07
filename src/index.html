@@ -3022,6 +3022,7 @@ setTimeout(function setupDelegation(){
       stepsRenderButtons(pat,selPart,selRgb);
       stepsRenderBarNav(pat);
       renderPartKnobs(pat,patSeqPart);
+      if(patFormat==='EMX-1')renderEmxInline(pat);
       return;
     }
   });
@@ -3632,21 +3633,27 @@ function partsRender(pat){
   renderPartKnobs(pat,patSeqPart);
 
   // EMX-1: render inline synth analyzer
+  renderEmxInline(pat);
+}
+
+// EMX-1 inline synth analyzer + LCD. Must also run on part-button clicks,
+// which bypass partsRender — otherwise the analyzer freezes on the old part.
+function renderEmxInline(pat){
   const emxWrap=document.getElementById('emxSynthInline');
-  if(emxWrap){
-    if(isEMX&&selPart){
-      const label=EMX_PART_LABELS[patSeqPart]||`P${patSeqPart+1}`;
-      const pName=selPart.name||`Part ${patSeqPart+1}`;
-      const lcd=`<div class="pk-lcd emx-lcd">`+
-        `<button class="pk-lcd-btn" id="emxLcdPrev" title="Previous parameter">◀</button>`+
-        `<div class="pk-lcd-body"><span class="pk-lcd-name" id="emxLcdName">—</span>`+
-        `<span class="pk-lcd-value" id="emxLcdValue" style="cursor:default">—</span></div>`+
-        `<button class="pk-lcd-btn" id="emxLcdNext" title="Next parameter">▶</button></div>`;
-      emxWrap.innerHTML=`<div class="emx-inline-hdr"><span class="emx-inline-label">${label}</span> ${esc(pName)}${lcd}</div>`+emxSynthPanel(selPart,patSeqPart);
-      emxLcdInit(selPart);
-    } else {
-      emxWrap.innerHTML='';
-    }
+  if(!emxWrap)return;
+  const selPart=pat&&pat.parts?pat.parts[patSeqPart]:null;
+  if(patFormat==='EMX-1'&&selPart){
+    const label=EMX_PART_LABELS[patSeqPart]||`P${patSeqPart+1}`;
+    const pName=selPart.name||`Part ${patSeqPart+1}`;
+    const lcd=`<div class="pk-lcd emx-lcd">`+
+      `<button class="pk-lcd-btn" id="emxLcdPrev" title="Previous parameter">◀</button>`+
+      `<div class="pk-lcd-body"><span class="pk-lcd-name" id="emxLcdName">—</span>`+
+      `<span class="pk-lcd-value" id="emxLcdValue" style="cursor:default">—</span></div>`+
+      `<button class="pk-lcd-btn" id="emxLcdNext" title="Next parameter">▶</button></div>`;
+    emxWrap.innerHTML=`<div class="emx-inline-hdr"><span class="emx-inline-label">${label}</span> ${esc(pName)}${lcd}</div>`+emxSynthPanel(selPart,patSeqPart);
+    emxLcdInit(selPart);
+  } else {
+    emxWrap.innerHTML='';
   }
 }
 
