@@ -3785,6 +3785,7 @@ function pkLcdBind(){
   if(pkLcdBound)return;pkLcdBound=true;
   document.getElementById('pkLcdPrev').addEventListener('click',()=>pkLcdStep(-1));
   document.getElementById('pkLcdNext').addEventListener('click',()=>pkLcdStep(1));
+  document.getElementById('pkLcdValue').addEventListener('click',pkLcdBeginEdit);
 }
 
 // Commit a param edit: in-memory + backend buffer (ESX) + dirty flag.
@@ -3799,6 +3800,42 @@ async function pkCommitParam(partIdx,key,value){
     if(r&&r.error)toast(r.error,'error');
   }
   patDirty=true;patUpdateSaveBtn();
+}
+function pkLcdBeginEdit(){
+  if(patFormat!=='ESX-1')return; // EMX etc. are read-only
+  const p=pkLcdParams[pkLcdIdx];
+  const part=pkLcdPart();
+  const valEl=document.getElementById('pkLcdValue');
+  if(!p||!part||!valEl||valEl.querySelector('input'))return;
+  const cur=part[p.key]!=null?part[p.key]:p.defaultVal;
+  valEl.innerHTML=`<input class="pk-lcd-input" type="text" value="${cur}">`;
+  const inp=valEl.querySelector('input');
+  inp.focus();inp.select();
+  let done=false;
+  const finish=commit=>{
+    if(done)return;done=true;
+    if(commit){
+      const n=parseInt(inp.value,10);
+      if(!isNaN(n)){
+        const v=Math.min(p.max,Math.max(p.min,n));
+        pkCommitParam(pkLcdPartIdx,p.key,v);
+        const knob=document.getElementById(`pk_${pkLcdPartIdx}_${p.key}`);
+        if(knob){
+          const canvas=knob.querySelector('.pk-knob-canvas');
+          const kval=knob.querySelector('.pk-knob-value');
+          const norm=(v-p.min)/(p.max-p.min);
+          if(canvas)drawRotaryKnob(canvas,norm,p.color,48);
+          if(kval)kval.textContent=p.fmt(v);
+        }
+      }
+    }
+    pkLcdShow(); // restores the text display (reverted or committed)
+  };
+  inp.addEventListener('keydown',e=>{
+    if(e.key==='Enter')finish(true);
+    else if(e.key==='Escape')finish(false);
+  });
+  inp.addEventListener('blur',()=>finish(false));
 }
 // Point the LCD at a param (used when a knob is touched)
 function pkLcdMirror(key){
