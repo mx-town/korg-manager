@@ -1074,6 +1074,8 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
   border-top:1px solid var(--brd);letter-spacing:1px;
 }
 .emx-inline-label{font-family:var(--head);font-weight:700;font-size:13px;margin-right:8px}
+#emxSynthInline .emx-inline-hdr{display:flex;align-items:center}
+.emx-lcd{margin-left:auto}
 
 /* ── EMX Visual Synth Panel ── */
 .emx-panel{padding:14px 16px;border-top:1px solid var(--brd)}
@@ -3635,7 +3637,13 @@ function partsRender(pat){
     if(isEMX&&selPart){
       const label=EMX_PART_LABELS[patSeqPart]||`P${patSeqPart+1}`;
       const pName=selPart.name||`Part ${patSeqPart+1}`;
-      emxWrap.innerHTML=`<div class="emx-inline-hdr"><span class="emx-inline-label">${label}</span> ${esc(pName)}</div>`+emxSynthPanel(selPart,patSeqPart);
+      const lcd=`<div class="pk-lcd emx-lcd">`+
+        `<button class="pk-lcd-btn" id="emxLcdPrev" title="Previous parameter">◀</button>`+
+        `<div class="pk-lcd-body"><span class="pk-lcd-name" id="emxLcdName">—</span>`+
+        `<span class="pk-lcd-value" id="emxLcdValue" style="cursor:default">—</span></div>`+
+        `<button class="pk-lcd-btn" id="emxLcdNext" title="Next parameter">▶</button></div>`;
+      emxWrap.innerHTML=`<div class="emx-inline-hdr"><span class="emx-inline-label">${label}</span> ${esc(pName)}${lcd}</div>`+emxSynthPanel(selPart,patSeqPart);
+      emxLcdInit(selPart);
     } else {
       emxWrap.innerHTML='';
     }
@@ -4120,6 +4128,63 @@ function emxLfoSvg(modType,speed,depth,w,h){
 function emxKnob(label,value,colorClass){
   const cls=colorClass?` ${colorClass}`:'';
   return `<div class="emx-knob"><span class="emx-knob-lbl">${label}</span><span class="emx-knob-val${cls}">${value}</span></div>`;
+}
+
+// ── EMX LCD param lists (read-only: display + nav, no editing) ──
+const EMX_LCD_PARAMS={
+  synth:[
+    {label:'OSC TYPE',get:p=>emxOscName(p.oscType)},
+    {label:'OSC EDIT1',get:p=>p.oscEdit1!=null?String(p.oscEdit1):'—'},
+    {label:'OSC EDIT2',get:p=>p.oscEdit2!=null?String(p.oscEdit2):'—'},
+    {label:'FILTER',get:p=>emxFilterName(p.filterType)},
+    {label:'CUTOFF',get:p=>p.filterCutoff!=null?String(p.filterCutoff):'—'},
+    {label:'RESO',get:p=>p.filterRes!=null?String(p.filterRes):'—'},
+    {label:'FILTER EG',get:p=>p.filterEG!=null?String(p.filterEG):'—'},
+    {label:'LEVEL',get:p=>p.level!=null?String(p.level):'—'},
+    {label:'PAN',get:p=>emxPanStr(p.pan!=null?p.pan:64)},
+    {label:'EG ATTACK',get:p=>p.egAttack!=null?String(p.egAttack):(p.eg!=null?String(p.eg):'—')},
+    {label:'EG DECAY',get:p=>p.egDecay!=null?String(p.egDecay):(p.eg!=null?String(p.eg):'—')},
+    {label:'MOD TYPE',get:p=>emxModName(p.modType||p.mod||0)},
+    {label:'MOD SPEED',get:p=>p.modSpeed!=null?String(p.modSpeed):(p.mod!=null?String(p.mod):'—')},
+    {label:'MOD DEPTH',get:p=>p.modDepth!=null?String(p.modDepth):(p.mod!=null?String(p.mod):'—')},
+    {label:'FX SEND',get:p=>p.fxSend!=null?String(p.fxSend):'—'},
+    {label:'PITCH',get:p=>emxPitchStr(p.pitch!=null?p.pitch:64)},
+    {label:'GLIDE',get:p=>p.glide!=null?String(p.glide):'—'},
+    {label:'ROLL',get:p=>p.roll!=null?String(p.roll):'—'},
+  ],
+  drum:[
+    {label:'FILTER',get:p=>emxFilterName(p.filterType)},
+    {label:'CUTOFF',get:p=>p.filterCutoff!=null?String(p.filterCutoff):'—'},
+    {label:'RESO',get:p=>p.filterRes!=null?String(p.filterRes):'—'},
+    {label:'FILTER EG',get:p=>p.filterEG!=null?String(p.filterEG):'—'},
+    {label:'LEVEL',get:p=>p.level!=null?String(p.level):'—'},
+    {label:'PAN',get:p=>emxPanStr(p.pan!=null?p.pan:64)},
+    {label:'EG TIME',get:p=>p.egTime!=null?String(p.egTime):(p.eg!=null?String(p.eg):'—')},
+    {label:'PITCH',get:p=>emxPitchStr(p.pitch!=null?p.pitch:64)},
+    {label:'MOD TYPE',get:p=>emxModName(p.modType||p.mod||0)},
+    {label:'MOD SPEED',get:p=>p.modSpeed!=null?String(p.modSpeed):(p.mod!=null?String(p.mod):'—')},
+    {label:'MOD DEPTH',get:p=>p.modDepth!=null?String(p.modDepth):(p.mod!=null?String(p.mod):'—')},
+    {label:'FX SEND',get:p=>p.fxSend!=null?String(p.fxSend):'—'},
+    {label:'ROLL',get:p=>p.roll!=null?String(p.roll):'—'},
+  ],
+};
+let emxLcdIdx=0;
+function emxLcdShow(part,list){
+  const n=document.getElementById('emxLcdName'),v=document.getElementById('emxLcdValue');
+  if(!n||!v)return;
+  const p=list[emxLcdIdx];
+  if(!p){n.textContent='—';v.textContent='—';return}
+  n.textContent=p.label;
+  v.textContent=p.get(part);
+}
+function emxLcdInit(part){
+  emxLcdIdx=0;
+  const list=EMX_LCD_PARAMS[part.type==='synth'?'synth':'drum'];
+  emxLcdShow(part,list);
+  const step=dir=>{emxLcdIdx=(emxLcdIdx+dir+list.length)%list.length;emxLcdShow(part,list);};
+  const prev=document.getElementById('emxLcdPrev'),next=document.getElementById('emxLcdNext');
+  if(prev)prev.addEventListener('click',()=>step(-1));
+  if(next)next.addEventListener('click',()=>step(1));
 }
 
 function emxSynthPanel(part,partIndex){
