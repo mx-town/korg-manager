@@ -3808,7 +3808,7 @@ function pkLcdBeginEdit(){
   const valEl=document.getElementById('pkLcdValue');
   if(!p||!part||!valEl||valEl.querySelector('input'))return;
   const cur=part[p.key]!=null?part[p.key]:p.defaultVal;
-  valEl.innerHTML=`<input class="pk-lcd-input" type="text" value="${cur}">`;
+  valEl.innerHTML=`<input class="pk-lcd-input" type="text" value="${Number(cur)}">`;
   const inp=valEl.querySelector('input');
   inp.focus();inp.select();
   let done=false;
@@ -3832,8 +3832,9 @@ function pkLcdBeginEdit(){
     pkLcdShow(); // restores the text display (reverted or committed)
   };
   inp.addEventListener('keydown',e=>{
-    if(e.key==='Enter')finish(true);
-    else if(e.key==='Escape')finish(false);
+    e.stopPropagation(); // keep LCD keystrokes away from global hotkey handlers
+    if(e.key==='Enter'){e.preventDefault();finish(true);}
+    else if(e.key==='Escape'){e.preventDefault();finish(false);}
   });
   inp.addEventListener('blur',()=>finish(false));
 }
