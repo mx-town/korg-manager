@@ -1194,6 +1194,29 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 .part-knobs-header{display:flex;align-items:baseline;gap:10px;margin-bottom:clamp(2px,0.4vh,8px);flex-wrap:wrap}
 .part-knobs-name{font-family:var(--head);font-size:clamp(12px,1.4vw,16px);font-weight:700;color:var(--hi);letter-spacing:2px}
 .part-knobs-sample{font-family:var(--lcd);font-size:clamp(10px,1vw,13px);color:var(--txt-d)}
+/* ── LCD param display (hardware-style, amber backlight) ── */
+.pk-lcd{display:flex;align-items:stretch;gap:3px;margin-left:12px}
+.pk-lcd-btn{
+  font-family:var(--lcd);font-size:9px;color:#ffb84d;background:#141008;
+  border:1px solid #3a2c12;border-radius:3px;cursor:pointer;padding:0 6px;
+  transition:background .12s,color .12s;
+}
+.pk-lcd-btn:hover{background:#241c0c;color:#ffd28a}
+.pk-lcd-body{
+  display:flex;align-items:baseline;gap:10px;min-width:170px;
+  background:linear-gradient(180deg,#1a1206,#120c04);
+  border:1px solid #3a2c12;border-radius:3px;padding:2px 10px;
+  box-shadow:inset 0 1px 4px rgba(0,0,0,.6),0 0 8px rgba(255,184,77,.06);
+  position:relative;overflow:hidden;
+}
+.pk-lcd-body::after{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:repeating-linear-gradient(180deg,transparent 0 2px,rgba(0,0,0,.12) 2px 3px);
+}
+.pk-lcd-name{font-family:var(--lcd);font-size:8px;letter-spacing:2px;color:#c8963e;text-transform:uppercase;align-self:center}
+.pk-lcd-value{font-family:var(--lcd);font-size:13px;color:#ffb84d;text-shadow:0 0 6px rgba(255,184,77,.35);margin-left:auto;cursor:pointer;position:relative;z-index:1}
+.pk-lcd-input{width:52px;background:transparent;border:none;outline:none;color:#ffd28a;font-family:var(--lcd);font-size:13px;text-align:right}
+.pk-knob.pk-lcd-hl{border-color:#ffb84d;box-shadow:0 0 10px rgba(255,184,77,.35)}
 .part-knobs-type{font-family:var(--lcd);font-size:clamp(8px,0.7vw,10px);color:var(--txt-x);letter-spacing:2px;margin-left:auto}
 .pk-sections{display:grid;grid-template-columns:repeat(4,1fr);gap:clamp(4px,0.6vw,16px);align-items:start;flex:1;min-height:0}
 .pk-section{display:flex;flex-direction:column;align-items:center;gap:clamp(1px,0.2vh,4px);min-width:0}
@@ -1547,6 +1570,14 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
               <span class="part-knobs-name" id="pkName">D1</span>
               <span class="part-knobs-sample" id="pkSample">—</span>
               <span class="part-knobs-type" id="pkType">DRUM PART 1</span>
+              <div class="pk-lcd" id="pkLcd">
+                <button class="pk-lcd-btn" id="pkLcdPrev" title="Previous parameter">◀</button>
+                <div class="pk-lcd-body">
+                  <span class="pk-lcd-name" id="pkLcdName">—</span>
+                  <span class="pk-lcd-value" id="pkLcdValue" title="Click to type a value">—</span>
+                </div>
+                <button class="pk-lcd-btn" id="pkLcdNext" title="Next parameter">▶</button>
+              </div>
             </div>
             <div class="part-knobs-body" id="pkBody"></div>
           </div>
@@ -3714,6 +3745,44 @@ function attachKnobDrag(knobEl,param,onUpdate){
   });
 }
 
+// ── LCD param display state ──
+let pkLcdParams=[];   // flat param defs for the selected part
+let pkLcdIdx=0;       // which param the LCD shows
+let pkLcdPartIdx=-1;  // part index the LCD belongs to
+let pkLcdBound=false;
+
+function pkLcdPart(){
+  const pat=patData[patSel];
+  return pat&&pat.parts?pat.parts[pkLcdPartIdx]:null;
+}
+function pkLcdShow(){
+  const nameEl=document.getElementById('pkLcdName');
+  const valEl=document.getElementById('pkLcdValue');
+  if(!nameEl||!valEl)return;
+  const p=pkLcdParams[pkLcdIdx];
+  const part=pkLcdPart();
+  if(!p||!part){nameEl.textContent='—';valEl.textContent='—';return}
+  const val=part[p.key]!=null?part[p.key]:p.defaultVal;
+  nameEl.textContent=p.label;
+  valEl.textContent=p.fmt(val);
+}
+function pkLcdStep(dir){
+  if(!pkLcdParams.length)return;
+  pkLcdIdx=(pkLcdIdx+dir+pkLcdParams.length)%pkLcdParams.length;
+  pkLcdShow();
+  const p=pkLcdParams[pkLcdIdx];
+  const knob=document.getElementById(`pk_${pkLcdPartIdx}_${p.key}`);
+  if(knob){
+    knob.classList.add('pk-lcd-hl');
+    setTimeout(()=>knob.classList.remove('pk-lcd-hl'),800);
+  }
+}
+function pkLcdBind(){
+  if(pkLcdBound)return;pkLcdBound=true;
+  document.getElementById('pkLcdPrev').addEventListener('click',()=>pkLcdStep(-1));
+  document.getElementById('pkLcdNext').addEventListener('click',()=>pkLcdStep(1));
+}
+
 function renderPartKnobs(pat,partIndex){
   const panel=document.getElementById('partParamsPanel');
   const body=document.getElementById('pkBody');
@@ -3783,6 +3852,13 @@ function renderPartKnobs(pat,partIndex){
       currentPart[key]=p.value;
     });
   });
+  // LCD: flat param list, reset to first param of this part
+  pkLcdParams=[];
+  layout.forEach(sec=>sec.params.forEach(p=>pkLcdParams.push(p)));
+  pkLcdPartIdx=partIndex;
+  pkLcdIdx=0;
+  pkLcdBind();
+  pkLcdShow();
 }
 
 // ═══════════════════════════════════════════════════════════
