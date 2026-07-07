@@ -3643,7 +3643,7 @@ function renderEmxInline(pat){
   if(!emxWrap)return;
   const selPart=pat&&pat.parts?pat.parts[patSeqPart]:null;
   if(patFormat==='EMX-1'&&selPart){
-    const label=EMX_PART_LABELS[patSeqPart]||`P${patSeqPart+1}`;
+    const label=EMX_PART_LABELS_GLOBAL[patSeqPart]||`P${patSeqPart+1}`;
     const pName=selPart.name||`Part ${patSeqPart+1}`;
     const lcd=`<div class="pk-lcd emx-lcd">`+
       `<button class="pk-lcd-btn" id="emxLcdPrev" title="Previous parameter">◀</button>`+
