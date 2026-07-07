@@ -3722,7 +3722,7 @@ function drawRotaryKnob(container,angle,color,size){
   container.innerHTML=`<svg class="pk-knob-svg" viewBox="0 0 ${size} ${size}" width="100%" height="100%"><defs><linearGradient id="pkMetalGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#c8d0d8"/><stop offset="35%" stop-color="#8890a0"/><stop offset="65%" stop-color="#6a7280"/><stop offset="100%" stop-color="#c0c8d0"/></linearGradient></defs>${svg}</svg>`;
 }
 
-function attachKnobDrag(knobEl,param,onUpdate){
+function attachKnobDrag(knobEl,param,onUpdate,onCommit){
   let dragging=false,startY=0,startVal=0;
   knobEl.addEventListener('mousedown',e=>{
     dragging=true;startY=e.clientY;startVal=param.value;
@@ -3738,10 +3738,10 @@ function attachKnobDrag(knobEl,param,onUpdate){
     if(newVal!==param.value){param.value=newVal;onUpdate(param);}
   });
   document.addEventListener('mouseup',()=>{
-    if(dragging){dragging=false;knobEl.classList.remove('dragging');document.body.style.cursor='';}
+    if(dragging){dragging=false;knobEl.classList.remove('dragging');document.body.style.cursor='';if(onCommit)onCommit(param);}
   });
   knobEl.addEventListener('dblclick',()=>{
-    if(param.defaultVal!=null){param.value=param.defaultVal;onUpdate(param);}
+    if(param.defaultVal!=null){param.value=param.defaultVal;onUpdate(param);if(onCommit)onCommit(param);}
   });
 }
 
@@ -3785,6 +3785,26 @@ function pkLcdBind(){
   if(pkLcdBound)return;pkLcdBound=true;
   document.getElementById('pkLcdPrev').addEventListener('click',()=>pkLcdStep(-1));
   document.getElementById('pkLcdNext').addEventListener('click',()=>pkLcdStep(1));
+}
+
+// Commit a param edit: in-memory + backend buffer (ESX) + dirty flag.
+// Same path the GRID sliders use — keep in sync with paramCloseSlider's commit.
+async function pkCommitParam(partIdx,key,value){
+  const pat=patData[patSel];if(!pat)return;
+  const part=pat.parts[partIdx];if(!part)return;
+  part[key]=value;
+  if(patFormat==='ESX-1'&&window.api.esx.updatePatternParam){
+    const r=await window.api.esx.updatePatternParam({patIdx:patSel,partIdx,paramKey:key,value});
+    if(r&&r.error)toast(r.error,'error');
+  }
+  patDirty=true;patUpdateSaveBtn();
+}
+// Point the LCD at a param (used when a knob is touched)
+function pkLcdMirror(key){
+  const i=pkLcdParams.findIndex(p=>p.key===key);
+  if(i<0)return;
+  pkLcdIdx=i;
+  pkLcdShow();
 }
 
 function renderPartKnobs(pat,partIndex){
@@ -3854,6 +3874,9 @@ function renderPartKnobs(pat,partIndex){
       if(canvas)drawRotaryKnob(canvas,norm,paramDef.color,48);
       if(valEl)valEl.textContent=paramDef.fmt(p.value);
       currentPart[key]=p.value;
+      pkLcdMirror(key);
+    },p=>{
+      pkCommitParam(partIdx,key,p.value);
     });
   });
   // LCD: flat param list, reset to first param of this part
