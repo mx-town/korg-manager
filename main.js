@@ -5,6 +5,7 @@ const fsp = fs.promises;
 const { exec } = require('child_process');
 const AdmZip = require('adm-zip');
 const esx = require('./src/esx-format');
+const { validateAndRepairEsx } = require('./src/esx-validate');
 
 const IS_DEV = process.argv.includes('--dev');
 
@@ -324,16 +325,17 @@ ipcMain.handle('save-esx-overwrite', async (ev, filePath) => {
   try {
     mainWindow.webContents.send('export-progress', { phase: 'building', percent: 10 });
     const buf = esx.rebuildEsxFile(esxOriginalBuffer, currentSamples);
-    mainWindow.webContents.send('export-progress', { phase: 'writing', percent: 50 });
-    await fsp.writeFile(filePath, buf);
-    mainWindow.webContents.send('export-progress', { phase: 'verifying', percent: 90 });
+    mainWindow.webContents.send('export-progress', { phase: 'verifying', percent: 50 });
+    const { buffer: safeBuf, issues } = validateAndRepairEsx(buf);
+    mainWindow.webContents.send('export-progress', { phase: 'writing', percent: 80 });
+    await fsp.writeFile(filePath, safeBuf);
 
     // Update the stored original buffer to reflect the new state
-    esxOriginalBuffer = Buffer.from(buf);
+    esxOriginalBuffer = Buffer.from(safeBuf);
 
     const stat = await fsp.stat(filePath);
     mainWindow.webContents.send('export-progress', { phase: 'done', percent: 100 });
-    return { filePath, size: stat.size };
+    return { filePath, size: stat.size, validation: issues };
   } catch (err) { return { error: err.message }; }
 });
 
@@ -349,12 +351,13 @@ ipcMain.handle('save-esx-file', async (ev, defaultName) => {
   try {
     mainWindow.webContents.send('export-progress', { phase: 'building', percent: 10 });
     const buf = esx.buildEsxFile(currentSamples);
-    mainWindow.webContents.send('export-progress', { phase: 'writing', percent: 50 });
-    await fsp.writeFile(result.filePath, buf);
-    mainWindow.webContents.send('export-progress', { phase: 'verifying', percent: 90 });
+    mainWindow.webContents.send('export-progress', { phase: 'verifying', percent: 50 });
+    const { buffer: safeBuf, issues } = validateAndRepairEsx(buf);
+    mainWindow.webContents.send('export-progress', { phase: 'writing', percent: 80 });
+    await fsp.writeFile(result.filePath, safeBuf);
     const stat = await fsp.stat(result.filePath);
     mainWindow.webContents.send('export-progress', { phase: 'done', percent: 100 });
-    return { filePath: result.filePath, size: stat.size };
+    return { filePath: result.filePath, size: stat.size, validation: issues };
   } catch (err) { return { error: err.message }; }
 });
 

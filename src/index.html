@@ -1952,6 +1952,21 @@ function showDet(i){const s=S.samples.find(x=>x.index===i);if(!s)return;['secPla
 function hideDet(){['secPlay','secMod','secDet'].forEach(id=>document.getElementById(id).style.display='none');document.getElementById('wfC').style.display='none';document.getElementById('wfE').style.display='flex';document.getElementById('wfI').style.display='none'}
 async function renam(){if(sel<0)return;const s=await window.api.renameSample(sel,document.getElementById('renIn').value);dirty=true;updateState(s)}
 function startRen(i){selS(i);setTimeout(()=>{const e=document.getElementById('renIn');e.focus();e.select()},100)}
+function reportValidation(v){
+  if(!v||!v.length)return;
+  const fixes=v.filter(i=>i.severity==='fixed');
+  const warns=v.filter(i=>i.severity==='warning');
+  if(fixes.length){
+    toast(`EXPORT CHECK: ${fixes.length} ISSUE${fixes.length>1?'S':''} AUTO-FIXED`,'info');
+    for(const i of fixes.slice(0,3))toast(`FIXED ${i.code}${i.sampleName?' · '+i.sampleName:''}`,'info');
+    if(fixes.length>3)toast(`+${fixes.length-3} MORE — SEE CONSOLE`,'info');
+    console.warn('[export check] auto-fixed:',fixes.map(i=>i.message));
+  }
+  if(warns.length){
+    toast(`EXPORT WARNING: FILE MAY NOT LOAD ON HARDWARE (${warns.map(i=>i.code).join(', ')})`,'error');
+    console.error('[export check] warnings:',warns.map(i=>i.message));
+  }
+}
 async function saveEsxToFile(){
   if(_fxBusy)return;_fxBusy=true;
   try{
@@ -1979,7 +1994,7 @@ async function saveEsxToFile(){
     expText.classList.remove('complete');
     prog.style.display='none';
   },1500);
-  dirty=false;updatePath();toast(`SAVED → ${r.filePath.split(/[\\/]/).pop()} [${(r.size/1048576).toFixed(1)}MB]`,'success')}
+  dirty=false;updatePath();toast(`SAVED → ${r.filePath.split(/[\\/]/).pop()} [${(r.size/1048576).toFixed(1)}MB]${r.validation&&r.validation.length?'':' · VERIFIED'}`,'success');reportValidation(r.validation)}
   finally{_fxBusy=false}}
 async function exportNewEsx(){
   if(_fxBusy)return;_fxBusy=true;
@@ -1995,7 +2010,7 @@ async function exportNewEsx(){
   })}
   const r=await window.api.saveEsxFile('new_samples.esx');
   prog.style.display='none';
-  if(!r)return;if(r.error){toast(r.error,'error');return}fp=r.filePath;dirty=false;updatePath();document.getElementById('btnSave').style.display='';toast(`EXPORTED → ${r.filePath.split(/[\\/]/).pop()} [${(r.size/1048576).toFixed(1)}MB]`,'success')}
+  if(!r)return;if(r.error){toast(r.error,'error');return}fp=r.filePath;dirty=false;updatePath();document.getElementById('btnSave').style.display='';toast(`EXPORTED → ${r.filePath.split(/[\\/]/).pop()} [${(r.size/1048576).toFixed(1)}MB]${r.validation&&r.validation.length?'':' · VERIFIED'}`,'success');reportValidation(r.validation)}
   finally{_fxBusy=false}}
 async function expWav(){if(sel<0)return;const f=await window.api.exportWav(sel);if(f)toast(`EXPORTED → ${f.split(/[\\/]/).pop()}`,'success')}
 async function clearAll(){if(!S.numSamples)return;if(!confirm('Clear all samples?'))return;stopPlay();sel=-1;fp=null;dirty=false;window._sampleTags={};window._autoTags={};hideDet();document.getElementById('btnSave').style.display='none';updateState(await window.api.clearAll());toast('CLEARED','info')}
