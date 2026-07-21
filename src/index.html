@@ -1350,6 +1350,44 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
   margin-top:1px;
 }
 .pat-item.act .pat-active-dots{color:var(--led)}
+
+/* ═══ BANK / SAMPLE MANAGER (dual-pane commander) ═══ */
+.bank-wrap{display:grid;grid-template-rows:1fr auto;height:100%;min-height:0}
+.bank-panes{display:grid;grid-template-columns:1fr 1fr;gap:10px;min-height:0;padding:10px}
+.bank-pane{display:flex;flex-direction:column;min-height:0;background:var(--void);border:1px solid var(--brd)}
+.bank-hdr{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--brd);background:var(--panel)}
+.bank-tag{font-family:var(--head);font-size:11px;letter-spacing:3px;color:var(--led)}
+.bank-file{font-family:var(--lcd);font-size:12px;color:var(--txt);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bank-badge{font-family:var(--head);font-size:9px;letter-spacing:2px;padding:2px 8px;color:var(--void);background:var(--led);clip-path:polygon(4px 0%,100% 0%,calc(100% - 4px) 100%,0% 100%)}
+.bank-badge.e2s{background:var(--hi)}
+.bank-dirty{width:7px;height:7px;border-radius:2px;background:var(--yel)}
+.bank-list{flex:1;overflow-y:auto;overflow-x:hidden}
+.bank-list::-webkit-scrollbar{width:6px} .bank-list::-webkit-scrollbar-track{background:var(--void)} .bank-list::-webkit-scrollbar-thumb{background:var(--blue-d);border-radius:3px}
+/* per-device column tracks — JS toggles .esx / .e2s (or sets grid-template-columns inline) */
+.bank-ch{gap:6px;padding:6px 12px}
+.bank-ch.esx{grid-template-columns:44px 1fr 60px 46px 64px 60px}
+.bank-ch.e2s{grid-template-columns:44px 1fr 90px 60px 46px 64px 60px}
+.bank-ch span[style*="right"]{text-align:right}
+.bk-row{display:grid;align-items:center;gap:6px;padding:7px 12px;cursor:grab;border-left:3px solid transparent;border-bottom:1px solid rgba(255,255,255,.02);transition:background 50ms,border-color 50ms}
+.bk-row.esx{grid-template-columns:44px 1fr 60px 46px 64px 60px}
+.bk-row.e2s{grid-template-columns:44px 1fr 90px 60px 46px 64px 60px}
+.bk-row:hover{background:var(--cell-h)}
+.bk-row.sel{background:var(--cell-a);border-left-color:var(--led)}
+.bk-row.dragging{opacity:.45}
+.bk-row.drop-target{border-left-color:var(--led);background:var(--hi-g);box-shadow:inset 0 0 0 1px var(--led)}
+.bank-list.drop-active{outline:2px dashed var(--led);outline-offset:-4px}
+.bk-i{font-family:var(--lcd);font-size:11px;color:var(--txt-x)}
+.bk-n{font-family:var(--lcd);font-size:13px;color:var(--led);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bk-cat{font-family:var(--lcd);font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bk-r,.bk-ch,.bk-len{font-family:var(--lcd);font-size:11px;color:var(--txt-d);text-align:right}
+.bk-act{display:flex;gap:4px;justify-content:flex-end}
+.bk-ico{font-family:var(--lcd);font-size:12px;color:var(--txt-d);background:var(--panel);border:1px solid var(--brd);padding:2px 6px;cursor:pointer;clip-path:polygon(4px 0%,100% 0%,calc(100% - 4px) 100%,0% 100%)}
+.bk-ico:hover{color:var(--led);border-color:var(--led-d)}
+.bank-footer{display:flex;align-items:center;gap:8px;padding:8px 12px;border-top:1px solid var(--brd);background:var(--panel)}
+/* editor E2S param row (inside #bankModalBg) */
+.bank-e2s-row{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:10px;margin-top:10px;border-top:1px solid var(--brd)}
+.bank-e2s-row>label{font-family:var(--head);font-size:9px;letter-spacing:2px;color:var(--txt-x)}
+.bank-e2s-row select{background:var(--void);border:1px solid var(--blue-d);color:var(--led);font-family:var(--lcd);font-size:12px;padding:4px 8px;outline:none}
 </style>
 <script src="https://unpkg.com/tone@14/build/Tone.js"></script>
 <script src="https://unpkg.com/meyda/dist/web/meyda.min.js"></script>
@@ -1377,6 +1415,10 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
         <button class="vsb-item" data-device="e2pat" onclick="switchDevice('e2pat')" title="Pattern Viewer">
           <span class="vsb-icon">▦</span>
           <span class="vsb-label">PATTERNS<small>VIEWER</small></span>
+        </button>
+        <button class="vsb-item" data-device="bank" onclick="switchDevice('bank')" title="Unified Sample Manager (Banks A / B)">
+          <span class="vsb-icon">◧</span>
+          <span class="vsb-label">SAMPLE MGR<small>A / B</small></span>
         </button>
       </div>
       <div class="vsb-bottom">
@@ -1602,6 +1644,61 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
     </div>
   </div><!-- /e2pat-view -->
 
+  <!-- ═══ BANK / SAMPLE MANAGER VIEW (dual-pane commander) ═══ -->
+  <div id="bank-view" class="device-view">
+    <div class="bank-wrap">
+      <div class="bank-panes">
+
+        <!-- ── PANE A (bank index 0) ── -->
+        <section class="bank-pane" id="bkPane0" data-bank="0"
+                 ondragover="bankDragOver(event,0)" ondrop="bankDrop(event,0)" ondragleave="bankDragLeave(event,0)">
+          <div class="bank-hdr">
+            <span class="bank-tag">BANK A</span>
+            <span class="bank-file" id="bkFile0"><span style="color:var(--txt-x)">// no file</span></span>
+            <span class="bank-badge" id="bkBadge0" style="display:none"></span>
+            <span class="bank-dirty" id="bkDirty0" title="unsaved" style="display:none"></span>
+            <span class="sc" id="bkCount0">0/0</span>
+          </div>
+          <!-- JS HOOK: renderBankHeader(0) fills column-header cells here (device-aware grid) -->
+          <div class="ch bank-ch" id="bkCh0"></div>
+          <!-- JS HOOK: renderBankPane(0) writes rows OR the empty-slot dropzone here -->
+          <div class="sl bank-list" id="bkList0"></div>
+        </section>
+
+        <!-- ── PANE B (bank index 1) ── -->
+        <section class="bank-pane" id="bkPane1" data-bank="1"
+                 ondragover="bankDragOver(event,1)" ondrop="bankDrop(event,1)" ondragleave="bankDragLeave(event,1)">
+          <div class="bank-hdr">
+            <span class="bank-tag">BANK B</span>
+            <span class="bank-file" id="bkFile1"><span style="color:var(--txt-x)">// no file</span></span>
+            <span class="bank-badge" id="bkBadge1" style="display:none"></span>
+            <span class="bank-dirty" id="bkDirty1" title="unsaved" style="display:none"></span>
+            <span class="sc" id="bkCount1">0/0</span>
+          </div>
+          <!-- JS HOOK: renderBankHeader(1) fills column-header cells here (device-aware grid) -->
+          <div class="ch bank-ch" id="bkCh1"></div>
+          <!-- JS HOOK: renderBankPane(1) writes rows OR the empty-slot dropzone here -->
+          <div class="sl bank-list" id="bkList1"></div>
+        </section>
+
+      </div>
+
+      <!-- ── FOOTER TOOLBAR ── -->
+      <div class="bank-footer">
+        <button class="btn" onclick="bankLoad(0)">📂 LOAD A</button>
+        <button class="btn" onclick="bankLoad(1)">📂 LOAD B</button>
+        <div class="hsep"></div>
+        <button class="btn btn-hi" onclick="bankSave(0)">💾 SAVE A</button>
+        <button class="btn btn-hi" onclick="bankSave(1)">💾 SAVE B</button>
+        <div class="hsep"></div>
+        <button class="btn" onclick="bankBatch()">⚙ BATCH</button>
+        <button class="btn" onclick="bankCopyMarked()">⇄ COPY MARKED</button>
+      </div>
+    </div>
+    <!-- Dedicated preview element — NOT the shared #aE -->
+    <audio id="bkAudio"></audio>
+  </div><!-- /bank-view -->
+
   <!-- ═══ STATUS BAR ═══ -->
   <div class="status-bar" id="statusBar">
     <div class="fs" id="statusLeft">electribe sample manager</div>
@@ -1653,6 +1750,67 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
       </div>
     </div>
     <div class="modal-right" id="fxList"></div>
+  </div>
+</div>
+</div>
+
+<!-- ═══ BANK EDITOR MODAL (dedicated — NOT #modalBg; driven by bankEditor state) ═══ -->
+<div class="modal-bg" id="bankModalBg" onclick="if(event.target===this)closeBankModal()">
+<div class="modal">
+  <div class="modal-hdr">
+    <span class="modal-title">⚡ EDIT</span>
+    <span class="modal-sample" id="bkmSample"></span>
+    <!-- ORIGIN BADGE — text set by bankOpenEditor to "BANK A · ESX-1" / "BANK B · E2S" -->
+    <span class="bank-badge" id="bkmOrigin"></span>
+    <div class="modal-undo">
+      <button class="undo-btn" id="bkmUBtn" onclick="bankEditorUndo()">◀ UNDO</button>
+      <span class="undo-info" id="bkmUInf"><span>0</span></span>
+      <button class="undo-btn" id="bkmRBtn" onclick="bankEditorRedo()">REDO ▶</button>
+      <button class="undo-btn" id="bkmRsBtn" onclick="bankEditorReset()" style="color:var(--hi);border-color:var(--hi-d);display:none">⟲ RESET</button>
+    </div>
+    <button class="modal-close" onclick="closeBankModal()">✕ ESC</button>
+  </div>
+  <div class="modal-body">
+    <div class="modal-left">
+      <div class="m-wf-wrap" id="bkmWfWrap">
+        <!-- JS HOOK: bankOpenEditor draws bank.waveform peaks into #bkmWfC -->
+        <canvas id="bkmWfC"></canvas>
+        <div class="m-time" id="bkmTime">0:00.000</div>
+        <div class="m-time-total" id="bkmTimeT">0:00.000</div>
+      </div>
+      <div class="m-wf-info" id="bkmWfInfo">
+        <div class="m-wf-item">RATE: <span id="bkmR">-</span></div>
+        <div class="m-wf-item">FRAMES: <span id="bkmF">-</span></div>
+        <div class="m-wf-item">LENGTH: <span id="bkmD2">-</span></div>
+        <div class="m-wf-item">CH: <span id="bkmChInfo">-</span></div>
+      </div>
+      <div class="m-play-row">
+        <button class="m-play" id="bkmPlayBtn" onclick="bankEditorPlay()">▶ PLAY</button>
+        <button class="m-stop" onclick="bankStopPreview()">⏹ STOP</button>
+      </div>
+      <!-- RENAME (maxlength set per-device on open: 8 ESX / 24 E2S) -->
+      <input class="ren" id="bkmRen" maxlength="24" placeholder="NAME" onchange="bankEditorRename()">
+      <!-- E2S PARAM ROW — shown only when bankEditor device==='e2s' -->
+      <div class="bank-e2s-row" id="bkmE2sRow" style="display:none">
+        <label>CATEGORY</label>
+        <!-- JS HOOK: bankOpenEditor fills these options from the global E2S_CATS constant -->
+        <select id="bkmCat" onchange="bankEditorCat()"></select>
+        <div class="fx-row"><span class="fx-lbl">TUNE</span><input type="range" id="bkmTune" min="-63" max="63" value="0" oninput="bankEditorTune()"><span class="fx-val" id="bkmTuneV">0</span></div>
+        <div class="e2s-check"><input type="checkbox" id="bkmBoost" onchange="bankEditorBoost()"><label for="bkmBoost">+12dB Boost</label></div>
+      </div>
+      <!-- SUPPORTED DSP TOOLS (bank:sampleOp): normalize, gain, trim, cut, fadeIn, fadeOut, pitch, bitcrush, distort -->
+      <!-- JS HOOK: bankEditorTool(op,params) wires these; the other 9 FX are a documented TODO (no bank op yet). -->
+      <div class="m-tools" id="bkmTools">
+        <div class="m-tool" onclick="bankEditorTool('normalize')">📊 NORMALIZE</div>
+        <div class="m-tool" onclick="bankEditorTool('trim')">◧ TRIM</div>
+        <div class="m-tool" onclick="bankEditorTool('fadeIn')">↗ FADE IN</div>
+        <div class="m-tool" onclick="bankEditorTool('fadeOut')">↘ FADE OUT</div>
+        <div class="m-tool" onclick="bankEditorTool('bitcrush')">▚ BITCRUSH</div>
+        <div class="m-tool" onclick="bankEditorTool('distort')">◆ DISTORT</div>
+      </div>
+    </div>
+    <!-- JS HOOK: right column reserved for future full FX grid (TODO — 9 unsupported ops) -->
+    <div class="modal-right" id="bkmFxList"></div>
   </div>
 </div>
 </div>
@@ -2712,8 +2870,11 @@ function setupDrop(){const d=document.getElementById('dZ');if(!d)return;d.addEve
 setupDrop();document.addEventListener('dragover',e=>e.preventDefault());document.addEventListener('drop',e=>{e.preventDefault();if(e.dataTransfer?.files?.length)importSamples()});
 document.addEventListener('keydown',e=>{
   if(e.target.tagName==='INPUT')return;
-  if(e.key==='Escape'){closeModal();tryCloseGuide();return}
-  if(document.getElementById('modalBg')?.classList.contains('show')||document.getElementById('guideBg')?.classList.contains('show')){if(e.key===' '&&sel>=0){e.preventDefault();togglePlay()}return}
+  if(e.key==='Escape'){closeModal();closeBankModal();tryCloseGuide();return}
+  if(document.getElementById('modalBg')?.classList.contains('show')||document.getElementById('bankModalBg')?.classList.contains('show')||document.getElementById('guideBg')?.classList.contains('show')){if(e.key===' '){e.preventDefault();if(activeDevice==='bank'&&bankEditor&&bankEditor.bank>=0)bankEditorPlay();else if(sel>=0)togglePlay();}return}
+  // ESX-1 shortcuts below act on ESX global state (sel/checked) — keep them inert on other
+  // tabs so e.g. Delete on the Sample Manager / E2S tab can't silently remove an ESX sample.
+  if(activeDevice!=='esx1'){if(e.ctrlKey&&e.key==='b'){e.preventDefault();toggleSidebar()}return}
   if(e.key==='Delete'){if(checked.size>0)removeChecked();else if(sel>=0)remCur()}
   if(e.key===' '&&sel>=0){e.preventDefault();togglePlay()}
   if(activeDevice==='esx1'&&e.key==='ArrowDown'&&sel<S.numSamples-1)selS(sel+1);
@@ -2741,6 +2902,7 @@ try{if(localStorage.getItem('vsbCollapsed')==='true')toggleSidebar()}catch(e){}
 function switchDevice(dev){
   if(dev===activeDevice)return;
   if(activeDevice==='e2pat')patStop();
+  if(activeDevice==='bank')bankStopPreview();
   stopPlay();
   activeDevice=dev;
   document.querySelectorAll('.vsb-item').forEach(t=>t.classList.toggle('active',t.dataset.device===dev));
@@ -2768,8 +2930,409 @@ function updateStatusBar(){
     l.innerHTML=`Patterns — <span class="hl">${fmt}</span>`;
     const p=patData.length;
     r.innerHTML=`${fmt} | <span class="bl">${p}</span> pattern${p!==1?'s':''} | Read-Only`;
+  } else if(activeDevice==='bank'){
+    l.innerHTML=`Sample Manager — Banks A/B`;
+    const seg=(b)=>{if(!b)return '—';const lbl=b.device==='esx'?'ESX-1':'E2S';return `<span class="bl">${lbl} ${b.count||0}/${b.maxSlots||0}</span>`;};
+    r.innerHTML=`A: ${seg(bankState[0])} · B: ${seg(bankState[1])}`;
   }
 }
+
+// ═══════════════════════════════════════════════════════════
+//  UNIFIED SAMPLE MANAGER — DUAL BANK (A / B)
+//  All globals bank*-prefixed; dedicated #bkAudio; no ESX/E2S collisions.
+// ═══════════════════════════════════════════════════════════
+let bankState    = [null, null];           // [A,B]; each = bankToUI object or null
+let bankSel      = [new Set(), new Set()]; // selected RAW slot numbers per bank
+let bankLastSlot = [-1, -1];               // shift-range anchor per bank
+let bankDrag     = null;                   // {fromBank, slots:[...]} during a drag
+let bankEditor   = {bank:-1, slot:-1};     // sample bound to the editor modal
+let _bankBusy    = false;                  // reentrancy guard around copy/op
+const bankAudio  = document.getElementById('bkAudio');
+let bankBlobUrl  = null;                    // revoke-on-replace
+let _bankE2sMetaWarned = false;            // one-time TODO toast guard
+
+const BANK_LABELS = ['A','B'];
+function bankDevLabel(dev){return dev==='esx'?'ESX-1':'E2S';}
+function bankRate(hz){return hz>=48000?'48k':(hz/1000).toFixed(1).replace('.0','')+'k';}
+function bankDur(sec){sec=sec||0;return sec<1?`${(sec*1000).toFixed(0)}ms`:`${sec.toFixed(2)}s`;}
+
+// ── Rendering ──────────────────────────────────────────────
+function renderBankHeader(idx){
+  const b=bankState[idx];
+  const fileEl=document.getElementById('bkFile'+idx);
+  const badge=document.getElementById('bkBadge'+idx);
+  const dirty=document.getElementById('bkDirty'+idx);
+  const count=document.getElementById('bkCount'+idx);
+  const ch=document.getElementById('bkCh'+idx);
+  if(!b){
+    fileEl.innerHTML='<span style="color:var(--txt-x)">// no file</span>';
+    badge.style.display='none';dirty.style.display='none';
+    count.textContent='0/0';ch.className='ch bank-ch';ch.innerHTML='';
+    return;
+  }
+  fileEl.textContent=b.fileName||'(unsaved)';
+  badge.textContent=bankDevLabel(b.device);
+  badge.className='bank-badge'+(b.device==='e2s'?' e2s':'');
+  badge.style.display='';
+  dirty.style.display=b.dirty?'':'none';
+  count.textContent=(b.count||0)+'/'+(b.maxSlots||0);
+  if(b.device==='e2s'){
+    ch.className='ch bank-ch e2s';
+    ch.innerHTML='<span>#</span><span>NAME</span><span>CAT</span><span style="text-align:right">RATE</span><span>CH</span><span style="text-align:right">LEN</span><span></span>';
+  }else{
+    ch.className='ch bank-ch esx';
+    ch.innerHTML='<span>#</span><span>NAME</span><span style="text-align:right">RATE</span><span>CH</span><span style="text-align:right">LEN</span><span></span>';
+  }
+}
+
+function renderBankPane(idx){
+  renderBankHeader(idx);
+  const list=document.getElementById('bkList'+idx);
+  const b=bankState[idx];
+  if(!b){
+    list.innerHTML=`<div class="es"><div class="dz" onclick="bankLoad(${idx})"><i>⚡</i><p><strong>DATEI LADEN</strong><br><br>.esx / e2sSample.all</p></div></div>`;
+    return;
+  }
+  const e2s=b.device==='e2s',sel=bankSel[idx];
+  let html='';
+  for(const row of b.samples){
+    if(!row)continue;
+    const slot=row.slot;
+    const num=String(slot+1).padStart(3,'0');
+    const nm=(row.name||'').replace(/</g,'&lt;');
+    const chTxt=row.stereo?'ST':'MONO';
+    let catCell='';
+    if(e2s){
+      const ci=row.category||0,cn=E2S_CATS[ci]||'User',cc=E2S_CAT_COLORS[ci]||'#888';
+      catCell=`<div class="bk-cat" style="color:${cc}">${cn}</div>`;
+    }
+    html+=`<div class="bk-row${e2s?' e2s':' esx'}${sel.has(slot)?' sel':''}" draggable="true" data-bank="${idx}" data-slot="${slot}"`
+      +` onclick="bankRowClick(event,${idx},${slot})" ondblclick="bankOpenEditor(${idx},${slot})"`
+      +` ondragstart="bankDragStart(event,${idx},${slot})" ondragend="bankDragEnd(event)" ondragover="bankRowDragOver(event,${idx},${slot})">`
+      +`<div class="bk-i">${num}</div>`
+      +`<div class="bk-n">${nm}</div>`
+      +catCell
+      +`<div class="bk-r">${bankRate(row.sampleRate)}</div>`
+      +`<div class="bk-ch">${chTxt}</div>`
+      +`<div class="bk-len">${bankDur(row.duration)}</div>`
+      +`<div class="bk-act">`
+        +`<button class="bk-ico" title="Preview" onclick="event.stopPropagation();bankPreview(${idx},${slot})">▶</button>`
+        +`<button class="bk-ico" title="Edit" onclick="event.stopPropagation();bankOpenEditor(${idx},${slot})">✎</button>`
+      +`</div>`
+      +`</div>`;
+  }
+  list.innerHTML=html;
+}
+
+// ── Load / Save ────────────────────────────────────────────
+async function bankLoad(idx){
+  const res=await window.api.bank.load(idx);
+  if(res===null)return;              // cancelled or dirty-abort
+  if(res.error){toast(res.error,'error');return;}
+  bankState[idx]=res;
+  bankSel[idx].clear();bankLastSlot[idx]=-1;
+  renderBankPane(idx);updateStatusBar();
+  toast('LOADED: '+(res.fileName||''),'success');
+}
+
+async function bankSave(idx){
+  const b=bankState[idx];
+  if(!b){toast('Bank '+BANK_LABELS[idx]+' is empty','info');return;}
+  const res=await window.api.bank.save(idx);
+  if(res&&res.error){
+    if(/no file path/i.test(res.error)){bankSaveAs(idx);return;}
+    toast(res.error,'error');return;
+  }
+  b.dirty=false;renderBankHeader(idx);updateStatusBar();
+  toast('SAVED '+(res.filePath||'')+' ('+res.size+'B)','success');
+}
+
+async function bankSaveAs(idx){
+  const b=bankState[idx];
+  if(!b){toast('Bank '+BANK_LABELS[idx]+' is empty','info');return;}
+  const res=await window.api.bank.saveAs(idx);
+  if(res===null)return;              // cancelled
+  if(res.error){toast(res.error,'error');return;}
+  b.filePath=res.filePath;
+  b.fileName=res.filePath?res.filePath.replace(/^.*[\\/]/,''):b.fileName;
+  b.dirty=false;renderBankHeader(idx);updateStatusBar();
+  toast('SAVED '+(res.filePath||'')+' ('+res.size+'B)','success');
+}
+
+// ── Selection ──────────────────────────────────────────────
+function bankVisibleSlots(idx){
+  const b=bankState[idx];if(!b)return [];
+  return b.samples.filter(Boolean).map(r=>r.slot);
+}
+function bankRowClick(ev,idx,slot){
+  const sel=bankSel[idx];
+  if(ev.ctrlKey||ev.metaKey){
+    if(sel.has(slot))sel.delete(slot);else sel.add(slot);
+    bankLastSlot[idx]=slot;
+  }else if(ev.shiftKey&&bankLastSlot[idx]>=0){
+    const vis=bankVisibleSlots(idx);
+    const a=vis.indexOf(bankLastSlot[idx]),z=vis.indexOf(slot);
+    if(a>=0&&z>=0){
+      const lo=Math.min(a,z),hi=Math.max(a,z);
+      sel.clear();for(let i=lo;i<=hi;i++)sel.add(vis[i]);
+    }else{sel.clear();sel.add(slot);bankLastSlot[idx]=slot;}
+  }else{
+    sel.clear();sel.add(slot);bankLastSlot[idx]=slot;
+  }
+  renderBankPane(idx);
+}
+
+// ── Preview (dedicated #bkAudio) ───────────────────────────
+function bankStopPreview(){
+  if(bankAudio){bankAudio.pause();try{bankAudio.currentTime=0;}catch(e){}}
+  if(bankBlobUrl){URL.revokeObjectURL(bankBlobUrl);bankBlobUrl=null;}
+}
+async function bankPreview(idx,slot){
+  bankStopPreview();
+  const b64=await window.api.bank.preview(idx,slot);
+  if(!b64){toast('no audio','info');return;}
+  bankBlobUrl=URL.createObjectURL(new Blob([Uint8Array.from(atob(b64),c=>c.charCodeAt(0))],{type:'audio/wav'}));
+  bankAudio.src=bankBlobUrl;
+  bankAudio.play().catch(()=>{});
+}
+function bankEditorPlay(){if(bankEditor.bank>=0)bankPreview(bankEditor.bank,bankEditor.slot);}
+
+// ── Editor modal ───────────────────────────────────────────
+function bankDrawWf(peaks){
+  const c=document.getElementById('bkmWfC');if(!c)return;
+  const dpr=window.devicePixelRatio||1,rect=c.parentElement.getBoundingClientRect(),w=Math.max(1,rect.width-16),h=110;
+  c.width=w*dpr;c.height=h*dpr;c.style.width=w+'px';c.style.height=h+'px';
+  const ctx=c.getContext('2d');ctx.scale(dpr,dpr);const mid=h/2;
+  const bg=ctx.createLinearGradient(0,0,0,h);bg.addColorStop(0,'#060a18');bg.addColorStop(.5,'#040812');bg.addColorStop(1,'#060a18');ctx.fillStyle=bg;ctx.fillRect(0,0,w,h);
+  ctx.strokeStyle='rgba(30,80,160,.12)';ctx.beginPath();ctx.moveTo(0,mid);ctx.lineTo(w,mid);ctx.stroke();
+  if(!peaks||!peaks.length)return;
+  const step=w/peaks.length;
+  ctx.strokeStyle='rgba(0,204,255,.5)';ctx.lineWidth=1;ctx.beginPath();
+  for(let i=0;i<peaks.length;i++){const x=i*step,a=peaks[i]*mid*.9;ctx.moveTo(x,mid-a);ctx.lineTo(x,mid+a);}
+  ctx.stroke();
+}
+async function bankOpenEditor(idx,slot){
+  const b=bankState[idx];if(!b)return;
+  const row=b.samples[slot];if(!row)return;
+  bankEditor={bank:idx,slot:slot};
+  const e2s=b.device==='e2s';
+  document.getElementById('bkmSample').textContent=`[ ${row.name||''} ]`;
+  const origin=document.getElementById('bkmOrigin');
+  origin.textContent='BANK '+BANK_LABELS[idx]+' · '+bankDevLabel(b.device);
+  origin.className='bank-badge'+(e2s?' e2s':'');
+  // Rename
+  const ren=document.getElementById('bkmRen');
+  ren.maxLength=e2s?24:8;ren.value=row.name||'';
+  // Info
+  document.getElementById('bkmR').textContent=row.sampleRate||'-';
+  document.getElementById('bkmF').textContent=(row.numFrames||0).toLocaleString();
+  document.getElementById('bkmD2').textContent=bankDur(row.duration);
+  document.getElementById('bkmChInfo').textContent=row.stereo?'STEREO':'MONO';
+  // E2S param row
+  const e2sRow=document.getElementById('bkmE2sRow');
+  if(e2s){
+    e2sRow.style.display='';
+    const catSel=document.getElementById('bkmCat');
+    if(!catSel.options.length){catSel.innerHTML=E2S_CATS.map((c,i)=>`<option value="${i}">${c}</option>`).join('');}
+    catSel.value=String(row.category||0);
+    const tune=document.getElementById('bkmTune');tune.value=row.tune||0;
+    document.getElementById('bkmTuneV').textContent=row.tune||0;
+    document.getElementById('bkmBoost').checked=!!row.boost;
+  }else{
+    e2sRow.style.display='none';
+  }
+  bankUpdateEditorUndo(null);
+  document.getElementById('bankModalBg').classList.add('show');
+  const wf=await window.api.bank.waveform(idx,slot);
+  bankDrawWf(wf?wf.peaks:null);
+}
+function closeBankModal(){bankStopPreview();closeModalBg('bankModalBg');}
+
+function bankUpdateEditorUndo(undoInfo){
+  const uInf=document.getElementById('bkmUInf'),rsBtn=document.getElementById('bkmRsBtn');
+  uInf.innerHTML=`<span>${undoInfo&&undoInfo.undoCount||0}</span>`;
+  rsBtn.style.display=undoInfo&&undoInfo.hasOriginal?'':'none';
+}
+
+// Single dispatch for every editor action against the open sample.
+async function bankEditorOp(op,params){
+  const {bank:bi,slot}=bankEditor;
+  if(bi<0)return;
+  if(_bankBusy)return;_bankBusy=true;
+  try{
+    const res=await window.api.bank.sampleOp(bi,slot,op,params||{});
+    if(res&&res.error){toast(res.error,'error');return;}
+    // Merge returned sample fields into client state row.
+    const b=bankState[bi];
+    if(b&&res.sample)b.samples[slot]=res.sample;
+    if(b)b.dirty=true;
+    renderBankPane(bi);
+    // refresh editor fields from fresh row
+    const row=b?b.samples[slot]:null;
+    if(row){
+      document.getElementById('bkmSample').textContent=`[ ${row.name||''} ]`;
+      document.getElementById('bkmRen').value=row.name||'';
+      document.getElementById('bkmR').textContent=row.sampleRate||'-';
+      document.getElementById('bkmF').textContent=(row.numFrames||0).toLocaleString();
+      document.getElementById('bkmD2').textContent=bankDur(row.duration);
+    }
+    bankUpdateEditorUndo(res.undoInfo);
+    const wf=await window.api.bank.waveform(bi,slot);
+    bankDrawWf(wf?wf.peaks:null);
+  }finally{_bankBusy=false;}
+}
+
+function bankEditorUndo(){bankEditorOp('undo');}
+function bankEditorRedo(){bankEditorOp('redo');}
+function bankEditorReset(){bankEditorOp('reset');}
+function bankEditorRename(){bankEditorOp('rename',{name:document.getElementById('bkmRen').value});}
+
+// SUPPORTED DSP ops only. Other 9 FX have NO bank op → TODO (see below).
+function bankEditorTool(op){
+  switch(op){
+    case'normalize':bankEditorOp('normalize',{targetDbFs:-1});break;
+    case'trim':bankEditorOp('trim',{thresholdDb:-40});break;
+    case'fadeIn':bankEditorOp('fadeIn',{ms:50});break;
+    case'fadeOut':bankEditorOp('fadeOut',{ms:50});break;
+    case'bitcrush':bankEditorOp('bitcrush',{bits:8,rateReduction:1});break;
+    case'distort':bankEditorOp('distort',{drive:5,type:'soft'});break;
+    // TODO: gain / cut / pitch have bank ops but need param UI (sliders) — wire when controls added.
+    // TODO(no bank op): reverse, timestretch, chop, stutter, turntable, filter-sweep,
+    //                   ring-mod, rhythmic-gate, envelope, loop-xfade, dc-remove, duplicate, wav-export.
+    default:toast('FX "'+op+'" not yet supported on banks','info');
+  }
+}
+
+// E2S Category/Tune/Boost. WARNING: bank:sampleOp has NO cat/tune/boost op yet.
+// Update client state optimistically + one-time TODO toast; do NOT fake a sampleOp call.
+function _bankE2sMetaTodo(){
+  if(!_bankE2sMetaWarned){_bankE2sMetaWarned=true;toast('Category/Tune/Boost persistence: TODO (no bank op yet)','info');}
+}
+function bankEditorCat(){
+  const {bank:bi,slot}=bankEditor;if(bi<0)return;
+  const b=bankState[bi],row=b&&b.samples[slot];if(!row)return;
+  row.category=+document.getElementById('bkmCat').value;
+  renderBankPane(bi);_bankE2sMetaTodo();
+}
+function bankEditorTune(){
+  const {bank:bi,slot}=bankEditor;if(bi<0)return;
+  const v=+document.getElementById('bkmTune').value;
+  document.getElementById('bkmTuneV').textContent=v;
+  const b=bankState[bi],row=b&&b.samples[slot];if(row)row.tune=v;
+  _bankE2sMetaTodo();
+}
+function bankEditorBoost(){
+  const {bank:bi,slot}=bankEditor;if(bi<0)return;
+  const b=bankState[bi],row=b&&b.samples[slot];if(!row)return;
+  row.boost=document.getElementById('bkmBoost').checked;
+  _bankE2sMetaTodo();
+}
+
+// ── Drag & Drop (cross-bank copy only) ─────────────────────
+function bankDragStart(ev,idx,slot){
+  if(!bankSel[idx].has(slot)){bankSel[idx].clear();bankSel[idx].add(slot);bankLastSlot[idx]=slot;renderBankPane(idx);}
+  bankDrag={fromBank:idx,slots:[...bankSel[idx]]};
+  ev.dataTransfer.effectAllowed='copy';
+  try{ev.dataTransfer.setData('text/plain','bank:'+idx+':'+bankDrag.slots.join(','));}catch(e){}
+  const rows=document.querySelectorAll(`#bkList${idx} .bk-row`);
+  rows.forEach(r=>{if(bankSel[idx].has(+r.dataset.slot))r.classList.add('dragging');});
+}
+function bankDragEnd(ev){
+  document.querySelectorAll('.bk-row.dragging').forEach(r=>r.classList.remove('dragging'));
+  document.querySelectorAll('.bk-row.drop-target').forEach(r=>r.classList.remove('drop-target'));
+  document.querySelectorAll('.bank-list.drop-active').forEach(l=>l.classList.remove('drop-active'));
+  bankDrag=null;
+}
+function _bankCanDrop(toIdx){return bankDrag&&bankDrag.fromBank!==toIdx&&bankState[toIdx]!=null;}
+function bankDragOver(ev,toIdx){
+  if(!_bankCanDrop(toIdx))return;
+  ev.preventDefault();ev.dataTransfer.dropEffect='copy';
+  if(!ev.target.closest('.bk-row'))document.getElementById('bkList'+toIdx).classList.add('drop-active');
+}
+function bankRowDragOver(ev,toIdx,slot){
+  if(!_bankCanDrop(toIdx))return;
+  ev.preventDefault();ev.stopPropagation();ev.dataTransfer.dropEffect='copy';
+  document.getElementById('bkList'+toIdx).classList.remove('drop-active');
+  document.querySelectorAll('#bkList'+toIdx+' .bk-row.drop-target').forEach(r=>r.classList.remove('drop-target'));
+  const rowEl=ev.target.closest('.bk-row');if(rowEl)rowEl.classList.add('drop-target');
+}
+function bankDragLeave(ev,toIdx){
+  if(ev.target&&ev.target.id==='bkList'+toIdx)document.getElementById('bkList'+toIdx).classList.remove('drop-active');
+  const rowEl=ev.target.closest&&ev.target.closest('.bk-row');
+  if(rowEl&&!rowEl.contains(ev.relatedTarget))rowEl.classList.remove('drop-target');
+}
+function bankDrop(ev,toIdx){
+  ev.preventDefault();
+  const drag=bankDrag;
+  document.getElementById('bkList'+toIdx).classList.remove('drop-active');
+  document.querySelectorAll('.bk-row.drop-target').forEach(r=>r.classList.remove('drop-target'));
+  if(!drag||drag.fromBank===toIdx){bankDragEnd(ev);return;}
+  if(bankState[toIdx]==null){toast('Load a bank first','info');bankDragEnd(ev);return;}
+  const rowEl=ev.target.closest('.bk-row');
+  let targetSlot=null;
+  if(rowEl&&rowEl.dataset.bank==String(toIdx))targetSlot=+rowEl.dataset.slot;
+  // Overwrite confirm when dropping on an occupied slot
+  if(targetSlot!=null){
+    const to=bankState[toIdx],existing=to.samples[targetSlot];
+    if(existing){
+      const from=bankState[drag.fromBank],src=from.samples[drag.slots[0]];
+      if(!bankConfirmOverwrite(src?src.name:'?',existing.name,targetSlot)){bankDragEnd(ev);return;}
+    }
+  }
+  const fromBank=drag.fromBank,slots=drag.slots.slice();
+  bankDragEnd(ev);
+  bankCopy(fromBank,slots,toIdx,targetSlot);
+}
+function bankConfirmOverwrite(fromName,toName,slot){
+  return window.confirm(`Overwrite slot ${slot+1} "${toName}" with "${fromName}"?`);
+}
+
+// ── Copy engine ────────────────────────────────────────────
+async function bankCopy(fromIdx,slots,toIdx,targetSlot){
+  if(_bankBusy)return;
+  if(!slots||!slots.length){toast('Nothing marked to copy','info');return;}
+  if(bankState[toIdx]==null){toast('Load bank '+BANK_LABELS[toIdx]+' first','info');return;}
+  _bankBusy=true;
+  try{
+    const res=await window.api.bank.copySamples(fromIdx,slots,toIdx,targetSlot);
+    if(!res||res.ok===false){toast((res&&(res.reason||res.error))||'Copy failed','error');return;}
+    if(res.fromList)bankState[fromIdx]=res.fromList;
+    if(res.toList)bankState[toIdx]=res.toList;
+    renderBankPane(fromIdx);renderBankPane(toIdx);updateStatusBar();
+    toast(res.message||`${res.copied||slots.length} copied`,'success');
+    // cascade-flash new target rows
+    if(res.assignments&&res.assignments.length){
+      requestAnimationFrame(()=>{
+        res.assignments.forEach((a,k)=>{
+          const el=document.querySelector(`#bkList${toIdx} .bk-row[data-slot="${a.to}"]`);
+          if(el){el.style.animation='none';el.offsetHeight;el.style.animation=`cascade-flash .5s ${k*40}ms ease-out`;}
+        });
+      });
+    }
+  }finally{_bankBusy=false;}
+}
+
+function bankCopyMarked(){
+  let from=-1;
+  if(bankSel[0].size)from=0;else if(bankSel[1].size)from=1;
+  if(from<0){toast('Mark samples in a bank first','info');return;}
+  const other=from===0?1:0;
+  if(bankState[other]==null){toast('Load bank '+BANK_LABELS[other]+' as destination','info');return;}
+  bankCopy(from,[...bankSel[from]],other,null);
+}
+
+// ── Batch (stage placeholder) ──────────────────────────────
+function bankBatch(){
+  // TODO: bank batch modal is out of clean scope this stage (existing batch modal is
+  // ESX-global bound). Open the editor for the first marked slot as a pragmatic fallback.
+  let bi=-1;
+  if(bankSel[0].size)bi=0;else if(bankSel[1].size)bi=1;
+  if(bi<0){toast('Batch on banks: TODO — mark a sample to edit','info');return;}
+  bankOpenEditor(bi,[...bankSel[bi]][0]);
+}
+
+// Render both panes' empty dropzones on first load.
+renderBankPane(0);renderBankPane(1);
 
 // ═══════════════════════════════════════════════════════════
 //  E2S SAMPLE MANAGEMENT
