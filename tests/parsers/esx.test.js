@@ -10,6 +10,7 @@ const {
   parseEsxFile,
   createEmptyEsx,
   buildEsxFile,
+  rebuildEsxFile,
   parseWavFile,
   convertTo16BitMono,
   pcmToWav,
@@ -422,6 +423,51 @@ describe('ESX - Sample header layout', () => {
     for (let i = 0; i < SIZE.SAMPLE_HDR_STEREO; i++) {
       expect(buf.readUInt8(off + i)).toBe(0xFF);
     }
+  });
+});
+
+// ── Sample loop point (keyboard sustain) ─────────────────
+// Regression: ESX keyboard parts produce NO sound unless the sample has a
+// valid loop point. Hardware-saved files set loopStart = endFrame on every
+// sample; the rebuild used to write 0xFFFFFFFF (no loop), silencing KB parts.
+
+describe('ESX - Sample loop point', () => {
+  const sampleRate = 44100;
+  const numFrames = 300;
+  function makeSample(name = 'LOOPSMP', extra = {}) {
+    const pcmData = Buffer.alloc(numFrames * 2);
+    for (let i = 0; i < numFrames; i++) pcmData.writeInt16BE((i * 50) & 0x7fff, i * 2);
+    return { name, pcmData, sampleRate, numFrames, ...extra };
+  }
+  function loopStartOf(buf, idx = 0) {
+    return buf.readUInt32BE(ADDR.SAMPLE_HDR_MONO + idx * SIZE.SAMPLE_HDR_MONO + 24);
+  }
+
+  it('buildEsxFile defaults loopStart to endFrame (not 0xFFFFFFFF)', () => {
+    const buf = buildEsxFile([makeSample()]);
+    expect(loopStartOf(buf)).not.toBe(0xFFFFFFFF);
+    expect(loopStartOf(buf)).toBe(numFrames - 1); // endFrame
+  });
+
+  it('rebuildEsxFile defaults loopStart to endFrame (not 0xFFFFFFFF)', () => {
+    const buf = rebuildEsxFile(createEmptyEsx(), [makeSample()]);
+    expect(loopStartOf(buf)).not.toBe(0xFFFFFFFF);
+    expect(loopStartOf(buf)).toBe(numFrames - 1);
+  });
+
+  it('preserves an explicit loopStart when provided', () => {
+    const buf = buildEsxFile([makeSample('LOOPED', { loopStart: 128 })]);
+    expect(loopStartOf(buf)).toBe(128);
+  });
+
+  it('writes a hardware-faithful header trailer for present samples', () => {
+    const buf = buildEsxFile([makeSample()]);
+    const off = ADDR.SAMPLE_HDR_MONO;
+    expect(buf.readUInt8(off + 35)).toBe(0x00); // stretch step
+    expect(buf.readUInt8(off + 36)).toBe(0x80); // reserved marker
+    expect(buf.readUInt8(off + 37)).toBe(0x00);
+    expect(buf.readUInt8(off + 38)).toBe(0x00);
+    expect(buf.readUInt8(off + 39)).toBe(0x00);
   });
 });
 

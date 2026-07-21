@@ -5,13 +5,14 @@ const fsp = fs.promises;
 const { exec } = require('child_process');
 const AdmZip = require('adm-zip');
 const esx = require('./src/esx-format');
+const { validateAndRepairEsx } = require('./src/esx-validate');
 
 const IS_DEV = process.argv.includes('--dev');
 
 let mainWindow;
 function createWindow() {
   mainWindow = new BrowserWindow({
-    title: 'Electribe Sample Werkstatt',
+    title: 'Electribe Sample Manager',
     width: 1360, height: 900, minWidth: 1024, minHeight: 700,
     backgroundColor: '#030303', autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false },
@@ -34,24 +35,35 @@ app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(
 app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 
 // ═══ FEATURE FLAGS ═══
-// Toggle features for beta/release builds.
-// Set to false to hide from UI, true to enable.
+// Dev features are hidden automatically in the packaged BETA build so an
+// unfinished feature can never ship by accident. They stay visible in
+// development, so no manual toggling (and no risk of forgetting to flip one).
 //
-// BETA PRESET (ESX Sampler only):
-//   ESX_SAMPLER: true, MODIFY_MODAL: true
-//   Everything else: false
+//   DEV  (npm start, --dev, or unpackaged):       everything visible
+//   BETA (packaged .exe, or --beta to preview):   ESX-1 Sample Manager only
 //
-// DEV PRESET (everything on):
-//   All flags: true
+// To preview the beta UI while developing, launch with:  electron . --beta
 //
-const FEATURES = {
+// BETA = running as the packaged build (or forced via --beta); --dev forces dev.
+const IS_BETA = process.argv.includes('--beta') || (app.isPackaged && !IS_DEV);
+
+// Features hidden in the beta build (still visible in dev).
+const DEV_ONLY_FEATURES = ['E2S_SAMPLER', 'PATTERN_VIEWER', 'CONVERSION'];
+
+// Base flags — all on in dev. Beta forces the dev-only ones off.
+const FEATURE_DEFAULTS = {
   ESX_SAMPLER:      true,   // ESX-1 Sample Manager tab
-  E2S_SAMPLER:      false,  // E2S Sample Manager tab
-  PATTERN_VIEWER:   true, // Pattern Viewer tab (ESX + EMX + E2)
-  CONVERSION:       false,  // ESX↔E2S conversion dialog
-  GUIDE:            true,   // Hardtekk/Schranz guide
+  E2S_SAMPLER:      true,   // E2S Sample Manager tab        (dev-only)
+  PATTERN_VIEWER:   true,   // Pattern Viewer tab            (dev-only)
+  CONVERSION:       true,   // ESX↔E2S conversion dialog     (dev-only)
+  GUIDE:            true,   // Beta info guide
   MODIFY_MODAL:     true,   // DSP effects modal in ESX sampler
 };
+
+const FEATURES = {};
+for (const key of Object.keys(FEATURE_DEFAULTS)) {
+  FEATURES[key] = FEATURE_DEFAULTS[key] && !(IS_BETA && DEV_ONLY_FEATURES.includes(key));
+}
 
 // ═══════════════════════════════════════════════════════════
 //  DEBUG HELPERS
@@ -313,16 +325,17 @@ ipcMain.handle('save-esx-overwrite', async (ev, filePath) => {
   try {
     mainWindow.webContents.send('export-progress', { phase: 'building', percent: 10 });
     const buf = esx.rebuildEsxFile(esxOriginalBuffer, currentSamples);
-    mainWindow.webContents.send('export-progress', { phase: 'writing', percent: 50 });
-    await fsp.writeFile(filePath, buf);
-    mainWindow.webContents.send('export-progress', { phase: 'verifying', percent: 90 });
+    mainWindow.webContents.send('export-progress', { phase: 'verifying', percent: 50 });
+    const { buffer: safeBuf, issues } = validateAndRepairEsx(buf);
+    mainWindow.webContents.send('export-progress', { phase: 'writing', percent: 80 });
+    await fsp.writeFile(filePath, safeBuf);
 
     // Update the stored original buffer to reflect the new state
-    esxOriginalBuffer = Buffer.from(buf);
+    esxOriginalBuffer = Buffer.from(safeBuf);
 
     const stat = await fsp.stat(filePath);
     mainWindow.webContents.send('export-progress', { phase: 'done', percent: 100 });
-    return { filePath, size: stat.size };
+    return { filePath, size: stat.size, validation: issues };
   } catch (err) { return { error: err.message }; }
 });
 
@@ -338,12 +351,13 @@ ipcMain.handle('save-esx-file', async (ev, defaultName) => {
   try {
     mainWindow.webContents.send('export-progress', { phase: 'building', percent: 10 });
     const buf = esx.buildEsxFile(currentSamples);
-    mainWindow.webContents.send('export-progress', { phase: 'writing', percent: 50 });
-    await fsp.writeFile(result.filePath, buf);
-    mainWindow.webContents.send('export-progress', { phase: 'verifying', percent: 90 });
+    mainWindow.webContents.send('export-progress', { phase: 'verifying', percent: 50 });
+    const { buffer: safeBuf, issues } = validateAndRepairEsx(buf);
+    mainWindow.webContents.send('export-progress', { phase: 'writing', percent: 80 });
+    await fsp.writeFile(result.filePath, safeBuf);
     const stat = await fsp.stat(result.filePath);
     mainWindow.webContents.send('export-progress', { phase: 'done', percent: 100 });
-    return { filePath: result.filePath, size: stat.size };
+    return { filePath: result.filePath, size: stat.size, validation: issues };
   } catch (err) { return { error: err.message }; }
 });
 

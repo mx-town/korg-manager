@@ -700,9 +700,12 @@ function buildEsxFile(samples) {
     headerBuffer.writeUInt32BE(0, hdrOff + 16);  // start frame
     headerBuffer.writeUInt32BE(sample.numFrames - 1, hdrOff + 20); // end frame
 
-    // Loop start — preserve if provided, otherwise no loop
-    const loopVal = (sample.loopStart != null && sample.loopStart !== null)
-      ? sample.loopStart : 0xFFFFFFFF;
+    // Loop start — preserve if provided, otherwise default to endFrame.
+    // ESX keyboard parts need a valid loop point to sustain a held note;
+    // writing 0xFFFFFFFF (no loop) silences keyboard parts. Hardware-saved
+    // files set loopStart = endFrame on every sample.
+    const loopVal = (sample.loopStart != null)
+      ? sample.loopStart : (sample.numFrames - 1);
     headerBuffer.writeUInt32BE(loopVal, hdrOff + 24);
 
     // Sample rate
@@ -714,8 +717,12 @@ function buildEsxFile(samples) {
     // Play level — preserve if provided
     headerBuffer.writeUInt8(sample.playLevel || 0x00, hdrOff + 34);
 
-    // Stretch step = 0xFF (off, hardware default)
-    headerBuffer.writeUInt8(0xFF, hdrOff + 35);
+    // Header trailer — match hardware-saved files (stretch off, marker 0x80)
+    headerBuffer.writeUInt8(0x00, hdrOff + 35); // stretch step
+    headerBuffer.writeUInt8(0x80, hdrOff + 36); // reserved marker
+    headerBuffer.writeUInt8(0x00, hdrOff + 37);
+    headerBuffer.writeUInt8(0x00, hdrOff + 38);
+    headerBuffer.writeUInt8(0x00, hdrOff + 39);
 
     dataBlocks.push(block);
     currentOffset += blockSize;
@@ -1296,12 +1303,19 @@ function rebuildEsxFile(originalBuffer, samples) {
     headerBuffer.writeUInt32BE(0, hdrOff + 16);
     headerBuffer.writeUInt32BE(sample.numFrames - 1, hdrOff + 20);
 
-    const loopVal = (sample.loopStart != null) ? sample.loopStart : 0xFFFFFFFF;
+    // Default loopStart to endFrame so ESX keyboard parts can sustain;
+    // 0xFFFFFFFF (no loop) silences keyboard parts on hardware.
+    const loopVal = (sample.loopStart != null) ? sample.loopStart : (sample.numFrames - 1);
     headerBuffer.writeUInt32BE(loopVal, hdrOff + 24);
     headerBuffer.writeUInt32BE(sample.sampleRate, hdrOff + 28);
     headerBuffer.writeUInt16BE(sample.sampleTune || 0x0000, hdrOff + 32);
     headerBuffer.writeUInt8(sample.playLevel || 0x00, hdrOff + 34);
-    headerBuffer.writeUInt8(0xFF, hdrOff + 35); // stretch step off
+    // Header trailer — match hardware-saved files (stretch off, marker 0x80)
+    headerBuffer.writeUInt8(0x00, hdrOff + 35); // stretch step
+    headerBuffer.writeUInt8(0x80, hdrOff + 36); // reserved marker
+    headerBuffer.writeUInt8(0x00, hdrOff + 37);
+    headerBuffer.writeUInt8(0x00, hdrOff + 38);
+    headerBuffer.writeUInt8(0x00, hdrOff + 39);
 
     dataBlocks.push(block);
     currentOffset += blockSize;
