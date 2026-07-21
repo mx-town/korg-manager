@@ -2302,7 +2302,7 @@ const FX_DEFS=[
   // ── TONE (5) ──
   {id:'bitcrush',cat:'tone',icon:'▤',name:'BITCRUSH',desc:'Lo-fi destruction',params:[
     {id:'bc',lbl:'BITS',min:1,max:16,val:8,fmt:v=>v+' bit'},
-    {id:'bh',lbl:'HOLD',min:1,max:32,val:1,fmt:v=>{const r=Math.round(Math.pow(2,(v-1)*6/31));return r+'× ('+Math.round(44100/r)+'Hz)';}}]},
+    {id:'bh',lbl:'HOLD',min:1,max:32,val:1,fmt:v=>{const r=Math.round(Math.pow(2,(v-1)*6/31));return r+'× ('+Math.round((window.__editorSampleRate||44100)/r)+'Hz)';}}]},
   {id:'pitch',cat:'tone',icon:'⟳',name:'PITCH',desc:'Semitone-based — symmetric',params:[
     {id:'pt',lbl:'SEMI',min:-24,max:24,val:0,zero:0,fmt:v=>(v>0?'+':'')+v+' st ('+(semi2factor(v)).toFixed(2)+'×)'}],
     presets:[['-12 (Oct↓)',-12],['-7 (5th↓)',-7],['+7 (5th↑)',7],['+12 (Oct↑)',12]]},
@@ -2460,6 +2460,8 @@ function toggleFx(id){const ac=document.querySelector('.fx-cat-content.act');if(
 async function openModify(){
   const batch=checked.size>1;
   if(!batch&&sel<0)return;
+  // Device-neutral bitcrush HOLD label: samples in the active bank share a rate (ESX=44100, E2S=48000)
+  {const rs=S.samples.find(x=>x.index===sel)||S.samples[0];window.__editorSampleRate=rs&&rs.sampleRate?rs.sampleRate:44100;}
   if(batch){
     document.getElementById('mSample').textContent=`[ ${checked.size} SAMPLES ]`;
     document.getElementById('muBtn').style.display='none';document.getElementById('mrBtn').style.display='none';

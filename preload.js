@@ -83,6 +83,18 @@ contextBridge.exposeInMainWorld('api', {
     getWavPreview:(slot)          => ipcRenderer.invoke('e2s:get-wav-preview', slot),
   },
 
+  // ═══ Dual-Bank Sample Manager ═══
+  bank: {
+    load:        (bankIndex)                              => ipcRenderer.invoke('bank:load', bankIndex),
+    save:        (bankIndex)                              => ipcRenderer.invoke('bank:save', bankIndex),
+    saveAs:      (bankIndex)                              => ipcRenderer.invoke('bank:saveAs', bankIndex),
+    sampleOp:    (bankIndex, slot, op, params)            => ipcRenderer.invoke('bank:sampleOp', bankIndex, slot, op, params),
+    copySamples: (fromIndex, slots, toIndex, targetSlot)  => ipcRenderer.invoke('bank:copySamples', fromIndex, slots, toIndex, targetSlot),
+    list:        (bankIndex)                              => ipcRenderer.invoke('bank:list', bankIndex),
+    waveform:    (bankIndex, slot)                        => ipcRenderer.invoke('bank:waveform', bankIndex, slot),
+    preview:     (bankIndex, slot)                        => ipcRenderer.invoke('bank:preview', bankIndex, slot),
+  },
+
   // ═══ E2 Patterns ═══
   e2pat: {
     openFile:   ()              => ipcRenderer.invoke('e2pat:open-file'),

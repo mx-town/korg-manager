@@ -6,6 +6,7 @@ const { exec } = require('child_process');
 const AdmZip = require('adm-zip');
 const esx = require('./src/esx-format');
 const { validateAndRepairEsx } = require('./src/esx-validate');
+const bank = require('./src/bank'); // Project S — device-neutral dual-bank core
 
 const IS_DEV = process.argv.includes('--dev');
 
@@ -434,7 +435,7 @@ ipcMain.handle('get-float-samples', async (ev, index) => {
   for (let i = 0; i < frames; i++) {
     floats[i] = s.pcmData.readInt16BE(i * 2) / 32768;
   }
-  return { floats: Array.from(floats), sampleRate: s.sampleRate || 44100 };
+  return { floats: Array.from(floats), sampleRate: s.sampleRate || bank.ESX_RATE };
 });
 
 // ═══════════════════════════════════════════════════════════
@@ -442,7 +443,7 @@ ipcMain.handle('get-float-samples', async (ev, index) => {
 // ═══════════════════════════════════════════════════════════
 function analyzeSampleCategory(s) {
   if (!s || !s.pcmData || s.numFrames < 64) return 'OTHER';
-  const sr = s.sampleRate || 44100;
+  const sr = s.sampleRate || bank.ESX_RATE;
   const frames = s.numFrames;
   const duration = frames / sr;
 
@@ -1332,6 +1333,352 @@ ipcMain.handle('e2s:get-wav-preview', async (ev, slot) => {
 });
 
 // ═══════════════════════════════════════════════════════════
+//  PROJECT S — DUAL-BANK SAMPLE MANAGER (bank:* handlers)
+// ═══════════════════════════════════════════════════════════
+// Additive main-process state — coexists with the legacy currentSamples /
+// e2sStoredSamples globals during the transition. One Bank per slot (A / B).
+// All device-neutral logic (detect/create/serialize/copy/convert/UI) lives in
+// src/bank.js; these handlers stay Electron-side for dialogs, disk I/O, ESX
+// validate/auto-repair, and endianness-aware waveform/preview/DSP.
+let banks = [null, null];
+
+const bankLabel = (i) => (i === 0 ? 'A' : i === 1 ? 'B' : String(i));
+
+/** Snapshot the current PCM state onto a bank sample's undo stack. */
+function bankPushUndo(s) {
+  if (!s) return;
+  if (!s.undoStack) s.undoStack = [];
+  if (!s.redoStack) s.redoStack = [];
+  if (!s._original) {
+    s._original = { pcmData: Buffer.from(s.pcmData), numFrames: s.numFrames, duration: s.duration, sampleRate: s.sampleRate };
+  }
+  s.undoStack.push({ pcmData: Buffer.from(s.pcmData), numFrames: s.numFrames, duration: s.duration, sampleRate: s.sampleRate });
+  if (s.undoStack.length > MAX_UNDO) s.undoStack.shift();
+  s.redoStack = []; // clear redo on new action
+}
+
+function bankUndoInfo(s) {
+  return { undoCount: (s.undoStack || []).length, redoCount: (s.redoStack || []).length, hasOriginal: !!s._original };
+}
+
+/** Read one 16-bit frame using the bank device's native endianness. */
+function bankReadI16(buf, off, device) {
+  return device === 'esx' ? buf.readInt16BE(off) : buf.readInt16LE(off);
+}
+
+/** Write one 16-bit frame using the bank device's native endianness. */
+function bankWriteI16(buf, val, off, device) {
+  const v = Math.max(-32768, Math.min(32767, val));
+  if (device === 'esx') buf.writeInt16BE(v, off); else buf.writeInt16LE(v, off);
+}
+
+/** Assign a fresh PCM buffer and keep frame/duration bookkeeping in sync. */
+function bankSetPcm(s, buf) {
+  s.pcmData = buf;
+  s.numFrames = buf.length / 2 / (s.stereo ? 2 : 1);
+  s.duration = s.numFrames / s.sampleRate;
+}
+
+/**
+ * Apply one device-neutral sample operation, returning a NEW pcm Buffer (or
+ * null for a no-op). Endianness is resolved from `device`; DSP uses sampleRate.
+ * Structural ops (reverse/trim/cut) stay on raw int16 (lossless); tonal ops
+ * mirror the legacy esx: DSP handlers.
+ */
+function bankApplyOp(s, device, op, params) {
+  const nf = s.numFrames, src = s.pcmData, sr = s.sampleRate;
+  const rd = (i) => bankReadI16(src, i * 2, device);
+  switch (op) {
+    case 'reverse': {
+      const buf = Buffer.alloc(src.length);
+      for (let i = 0; i < nf; i++) bankWriteI16(buf, rd(i), (nf - 1 - i) * 2, device);
+      return buf;
+    }
+    case 'normalize': {
+      const tgt = Math.round(Math.pow(10, (params.targetDbFs != null ? params.targetDbFs : -1) / 20) * 32767);
+      let peak = 0;
+      for (let i = 0; i < nf; i++) { const v = Math.abs(rd(i)); if (v > peak) peak = v; }
+      if (peak === 0) return null;
+      const gain = tgt / peak;
+      if (Math.abs(gain - 1.0) < 0.001) return null;
+      const buf = Buffer.alloc(src.length);
+      for (let i = 0; i < nf; i++) bankWriteI16(buf, Math.round(rd(i) * gain), i * 2, device);
+      return buf;
+    }
+    case 'gain': {
+      const gain = Math.pow(10, (params.db || 0) / 20);
+      const buf = Buffer.alloc(src.length);
+      for (let i = 0; i < nf; i++) bankWriteI16(buf, Math.round(rd(i) * gain), i * 2, device);
+      return buf;
+    }
+    case 'trim': {
+      if (nf <= 1) return null;
+      const thresh = Math.pow(10, (params.thresholdDb != null ? params.thresholdDb : -40) / 20) * 32767;
+      let start = 0, end = nf - 1;
+      for (let i = 0; i < nf; i++) { if (Math.abs(rd(i)) > thresh) { start = i; break; } }
+      for (let i = nf - 1; i >= 0; i--) { if (Math.abs(rd(i)) > thresh) { end = i; break; } }
+      start = Math.max(0, start - 8);
+      end = Math.min(nf - 1, end + 8);
+      if (start === 0 && end === nf - 1) return null;
+      const outFrames = end - start + 1;
+      if (outFrames < 16) return null;
+      const buf = Buffer.alloc(outFrames * 2);
+      src.copy(buf, 0, start * 2, (end + 1) * 2);
+      return buf;
+    }
+    case 'cut': {
+      const start = Math.max(0, Math.min(nf, params.start | 0));
+      const end = Math.max(start, Math.min(nf, params.end | 0));
+      if (end <= start) return null;
+      const outFrames = nf - (end - start);
+      if (outFrames < 1) return null;
+      const buf = Buffer.alloc(outFrames * 2);
+      src.copy(buf, 0, 0, start * 2);
+      src.copy(buf, start * 2, end * 2, nf * 2);
+      return buf;
+    }
+    case 'fadeIn': {
+      const buf = Buffer.from(src);
+      const frames = Math.min(Math.round((params.ms || 50) / 1000 * sr), nf);
+      for (let i = 0; i < frames; i++) {
+        const t = i / frames, g = t * t * t;
+        bankWriteI16(buf, Math.round(bankReadI16(buf, i * 2, device) * g), i * 2, device);
+      }
+      return buf;
+    }
+    case 'fadeOut': {
+      const buf = Buffer.from(src);
+      const frames = Math.min(Math.round((params.ms || 50) / 1000 * sr), nf);
+      const start = nf - frames;
+      for (let i = 0; i < frames; i++) {
+        const t = 1 - i / frames, g = t * t * t;
+        const off = (start + i) * 2;
+        bankWriteI16(buf, Math.round(bankReadI16(buf, off, device) * g), off, device);
+      }
+      return buf;
+    }
+    case 'pitch': {
+      let factor = Math.max(0.1, Math.min(8.0, params.factor || 1.0));
+      if (Math.abs(factor - 1.0) < 0.001) return null;
+      const outFrames = Math.max(1, Math.round(nf / factor));
+      const buf = Buffer.alloc(outFrames * 2);
+      for (let i = 0; i < outFrames; i++) {
+        const srcPos = i * factor, si = Math.floor(srcPos), frac = srcPos - si;
+        const s0 = si < nf ? rd(si) : 0;
+        const s1 = si + 1 < nf ? rd(si + 1) : s0;
+        bankWriteI16(buf, Math.round(s0 + (s1 - s0) * frac), i * 2, device);
+      }
+      return buf;
+    }
+    case 'bitcrush': {
+      const bits = Math.max(1, Math.min(16, params.bits || 8));
+      const rateReduction = Math.max(1, Math.min(32, params.rateReduction || 1));
+      const holdRate = Math.round(Math.pow(2, (rateReduction - 1) * 6 / 31));
+      const shift = 16 - bits;
+      const buf = Buffer.alloc(src.length);
+      let held = 0;
+      for (let i = 0; i < nf; i++) {
+        if (i % holdRate === 0) held = (rd(i) >> shift) << shift;
+        bankWriteI16(buf, held, i * 2, device);
+      }
+      return buf;
+    }
+    case 'distort': {
+      const drive = Math.max(1, Math.min(50, params.drive || 5));
+      const type = params.type;
+      const buf = Buffer.alloc(src.length);
+      for (let i = 0; i < nf; i++) {
+        let v = rd(i) / 32767 * drive;
+        if (type === 'soft') v = Math.tanh(v);
+        else if (type === 'hard') v = Math.max(-1, Math.min(1, v));
+        else if (type === 'fold') {
+          for (let it = 0; it < 10 && (v > 1 || v < -1); it++) { if (v > 1) v = 2 - v; if (v < -1) v = -2 - v; }
+          v = Math.max(-1, Math.min(1, v));
+        }
+        bankWriteI16(buf, Math.round(v * 32767), i * 2, device);
+      }
+      return buf;
+    }
+    default:
+      return undefined; // signal "unsupported op"
+  }
+}
+
+ipcMain.handle('bank:load', async (ev, bankIndex) => {
+  const existing = banks[bankIndex];
+  if (existing && existing.dirty) {
+    const { response } = await dialog.showMessageBox(mainWindow, {
+      type: 'warning', buttons: ['Cancel', 'Discard & Load'], defaultId: 0, cancelId: 0,
+      title: 'Unsaved Changes',
+      message: `Bank ${bankLabel(bankIndex)} has unsaved changes. Discard them?`
+    });
+    if (response === 0) return null;
+  }
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: `Load Bank ${bankLabel(bankIndex)} (.esx or e2sSample.all)`,
+    filters: [{ name: 'Korg Bank', extensions: ['esx', 'all'] }, { name: 'All Files', extensions: ['*'] }],
+    properties: ['openFile']
+  });
+  if (result.canceled) return null;
+  try {
+    const filePath = result.filePaths[0];
+    const fileName = path.basename(filePath);
+    const buffer = await fsp.readFile(filePath);
+    const device = bank.detectDevice(buffer, fileName);
+    if (!device) return { error: 'Unsupported bank file (expected .esx or e2sSample.all)' };
+    const b = bank.createBankFromBuffer(buffer, filePath, fileName);
+    banks[bankIndex] = b;
+    return { device, ...bank.bankToUI(b) };
+  } catch (err) { return { error: err.message }; }
+});
+
+ipcMain.handle('bank:save', async (ev, bankIndex) => {
+  const b = banks[bankIndex];
+  if (!b) return { error: 'No bank loaded' };
+  if (!b.filePath) return { error: 'No file path — use Save As' };
+  try {
+    let buf = bank.serializeBank(b);
+    if (b.device === 'esx') { const { buffer: safeBuf } = validateAndRepairEsx(buf); buf = safeBuf; }
+    await fsp.writeFile(b.filePath, buf);
+    b.dirty = false;
+    return { filePath: b.filePath, size: buf.length };
+  } catch (err) { return { error: err.message }; }
+});
+
+ipcMain.handle('bank:saveAs', async (ev, bankIndex) => {
+  const b = banks[bankIndex];
+  if (!b) return { error: 'No bank loaded' };
+  const isEsx = b.device === 'esx';
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: `Save Bank ${bankLabel(bankIndex)} As`,
+    defaultPath: b.filePath || (isEsx ? 'my_samples.esx' : 'e2sSample.all'),
+    filters: isEsx ? [{ name: 'ESX', extensions: ['esx'] }] : [{ name: 'E2S Sample File', extensions: ['all'] }]
+  });
+  if (result.canceled) return null;
+  try {
+    let buf = bank.serializeBank(b);
+    if (isEsx) { const { buffer: safeBuf } = validateAndRepairEsx(buf); buf = safeBuf; }
+    await fsp.writeFile(result.filePath, buf);
+    b.filePath = result.filePath;
+    b.fileName = path.basename(result.filePath);
+    b.dirty = false;
+    return { filePath: result.filePath, size: buf.length };
+  } catch (err) { return { error: err.message }; }
+});
+
+ipcMain.handle('bank:list', async (ev, bankIndex) => {
+  return bank.bankToUI(banks[bankIndex]); // null for an empty slot
+});
+
+ipcMain.handle('bank:copySamples', async (ev, fromIndex, slots, toIndex, targetSlot) => {
+  const from = banks[fromIndex], to = banks[toIndex];
+  const res = bank.copySamples(from, slots, to, targetSlot == null ? null : targetSlot);
+  if (res.ok) {
+    return { ...res, fromList: bank.bankToUI(from), toList: bank.bankToUI(to) };
+  }
+  return res; // typed preflight failure, banks untouched
+});
+
+ipcMain.handle('bank:waveform', async (ev, bankIndex, slot) => {
+  const b = banks[bankIndex];
+  if (!b) return null;
+  const s = b.samples[slot];
+  if (!s || !s.pcmData || !s.pcmData.length) return null;
+  const numFrames = s.numFrames;
+  const N = 500, step = Math.max(1, Math.floor(numFrames / N));
+  const peaks = [];
+  for (let i = 0; i < N && i * step < numFrames; i++) {
+    let mx = 0;
+    for (let j = 0; j < step; j++) {
+      const fi = i * step + j;
+      if (fi >= numFrames) break;
+      const v = Math.abs(bankReadI16(s.pcmData, fi * 2, b.device)) / 32768;
+      if (v > mx) mx = v;
+    }
+    peaks.push(mx);
+  }
+  return { peaks, numFrames, sampleRate: s.sampleRate };
+});
+
+ipcMain.handle('bank:preview', async (ev, bankIndex, slot) => {
+  const b = banks[bankIndex];
+  if (!b) return null;
+  const s = b.samples[slot];
+  if (!s || !s.pcmData || !s.pcmData.length) return null;
+  const sr = s.sampleRate || bank.deviceRate(b.device);
+  if (b.device === 'esx') {
+    // ESX PCM is big-endian — esx.pcmToWav handles the BE->WAV conversion.
+    return esx.pcmToWav(s.pcmData, sr).toString('base64');
+  }
+  // E2S PCM is little-endian — wrap directly in a standard WAV container.
+  const numFrames = s.pcmData.length / 2;
+  const dataSize = numFrames * 2;
+  const wav = Buffer.alloc(44 + dataSize);
+  wav.write('RIFF', 0); wav.writeUInt32LE(36 + dataSize, 4); wav.write('WAVE', 8);
+  wav.write('fmt ', 12); wav.writeUInt32LE(16, 16); wav.writeUInt16LE(1, 20);
+  wav.writeUInt16LE(1, 22); wav.writeUInt32LE(sr, 24); wav.writeUInt32LE(sr * 2, 28);
+  wav.writeUInt16LE(2, 32); wav.writeUInt16LE(16, 34);
+  wav.write('data', 36); wav.writeUInt32LE(dataSize, 40);
+  s.pcmData.copy(wav, 44);
+  return wav.toString('base64');
+});
+
+ipcMain.handle('bank:sampleOp', async (ev, bankIndex, slot, op, params) => {
+  const b = banks[bankIndex];
+  if (!b) return { error: 'No bank loaded' };
+  const s = b.samples[slot];
+  if (!s) return { error: `Slot ${slot} is empty` };
+  params = params || {};
+  const device = b.device;
+  const uiOut = () => ({ sample: bank.sampleToUI(s, slot, device), undoInfo: bankUndoInfo(s) });
+
+  // ── History ops — device-neutral pure buffer swaps (no endianness needed) ──
+  if (op === 'undo') {
+    if (!s.undoStack || s.undoStack.length === 0) return { error: 'Nothing to undo' };
+    s.redoStack = s.redoStack || [];
+    s.redoStack.push({ pcmData: Buffer.from(s.pcmData), numFrames: s.numFrames, duration: s.duration, sampleRate: s.sampleRate });
+    const prev = s.undoStack.pop();
+    s.pcmData = prev.pcmData; s.numFrames = prev.numFrames; s.duration = prev.duration; s.sampleRate = prev.sampleRate;
+    b.dirty = true;
+    return uiOut();
+  }
+  if (op === 'redo') {
+    if (!s.redoStack || s.redoStack.length === 0) return { error: 'Nothing to redo' };
+    s.undoStack = s.undoStack || [];
+    s.undoStack.push({ pcmData: Buffer.from(s.pcmData), numFrames: s.numFrames, duration: s.duration, sampleRate: s.sampleRate });
+    const next = s.redoStack.pop();
+    s.pcmData = next.pcmData; s.numFrames = next.numFrames; s.duration = next.duration; s.sampleRate = next.sampleRate;
+    b.dirty = true;
+    return uiOut();
+  }
+  if (op === 'reset') {
+    if (!s._original) return { error: 'No original to reset to' };
+    s.pcmData = Buffer.from(s._original.pcmData);
+    s.numFrames = s._original.numFrames; s.duration = s._original.duration; s.sampleRate = s._original.sampleRate;
+    s.undoStack = []; s.redoStack = []; s._original = null;
+    b.dirty = true;
+    return uiOut();
+  }
+  if (op === 'rename') {
+    const max = device === 'esx' ? 8 : 24;
+    s.name = String(params.name || '').substring(0, max);
+    b.dirty = true;
+    return uiOut();
+  }
+
+  // ── Mutating DSP/tool ops — compute first, then commit atomically ──
+  try {
+    const buf = bankApplyOp(s, device, op, params);
+    if (buf === undefined) return { error: `Unsupported op: ${op}` };
+    if (buf === null) return uiOut(); // valid no-op (e.g. silent sample / identity)
+    bankPushUndo(s);
+    bankSetPcm(s, buf);
+    b.dirty = true;
+    return uiOut();
+  } catch (err) { return { error: err.message }; }
+});
+
+// ═══════════════════════════════════════════════════════════
 //  E2 PATTERN HANDLERS
 // ═══════════════════════════════════════════════════════════
 let patStoredRaw = null; // raw all-patterns buffer for split/save
@@ -1498,8 +1845,8 @@ safeIpcHandle('esx:get-sample-directory', async () => {
     directory.push({
       index: i,
       name: (s.name || '').trim() || `Sample ${i}`,
-      duration: s.duration || s.numFrames / (s.sampleRate || 44100),
-      sampleRate: s.sampleRate || 44100,
+      duration: s.duration || s.numFrames / (s.sampleRate || bank.ESX_RATE),
+      sampleRate: s.sampleRate || bank.ESX_RATE,
     });
   }
   return directory;
