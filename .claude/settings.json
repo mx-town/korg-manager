@@ -5,7 +5,20 @@
       "Bash(grep -n \"TODO\\\\|FIXME\\\\|BUG\\\\|HACK\\\\|XXX\" \"/c/Users/mel2497/OneDrive - Melecs/Dokumente/Schule/korg-esx-manager/src/\"*.js)",
       "Bash(xargs wc -l)",
       "WebFetch(domain:github.com)",
-      "WebFetch(domain:skratchdot.com)"
+      "WebFetch(domain:skratchdot.com)",
+      "Bash(Select-String -Pattern \"feat:|feature\")",
+      "Read(//c/Users/mel2497/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.7/skills/brainstorming/**)",
+      "Bash(git checkout *)",
+      "Bash(git add *)",
+      "Bash(git commit -q -m 'docs: pattern viewer UI redesign design spec *)",
+      "Bash(npm test *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(rm -rf dist/win-unpacked)",
+      "Bash(npm run *)",
+      "Bash(ls -lh dist/*.exe)",
+      "Bash(ls dist/win-unpacked/*.exe)",
+      "Bash(rm -f build-beta2.log)"
     ]
   }
 }
