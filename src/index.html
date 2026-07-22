@@ -1351,9 +1351,37 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 }
 .pat-item.act .pat-active-dots{color:var(--led)}
 
-/* ═══ BANK / SAMPLE MANAGER (dual-pane commander) ═══ */
-.bank-wrap{display:grid;grid-template-rows:1fr auto;height:100%;min-height:0}
-.bank-panes{display:grid;grid-template-columns:1fr 1fr;gap:10px;min-height:0;padding:10px}
+/* ═══ BANK / SAMPLE MANAGER (tabs + snap-split) ═══ */
+.bank-wrap{display:grid;grid-template-rows:auto 1fr auto;height:100%;min-height:0}
+/* ── tab bar ── */
+.bank-tabbar{display:flex;align-items:center;gap:6px;padding:6px 10px;border-bottom:1px solid var(--brd);background:var(--panel)}
+.bank-tab{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;background:var(--void);border:1px solid var(--brd);color:var(--txt-d);font-family:var(--lcd);font-size:12px;cursor:grab;clip-path:polygon(4px 0,100% 0,calc(100% - 4px) 100%,0 100%)}
+.bank-tab:hover{border-color:var(--brd-h);color:var(--txt)}
+.bank-tab.active{color:var(--led);border-color:var(--led-d);background:var(--cell-a)}
+.bank-tab.focus{box-shadow:inset 0 -2px 0 var(--led)}
+.bank-tab.dragging{opacity:.45}
+.bank-tab-dev{font-family:var(--head);font-size:9px;letter-spacing:2px;color:inherit}
+.bank-tab-name{font-family:var(--lcd);font-size:11px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bank-tab-dirty{width:7px;height:7px;border-radius:2px;background:var(--yel)}
+.bank-tab-close{font-size:11px;color:var(--txt-x);background:none;border:0;cursor:pointer}
+.bank-tab-close:hover{color:var(--hi)}
+.bank-tab-add{padding:5px 10px;font-family:var(--lcd);font-size:14px;background:var(--panel);border:1px solid var(--brd);color:var(--txt-d);cursor:pointer;clip-path:polygon(4px 0,100% 0,calc(100% - 4px) 100%,0 100%)}
+.bank-tab-add:hover{color:var(--led);border-color:var(--led-d)}
+/* ── panes container: positioned snap host; mode-driven visibility ── */
+.bank-panes{position:relative;min-height:0;padding:10px;gap:10px}
+.bank-panes.split{display:grid;grid-template-columns:1fr 1fr}
+.bank-panes.single{display:block}
+.bank-panes.single .bank-pane{display:none}
+.bank-panes.single .bank-pane.is-shown{display:flex;height:100%}
+.bank-panes.single .bank-pane-close{display:none}
+.bank-pane-close{margin-left:6px;font-family:var(--lcd);font-size:12px;color:var(--txt-x);background:var(--panel);border:1px solid var(--brd);padding:2px 7px;cursor:pointer;clip-path:polygon(4px 0,100% 0,calc(100% - 4px) 100%,0 100%)}
+.bank-pane-close:hover{color:var(--hi);border-color:var(--hi-d)}
+/* ── snap drop-zones (revealed only while a tab is being dragged) ── */
+.bank-snapzone{position:absolute;top:10px;bottom:10px;width:40%;z-index:30;display:none;pointer-events:none}
+.bank-snapzone.left{left:10px}
+.bank-snapzone.right{right:10px}
+.bank-panes.tab-dragging .bank-snapzone{display:block;pointer-events:auto}
+.bank-snapzone.hot{background:var(--led-g);outline:2px dashed var(--led);outline-offset:-6px}
 .bank-pane{display:flex;flex-direction:column;min-height:0;background:var(--void);border:1px solid var(--brd)}
 .bank-hdr{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--brd);background:var(--panel)}
 .bank-tag{font-family:var(--head);font-size:11px;letter-spacing:3px;color:var(--led)}
@@ -1644,20 +1672,27 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
     </div>
   </div><!-- /e2pat-view -->
 
-  <!-- ═══ BANK / SAMPLE MANAGER VIEW (dual-pane commander) ═══ -->
+  <!-- ═══ BANK / SAMPLE MANAGER VIEW (tabs + snap-split) ═══ -->
   <div id="bank-view" class="device-view">
     <div class="bank-wrap">
-      <div class="bank-panes">
 
-        <!-- ── PANE A (bank index 0) ── -->
-        <section class="bank-pane" id="bkPane0" data-bank="0"
+      <!-- ── TAB BAR (JS HOOK: bankRenderTabs() fills one .bank-tab per loaded slot + ＋ add) ── -->
+      <div class="bank-tabbar" id="bkTabbar"></div>
+
+      <!-- ── PANES: snap host; JS toggles .single / .split and .tab-dragging on #bkPanes ── -->
+      <div class="bank-panes single" id="bkPanes">
+
+        <!-- ── PANE A (bank index 0 — HARD-BONDED to bankState[0]; ids are load-bearing) ── -->
+        <section class="bank-pane" id="bkPane0" data-bank="0" style="order:0"
+                 onmousedown="bankSetFocus(0)"
                  ondragover="bankDragOver(event,0)" ondrop="bankDrop(event,0)" ondragleave="bankDragLeave(event,0)">
           <div class="bank-hdr">
-            <span class="bank-tag">BANK A</span>
             <span class="bank-file" id="bkFile0"><span style="color:var(--txt-x)">// no file</span></span>
             <span class="bank-badge" id="bkBadge0" style="display:none"></span>
             <span class="bank-dirty" id="bkDirty0" title="unsaved" style="display:none"></span>
             <span class="sc" id="bkCount0">0/0</span>
+            <!-- JS HOOK: collapse split back to single (visible only in split mode) -->
+            <button class="bank-pane-close" title="Collapse split" onclick="bankCollapseSplit(0)">✕</button>
           </div>
           <!-- JS HOOK: renderBankHeader(0) fills column-header cells here (device-aware grid) -->
           <div class="ch bank-ch" id="bkCh0"></div>
@@ -1665,15 +1700,17 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
           <div class="sl bank-list" id="bkList0"></div>
         </section>
 
-        <!-- ── PANE B (bank index 1) ── -->
-        <section class="bank-pane" id="bkPane1" data-bank="1"
+        <!-- ── PANE B (bank index 1 — HARD-BONDED to bankState[1]; ids are load-bearing) ── -->
+        <section class="bank-pane" id="bkPane1" data-bank="1" style="order:1"
+                 onmousedown="bankSetFocus(1)"
                  ondragover="bankDragOver(event,1)" ondrop="bankDrop(event,1)" ondragleave="bankDragLeave(event,1)">
           <div class="bank-hdr">
-            <span class="bank-tag">BANK B</span>
             <span class="bank-file" id="bkFile1"><span style="color:var(--txt-x)">// no file</span></span>
             <span class="bank-badge" id="bkBadge1" style="display:none"></span>
             <span class="bank-dirty" id="bkDirty1" title="unsaved" style="display:none"></span>
             <span class="sc" id="bkCount1">0/0</span>
+            <!-- JS HOOK: collapse split back to single (visible only in split mode) -->
+            <button class="bank-pane-close" title="Collapse split" onclick="bankCollapseSplit(1)">✕</button>
           </div>
           <!-- JS HOOK: renderBankHeader(1) fills column-header cells here (device-aware grid) -->
           <div class="ch bank-ch" id="bkCh1"></div>
@@ -1681,15 +1718,17 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
           <div class="sl bank-list" id="bkList1"></div>
         </section>
 
+        <!-- ── SNAP DROP-ZONES (JS HOOK: revealed while a tab drags; snap into split) ── -->
+        <div class="bank-snapzone left"  ondragover="bankZoneDragOver(event,'left')"  ondragleave="bankZoneDragLeave(event,'left')"  ondrop="bankZoneDrop(event,'left')"></div>
+        <div class="bank-snapzone right" ondragover="bankZoneDragOver(event,'right')" ondragleave="bankZoneDragLeave(event,'right')" ondrop="bankZoneDrop(event,'right')"></div>
+
       </div>
 
-      <!-- ── FOOTER TOOLBAR ── -->
+      <!-- ── FOOTER TOOLBAR (focus-aware: SAVE/SAVE AS/BATCH act on bankFocused()) ── -->
       <div class="bank-footer">
-        <button class="btn" onclick="bankLoad(0)">📂 LOAD A</button>
-        <button class="btn" onclick="bankLoad(1)">📂 LOAD B</button>
-        <div class="hsep"></div>
-        <button class="btn btn-hi" onclick="bankSave(0)">💾 SAVE A</button>
-        <button class="btn btn-hi" onclick="bankSave(1)">💾 SAVE B</button>
+        <button class="btn" onclick="bankOpenFree()">📂 LOAD</button>
+        <button class="btn btn-hi" onclick="bankSave(bankFocused())">💾 SAVE</button>
+        <button class="btn" onclick="bankSaveAs(bankFocused())">SAVE AS</button>
         <div class="hsep"></div>
         <button class="btn" onclick="bankBatch()">⚙ BATCH</button>
         <button class="btn" onclick="bankCopyMarked()">⇄ COPY MARKED</button>
@@ -2909,6 +2948,7 @@ function switchDevice(dev){
   document.querySelectorAll('.device-view').forEach(v=>v.classList.remove('active'));
   const view=document.getElementById(dev===('e2pat')?'e2pat-view':dev+'-view');
   if(view)view.classList.add('active');
+  if(dev==='bank'){bankRenderTabs();bankApplyLayout();}
   updateStatusBar();
 }
 
@@ -2950,6 +2990,12 @@ let _bankBusy    = false;                  // reentrancy guard around copy/op
 const bankAudio  = document.getElementById('bkAudio');
 let bankBlobUrl  = null;                    // revoke-on-replace
 let _bankE2sMetaWarned = false;            // one-time TODO toast guard
+// ── Shell layout state (tabs + snap-split); strictly separate from row-DnD bankDrag ──
+let bankViewMode = 'single';               // 'single' | 'split'
+let bankActiveTab= 0;                       // slot (0|1) shown in single mode
+let bankSplitLeft= 0;                       // in split: which slot renders on the LEFT
+let bankFocus    = 0;                       // last pane interacted with (footer target)
+let bankTabDrag  = null;                    // {slot} while a TAB is being dragged
 
 const BANK_LABELS = ['A','B'];
 function bankDevLabel(dev){return dev==='esx'?'ESX-1':'E2S';}
@@ -3031,7 +3077,8 @@ async function bankLoad(idx){
   if(res.error){toast(res.error,'error');return;}
   bankState[idx]=res;
   bankSel[idx].clear();bankLastSlot[idx]=-1;
-  renderBankPane(idx);updateStatusBar();
+  bankActiveTab=idx;bankFocus=idx;
+  renderBankPane(idx);bankRenderTabs();bankApplyLayout();
   toast('LOADED: '+(res.fileName||''),'success');
 }
 
@@ -3245,11 +3292,13 @@ function bankDragEnd(ev){
 }
 function _bankCanDrop(toIdx){return bankDrag&&bankDrag.fromBank!==toIdx&&bankState[toIdx]!=null;}
 function bankDragOver(ev,toIdx){
+  if(bankTabDrag){ev.preventDefault();ev.dataTransfer.dropEffect='move';return;}
   if(!_bankCanDrop(toIdx))return;
   ev.preventDefault();ev.dataTransfer.dropEffect='copy';
   if(!ev.target.closest('.bk-row'))document.getElementById('bkList'+toIdx).classList.add('drop-active');
 }
 function bankRowDragOver(ev,toIdx,slot){
+  if(bankTabDrag){ev.preventDefault();ev.stopPropagation();ev.dataTransfer.dropEffect='move';return;}
   if(!_bankCanDrop(toIdx))return;
   ev.preventDefault();ev.stopPropagation();ev.dataTransfer.dropEffect='copy';
   document.getElementById('bkList'+toIdx).classList.remove('drop-active');
@@ -3262,6 +3311,7 @@ function bankDragLeave(ev,toIdx){
   if(rowEl&&!rowEl.contains(ev.relatedTarget))rowEl.classList.remove('drop-target');
 }
 function bankDrop(ev,toIdx){
+  if(bankTabDrag){bankTabDropOnPane(ev,toIdx);return;}
   ev.preventDefault();
   const drag=bankDrag;
   document.getElementById('bkList'+toIdx).classList.remove('drop-active');
@@ -3331,8 +3381,144 @@ function bankBatch(){
   bankOpenEditor(bi,[...bankSel[bi]][0]);
 }
 
-// Render both panes' empty dropzones on first load.
+// ── Shell: tabs + snap-split layout (pane↔slot binding is fixed; side is CSS order only) ──
+function bankLoadedSlots(){const a=[];if(bankState[0]!=null)a.push(0);if(bankState[1]!=null)a.push(1);return a;}
+function bankFocused(){
+  const loaded=bankLoadedSlots();
+  let f=bankViewMode==='split'?bankFocus:bankActiveTab;
+  if(bankState[f]!=null)return f;
+  return loaded.length?loaded[0]:0;
+}
+function bankSetFocus(slot){
+  if(bankState[slot]==null)return;
+  if(bankFocus===slot)return;
+  bankFocus=slot;bankRenderTabs();
+}
+function bankRenderTabs(){
+  const host=document.getElementById('bkTabbar');if(!host)return;
+  let html='';
+  for(const i of bankLoadedSlots()){
+    const b=bankState[i];
+    const active=(bankViewMode==='single'&&bankActiveTab===i)||(bankViewMode==='split');
+    const cls='bank-tab'+(active?' active':'')+(bankFocus===i?' focus':'');
+    html+=`<div class="${cls}" draggable="true" data-slot="${i}"`
+      +` onclick="bankSelectTab(${i})"`
+      +` ondragstart="bankTabDragStart(event,${i})" ondragend="bankTabDragEnd(event)">`
+      +`<span class="bank-tab-dev">${bankDevLabel(b.device)}</span>`
+      +`<span class="bank-tab-name">${(b.fileName||'(unsaved)').replace(/</g,'&lt;')}</span>`
+      +(b.dirty?'<span class="bank-tab-dirty" title="unsaved"></span>':'')
+      +`<button class="bank-tab-close" title="Close file" onclick="event.stopPropagation();bankCloseTab(${i})">✕</button>`
+      +`</div>`;
+  }
+  html+=`<button class="bank-tab-add" title="Open a file into a free bank" onclick="bankOpenFree()">＋</button>`;
+  host.innerHTML=html;
+}
+function bankApplyLayout(){
+  const panes=document.getElementById('bkPanes');
+  const p0=document.getElementById('bkPane0'),p1=document.getElementById('bkPane1');
+  if(!panes||!p0||!p1)return;
+  const loaded=bankLoadedSlots();
+  // Split needs two loaded banks; fall back to single otherwise.
+  if(bankViewMode==='split'&&loaded.length<2)bankViewMode='single';
+  if(bankViewMode==='split'){
+    panes.classList.remove('single');panes.classList.add('split');
+    p0.classList.remove('is-shown');p1.classList.remove('is-shown');
+    const left=bankState[bankSplitLeft]!=null?bankSplitLeft:loaded[0];
+    p0.style.order=(0===left?0:1);
+    p1.style.order=(1===left?0:1);
+  }else{
+    panes.classList.remove('split');panes.classList.add('single');
+    let show=bankState[bankActiveTab]!=null?bankActiveTab:(loaded.length?loaded[0]:0);
+    bankActiveTab=show;
+    p0.classList.toggle('is-shown',show===0);
+    p1.classList.toggle('is-shown',show===1);
+  }
+  updateStatusBar();
+}
+function bankSelectTab(slot){
+  if(bankState[slot]==null)return;
+  if(bankViewMode==='single'){bankActiveTab=slot;bankFocus=slot;}
+  else{bankFocus=slot;}
+  bankRenderTabs();bankApplyLayout();
+}
+async function bankOpenFree(){
+  let free=-1;
+  if(bankState[0]==null)free=0;else if(bankState[1]==null)free=1;
+  if(free<0){toast('Both banks loaded — close one first','info');return;}
+  await bankLoad(free);
+}
+function bankCloseTab(slot){
+  const b=bankState[slot];if(!b)return;
+  if(b.dirty&&!window.confirm('Discard unsaved changes in Bank '+BANK_LABELS[slot]+'?'))return;
+  // If the editor is bound to this slot, close it first so it never operates on a null row.
+  if(bankEditor&&bankEditor.bank===slot){closeBankModal();bankEditor={bank:-1,slot:-1};}
+  bankState[slot]=null;bankSel[slot].clear();bankLastSlot[slot]=-1;
+  renderBankPane(slot);
+  const other=slot===0?1:0;
+  bankViewMode='single';
+  bankActiveTab=other;bankFocus=other;
+  bankRenderTabs();bankApplyLayout();
+}
+function bankCollapseSplit(closedSlot){
+  const other=closedSlot===0?1:0;
+  bankViewMode='single';
+  if(bankState[other]!=null){bankActiveTab=other;bankFocus=other;}
+  else{bankActiveTab=closedSlot;bankFocus=closedSlot;}
+  bankRenderTabs();bankApplyLayout();
+}
+function bankSetSplit(leftSlot){
+  if(bankLoadedSlots().length<2){toast('Open a second file to split','info');return;}
+  bankSplitLeft=leftSlot;bankViewMode='split';
+  bankApplyLayout();bankRenderTabs();
+}
+// ── Tab drag → snap (separate DnD system from row copy) ──
+function bankTabDragStart(ev,slot){
+  bankTabDrag={slot:slot};
+  try{ev.dataTransfer.effectAllowed='move';ev.dataTransfer.setData('text/plain','banktab:'+slot);}catch(e){}
+  const panes=document.getElementById('bkPanes');if(panes)panes.classList.add('tab-dragging');
+}
+function bankTabDragEnd(ev){
+  bankTabDrag=null;
+  const panes=document.getElementById('bkPanes');if(panes)panes.classList.remove('tab-dragging');
+  document.querySelectorAll('.bank-snapzone.hot').forEach(z=>z.classList.remove('hot'));
+}
+function bankZoneDragOver(ev,side){
+  if(!bankTabDrag)return;
+  ev.preventDefault();ev.dataTransfer.dropEffect='move';
+  const z=ev.currentTarget;if(z)z.classList.add('hot');
+}
+function bankZoneDragLeave(ev,side){
+  const z=ev.currentTarget;if(z)z.classList.remove('hot');
+}
+function bankZoneDrop(ev,side){
+  if(!bankTabDrag){return;}
+  ev.preventDefault();
+  const dragged=bankTabDrag.slot,other=dragged===0?1:0;
+  bankSetSplit(side==='left'?dragged:other);
+  bankTabDragEnd(ev);
+}
+function bankTabDropOnPane(ev,toIdx){
+  ev.preventDefault();
+  const dragged=bankTabDrag.slot;
+  if(bankLoadedSlots().length<2){
+    // Only one bank: just show it single.
+    bankViewMode='single';bankActiveTab=dragged;bankFocus=dragged;
+    bankTabDragEnd(ev);bankRenderTabs();bankApplyLayout();
+    return;
+  }
+  // Reassign side: dragged bank occupies the VISUAL side of the pane it was
+  // dropped on. toIdx is the pane's fixed data-bank, not its on-screen side —
+  // the visual side flips via CSS `order`, so resolve it from bankSplitLeft.
+  const curLeft=bankState[bankSplitLeft]!=null?bankSplitLeft:bankLoadedSlots()[0];
+  const droppedOnVisualLeft=(curLeft===toIdx);
+  bankSplitLeft=droppedOnVisualLeft?dragged:(dragged===0?1:0);
+  bankViewMode='split';bankFocus=dragged;
+  bankTabDragEnd(ev);bankApplyLayout();bankRenderTabs();
+}
+
+// Render both panes' empty dropzones on first load, then init the shell.
 renderBankPane(0);renderBankPane(1);
+bankRenderTabs();bankApplyLayout();
 
 // ═══════════════════════════════════════════════════════════
 //  E2S SAMPLE MANAGEMENT
