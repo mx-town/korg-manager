@@ -117,6 +117,7 @@ contextBridge.exposeInMainWorld('api', {
     switch:     (idx)           => ipcRenderer.invoke('file:switch', idx),
     close:      (idx)           => ipcRenderer.invoke('file:close', idx),
     transfer:   (fromIdx, sampleIdx, toIdx) => ipcRenderer.invoke('file:transfer', fromIdx, sampleIdx, toIdx),
+    rows:       (idx)           => ipcRenderer.invoke('file:rows', idx),
   },
 
   // ═══ SD Card ═══

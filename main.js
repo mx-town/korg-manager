@@ -1299,10 +1299,20 @@ safeIpcHandle('file:open', async () => {
     currentSamples = entry.samples;
     esxOriginalBuffer = entry.esxOriginalBuffer;
   } else {
+    if (openFiles.length >= 2) return { error: 'Maximal 2 Dateien - erst eine schliessen' };
     openFiles.push(entry);
     activate(openFiles.length - 1);
   }
   return { index: activeFile, filePath, fileName, device, tabs: fileListMeta(), state: getSamplesInfo() };
+});
+
+// file:rows → READ-ONLY rows of a file WITHOUT switching the active file
+safeIpcHandle('file:rows', async (ev, idx) => {
+  if (idx < 0 || idx >= openFiles.length) return { error: 'Invalid file index' };
+  stashActive(); // flush live globals into openFiles[activeFile]; does NOT move activeFile
+  const e = openFiles[idx];
+  return { device: e.device, fileName: e.fileName || 'UNTITLED',
+    rows: e.samples.map((s, i) => ({ index: i, name: s.name, rate: s.sampleRate })) };
 });
 
 // file:switch → activate an already-open file

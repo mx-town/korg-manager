@@ -1495,6 +1495,51 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
         #fileTabs .ftab-add:hover{border-color:var(--led-d);color:var(--led)}
       </style>
       <div class="sl" id="sL"><div class="es"><div class="dz" id="dZ"><i>⚡</i><p><strong>DROP SAMPLES HERE</strong><br><br>WAV / AIF / ZIP → 16-bit mono 44.1kHz</p></div></div></div>
+      <style>
+        /* ── SPLIT VIEW (additive; scoped; touches no existing selector) ── */
+        .sl-w.split-on > .sl-hdr,
+        .sl-w.split-on > .ch,
+        .sl-w.split-on > #sL{display:none!important}
+        #splWrap{flex:1;display:flex;min-height:0;overflow:hidden}
+        #splWrap .spl-col{flex:1 1 50%;display:flex;flex-direction:column;min-width:0;overflow:hidden;border-right:2px solid var(--brd)}
+        #splWrap .spl-col:last-child{border-right:none}
+        #splWrap .spl-col.drop-hot{background:var(--hi-g);box-shadow:inset 0 0 0 1px var(--hi-d)}
+        #splWrap .spl-hdr{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--dark);border-bottom:1px solid var(--brd)}
+        #splWrap .spl-dot{width:8px;height:8px;border-radius:50%;background:var(--hi);box-shadow:0 0 6px var(--hi);flex:0 0 auto}
+        #splWrap .spl-name{font-family:var(--lcd);font-size:12px;color:var(--led);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
+        #splWrap .spl-chip{font-family:var(--head);font-size:8px;font-weight:700;letter-spacing:1px;padding:1px 5px;border:1px solid var(--hi-d);color:var(--hi);clip-path:polygon(3px 0%,100% 0%,calc(100% - 3px) 100%,0% 100%);flex:0 0 auto}
+        #splWrap .spl-cnt{font-family:var(--lcd);font-size:10px;color:var(--txt-x);flex:0 0 auto}
+        #splWrap .spl-ch{display:grid;grid-template-columns:44px 1fr 46px;gap:6px;padding:5px 12px;font-family:var(--lcd);font-size:9px;color:var(--txt-x);letter-spacing:2px;border-bottom:1px solid var(--brd);background:var(--void)}
+        #splWrap .spl-ch span:last-child{text-align:right}
+        #splWrap .spl-list{flex:1;overflow-y:auto;overflow-x:hidden}
+        #splWrap .spl-row{display:grid;grid-template-columns:44px 1fr 46px;gap:6px;align-items:center;padding:6px 12px;cursor:pointer;border-left:3px solid transparent;border-bottom:1px solid rgba(255,255,255,.02);transition:background 50ms,border-color 50ms}
+        #splWrap .spl-row:hover{background:var(--cell-h);border-left-color:var(--hi-d)}
+        #splWrap .spl-row.foc{background:var(--cell-a);border-left-color:var(--hi);box-shadow:inset 0 0 40px rgba(197,48,92,.03)}
+        #splWrap .spl-i{font-family:var(--lcd);font-size:11px;color:var(--txt-x);text-align:center}
+        #splWrap .spl-row.foc .spl-i{color:var(--hi)}
+        #splWrap .spl-n{font-family:var(--lcd);font-size:13px;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        #splWrap .spl-row.foc .spl-n{color:var(--led)}
+        #splWrap .spl-r{font-family:var(--lcd);font-size:11px;color:var(--txt-d);text-align:right}
+        #splWrap .spl-empty{padding:22px 12px;text-align:center;font-family:var(--lcd);font-size:11px;color:var(--txt-x)}
+        /* SPLIT/EINZEL toggle + disabled OPEN (in the tab bar) */
+        #fileTabs .ftab-split{flex:0 0 auto;padding:5px 12px;background:var(--void);border:1px solid var(--hi-d);color:var(--hi);font-family:var(--head);font-size:9px;font-weight:700;letter-spacing:2px;cursor:pointer;white-space:nowrap;clip-path:polygon(4px 0%,100% 0%,calc(100% - 4px) 100%,0% 100%);transition:border-color .12s,color .12s,background .12s}
+        #fileTabs .ftab-split:hover{border-color:var(--hi);background:var(--hi-g)}
+        #fileTabs .ftab-split.on{background:var(--hi-g);color:var(--led);border-color:var(--hi)}
+        #fileTabs .ftab-add[disabled],#fileTabs .ftab-add.ftab-dis{opacity:.4;cursor:not-allowed}
+        #fileTabs .ftab-add[disabled]:hover,#fileTabs .ftab-add.ftab-dis:hover{border-color:var(--brd-h);color:var(--txt-d)}
+      </style>
+      <div id="splWrap" style="display:none">
+        <div class="spl-col" data-file="0">
+          <div class="spl-hdr"><span class="spl-dot"></span><span class="spl-name" id="splName0">FILE A</span><span class="spl-chip" id="splChip0">ESX-1</span><span class="spl-cnt" id="splCnt0">0</span></div>
+          <div class="spl-ch"><span>#</span><span>NAME</span><span>RATE</span></div>
+          <div class="spl-list" id="splL0"></div>
+        </div>
+        <div class="spl-col" data-file="1">
+          <div class="spl-hdr"><span class="spl-dot"></span><span class="spl-name" id="splName1">FILE B</span><span class="spl-chip" id="splChip1">ESX-1</span><span class="spl-cnt" id="splCnt1">0</span></div>
+          <div class="spl-ch"><span>#</span><span>NAME</span><span>RATE</span></div>
+          <div class="spl-list" id="splL1"></div>
+        </div>
+      </div>
     </div>
     <div class="sb">
       <div class="sbs"><div class="sbt">WAVEFORM</div>
@@ -6350,7 +6395,14 @@ function renderFileTabs(){
       +`<span class="ftab-x" data-close="${t.index}" title="Close">&#10005;</span>`
       +`</div>`;
   }
-  h+=`<button class="ftab-add" onclick="openFileTab()" title="Open a .esx or e2sSample.all file in a new tab">&#65291; OPEN</button>`;
+  const twoOpen=fileTabs.length>=2;
+  if(twoOpen){
+    h+=`<button class="ftab-add ftab-dis" disabled title="Maximal 2 Dateien - erst eine schliessen">&#65291; OPEN</button>`;
+    const sp=splitActive();
+    h+=`<button class="ftab-split${sp?' on':''}" onclick="toggleSplit()" title="${sp?'Zurück zur Einzelansicht':'Beide Dateien nebeneinander'}">${sp?'EINZEL':'SPLIT'}</button>`;
+  }else{
+    h+=`<button class="ftab-add" onclick="openFileTab()" title="Open a .esx or e2sSample.all file in a new tab">&#65291; OPEN</button>`;
+  }
   c.innerHTML=h;
   // Wire clicks / close / drop-target on each tab
   c.querySelectorAll('.ftab').forEach(el=>{
@@ -6365,6 +6417,7 @@ function renderFileTabs(){
     el.addEventListener('dragleave',()=>el.classList.remove('drop-hot'));
     el.addEventListener('drop',ev=>{ev.preventDefault();el.classList.remove('drop-hot');onTabDrop(idx,ev)});
   });
+  applySplit();
 }
 
 function _syncActiveFromTabs(){const a=fileTabs.find(t=>t.active);if(a)activeFileIndex=a.index}
@@ -6455,10 +6508,17 @@ document.addEventListener('DOMContentLoaded',()=>{});
 })();
 
 async function onTabDrop(toIdx,ev){
-  const from=activeFileIndex;
-  if(toIdx===from)return;
-  const raw=ev.dataTransfer.getData('text/x-sample-idx')||ev.dataTransfer.getData('text/plain');
-  const sampleIdx=parseInt(raw,10);
+  // A split-row drag carries 'text/x-spl' = `${file}:${idx}` — its source file may
+  // be the NON-active column, so prefer it over the activeFileIndex assumption.
+  let from=activeFileIndex,sampleIdx;
+  const spl=ev.dataTransfer.getData('text/x-spl');
+  if(spl){
+    const parts=spl.split(':');from=+parts[0];sampleIdx=parseInt(parts[1],10);
+  }else{
+    const raw=ev.dataTransfer.getData('text/x-sample-idx')||ev.dataTransfer.getData('text/plain');
+    sampleIdx=parseInt(raw,10);
+  }
+  if(isNaN(from)||toIdx===from)return;
   if(isNaN(sampleIdx))return;
   const r=await window.api.file.transfer(from,sampleIdx,toIdx);
   if(!r||!r.ok){toast((r&&r.error)||'Transfer failed','error');return}
@@ -6474,6 +6534,121 @@ async function onTabDrop(toIdx,ev){
     if(r&&r.tabs){fileTabs=r.tabs;activeFileIndex=(typeof r.activeIndex==='number')?r.activeIndex:0;_syncActiveFromTabs();renderFileTabs();}
   }catch(e){console.warn('file:list failed',e)}
 })();
+</script>
+<script>
+// ═══════════════════════════════════════════════════════════
+//  SPLIT VIEW  (additive — reuses selS/showDet/openModify + the shared 340px
+//  detail panel via file:switch. #sL/renderList/selS/showDet are UNTOUCHED;
+//  in split #sL is merely hidden by the .split-on class on .sl-w.)
+//  Shares scope with FILES-AS-TABS: fileTabs/activeFileIndex/switchFile/selS/
+//  openModify/toast/esc/_deviceChip/window.api.file.* are all reachable here.
+// ═══════════════════════════════════════════════════════════
+let splitManual=null;            // null=auto (split when 2 files); true/false=user override
+let splitFocus=null;             // {file,index} of the highlighted split row
+
+// Should the two-list split layout be shown? Auto-on at 2 files unless overridden.
+function splitActive(){if(fileTabs.length<2)return false;return splitManual===null?true:splitManual}
+
+// Manual toggle button in the tab bar. Flips the override then repaints.
+function toggleSplit(){splitManual=!splitActive();renderFileTabs()}
+
+// Show/hide the split container + hide #sL via .split-on. Called at the end of
+// renderFileTabs, so every tab op (open/close/switch/transfer) keeps it in sync.
+function applySplit(){
+  const slw=document.querySelector('#esx1-view .sl-w');
+  const wrap=document.getElementById('splWrap');
+  if(!slw||!wrap)return;
+  if(fileTabs.length<2)splitManual=null;          // drop the override once we're back to a single file
+  const on=splitActive();
+  slw.classList.toggle('split-on',on);
+  wrap.style.display=on?'flex':'none';
+  if(on)renderSplitLists(); else splitFocus=null;   // no stale highlight on the next split
+}
+
+// Paint both compressed lists from the read-only file:rows handler (does NOT
+// switch the active file). Guards against a mid-render toggle so it can't flash.
+async function renderSplitLists(){
+  if(!splitActive())return;
+  for(const f of [0,1]){
+    let r;
+    try{r=await window.api.file.rows(f)}catch(e){r=null}
+    if(!splitActive())return;                     // user toggled away while awaiting
+    const list=document.getElementById('splL'+f);
+    if(!list)continue;
+    if(!r||r.error){list.innerHTML='<div class="spl-empty">// unavailable</div>';continue}
+    const nm=document.getElementById('splName'+f),ch=document.getElementById('splChip'+f),cn=document.getElementById('splCnt'+f);
+    if(nm)nm.textContent=r.fileName||'UNTITLED';
+    if(ch)ch.textContent=_deviceChip(r.device);
+    if(cn)cn.textContent=r.rows.length;
+    let h='';
+    for(const row of r.rows){
+      const foc=splitFocus&&splitFocus.file===f&&splitFocus.index===row.index;
+      const rate=row.rate>=1000?`${(row.rate/1000).toFixed(1)}k`:row.rate;
+      h+=`<div class="spl-row${foc?' foc':''}" draggable="true" data-file="${f}" data-idx="${row.index}">`
+        +`<div class="spl-i">${String(row.index+1).padStart(3,'0')}</div>`
+        +`<div class="spl-n">${esc(row.name)}</div>`
+        +`<div class="spl-r">${rate}</div></div>`;
+    }
+    list.innerHTML=h||'<div class="spl-empty">// empty</div>';
+  }
+  wireSplitRows();
+}
+
+// Wire click/dblclick/drag on split rows and drop-targets on the two columns.
+function wireSplitRows(){
+  document.querySelectorAll('#splWrap .spl-row').forEach(el=>{
+    const f=+el.dataset.file,i=+el.dataset.idx;
+    el.addEventListener('click',()=>splitRowClick(f,i));
+    el.addEventListener('dblclick',async()=>{await splitRowClick(f,i);openModify()});
+    el.addEventListener('dragstart',ev=>{
+      ev.dataTransfer.setData('text/x-spl',f+':'+i);
+      ev.dataTransfer.setData('text/plain',String(i));
+      ev.dataTransfer.effectAllowed='copy';
+    });
+  });
+  document.querySelectorAll('#splWrap .spl-col').forEach(col=>{
+    const to=+col.dataset.file;
+    col.addEventListener('dragover',ev=>{ev.preventDefault();col.classList.add('drop-hot')});
+    col.addEventListener('dragleave',()=>col.classList.remove('drop-hot'));
+    col.addEventListener('drop',ev=>{ev.preventDefault();col.classList.remove('drop-hot');onSplitDrop(to,ev)});
+  });
+}
+
+// Highlight the focused row without a full re-render (belt-and-suspenders with
+// the foc class baked in by renderSplitLists).
+function markSplitFocus(){
+  document.querySelectorAll('#splWrap .spl-row.foc').forEach(el=>el.classList.remove('foc'));
+  if(!splitFocus)return;
+  const el=document.querySelector(`#splWrap .spl-row[data-file="${splitFocus.file}"][data-idx="${splitFocus.index}"]`);
+  if(el)el.classList.add('foc');
+}
+
+// The clicked list LEADS: make that file active, then drive the shared detail
+// panel + editor through the UNCHANGED selS(). switchFile early-returns when the
+// file is already active, so selS still runs afterwards (outside its guard).
+async function splitRowClick(f,i){
+  splitFocus={file:f,index:i};
+  markSplitFocus();
+  await switchFile(f);                             // cross-file: re-renders lists (with foc); same-file: no-op
+  await selS(i);                                   // reuse verbatim: fills 340px panel + waveform + undo state
+  markSplitFocus();
+}
+
+// Drag a row onto the OTHER column -> copy into that file (existing transfer IPC).
+async function onSplitDrop(toFile,ev){
+  const raw=ev.dataTransfer.getData('text/x-spl');
+  if(!raw)return;
+  const parts=raw.split(':');const from=+parts[0],idx=+parts[1];
+  if(isNaN(from)||isNaN(idx)||from===toFile)return;
+  const r=await window.api.file.transfer(from,idx,toFile);
+  if(!r||!r.ok){toast((r&&r.error)||'Transfer failed','error');return}
+  fileTabs=r.tabs||fileTabs;_syncActiveFromTabs();
+  // If the copy landed in the ACTIVE file, the renderer's S global is now stale
+  // (it lacks the appended sample). Refresh it so #sL and showDet see the new row.
+  if(toFile===activeFileIndex)updateState(await window.api.getState());
+  renderFileTabs();                                // refresh counts + re-render both split lists
+  toast(r.message||'COPIED',r.converted?'info':'success');
+}
 </script>
 <div class="ctx-menu" id="ctxMenu"><div class="ctx-title">SET TYPE</div><div class="ctx-items" id="ctxItems"></div></div>
 <div class="sample-picker-bg" id="smpPickerBg" onclick="closeSamplePicker()"><div class="sample-picker" onclick="event.stopPropagation()"><div class="smp-header"><span class="smp-title">SELECT SAMPLE</span><span class="smp-part-label" id="smpPartLabel">DRUM 1</span><input type="text" class="smp-search" id="smpSearch" placeholder="Search..." oninput="smpFilterList()"><button class="smp-close" onclick="closeSamplePicker()">&#10005;</button></div><div class="smp-list" id="smpList"></div><div class="smp-footer" id="smpFooter"><span class="smp-current" id="smpCurrent">Current: —</span></div></div></div>
