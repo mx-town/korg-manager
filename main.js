@@ -1289,8 +1289,19 @@ safeIpcHandle('file:open', async () => {
   } else {
     entry = { device: 'e2s', samples: e2sEntryFromBuffer(buffer), esxOriginalBuffer: null, filePath, fileName };
   }
-  openFiles.push(entry);
-  activate(openFiles.length - 1);
+  // Reuse the current tab if it's an empty UNTITLED (no file loaded, no samples) —
+  // so opening the FIRST file becomes that tab instead of spawning an extra one.
+  // A second file (while a real one is loaded) still opens a new tab.
+  stashActive();
+  const act = openFiles[activeFile];
+  if (act && !act.filePath && (!act.samples || act.samples.length === 0)) {
+    openFiles[activeFile] = entry;
+    currentSamples = entry.samples;
+    esxOriginalBuffer = entry.esxOriginalBuffer;
+  } else {
+    openFiles.push(entry);
+    activate(openFiles.length - 1);
+  }
   return { index: activeFile, filePath, fileName, device, tabs: fileListMeta(), state: getSamplesInfo() };
 });
 
