@@ -1473,6 +1473,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
   <div class="export-progress" id="expProg"><div class="export-bar-wrap"><div class="export-bar" id="expBar" style="width:0%"></div></div><span class="export-text" id="expText">BUILDING...</span></div>
   <div class="main">
     <div class="sl-w">
+      <div id="fileTabs" class="file-tabs"></div>
       <div class="sl-hdr"><h2>▸ SAMPLES</h2><span class="sc" id="sC">0/256</span><button class="btn btn-sm" id="sortBtn" onclick="toggleSort()">⇅ SORT</button><div class="sel-actions"><button class="btn btn-sm" id="selAllBtn" onclick="toggleSelectAll()">☐ ALL</button><span class="sel-badge" id="selBadge" style="display:none">0</span></div></div>
       <div class="ch"><span></span><span>#</span><span>NAME</span><span>SRC</span><span style="text-align:right">RATE</span><span style="text-align:right">LEN</span><span style="text-align:right">SIZE</span></div>
       <style>
@@ -1493,7 +1494,6 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
         #fileTabs .ftab-add{flex:0 0 auto;padding:5px 10px;background:var(--void);border:1px dashed var(--brd-h);color:var(--txt-d);font-family:var(--head);font-size:9px;font-weight:700;letter-spacing:2px;cursor:pointer;white-space:nowrap;clip-path:polygon(4px 0%,100% 0%,calc(100% - 4px) 100%,0% 100%);transition:border-color .12s,color .12s}
         #fileTabs .ftab-add:hover{border-color:var(--led-d);color:var(--led)}
       </style>
-      <div id="fileTabs" class="file-tabs"></div>
       <div class="sl" id="sL"><div class="es"><div class="dz" id="dZ"><i>⚡</i><p><strong>DROP SAMPLES HERE</strong><br><br>WAV / AIF / ZIP → 16-bit mono 44.1kHz</p></div></div></div>
     </div>
     <div class="sb">
