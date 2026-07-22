@@ -111,6 +111,12 @@ contextBridge.exposeInMainWorld('api', {
   // ═══ Universal ═══
   file: {
     openAny:    ()              => ipcRenderer.invoke('file:open-any'),
+    // Files-as-tabs (multi-file) bridge
+    list:       ()              => ipcRenderer.invoke('file:list'),
+    open:       ()              => ipcRenderer.invoke('file:open'),
+    switch:     (idx)           => ipcRenderer.invoke('file:switch', idx),
+    close:      (idx)           => ipcRenderer.invoke('file:close', idx),
+    transfer:   (fromIdx, sampleIdx, toIdx) => ipcRenderer.invoke('file:transfer', fromIdx, sampleIdx, toIdx),
   },
 
   // ═══ SD Card ═══

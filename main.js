@@ -109,6 +109,19 @@ let esxOriginalBuffer = null; // Original .esx buffer for pattern-preserving reb
 let esxPatternSamples = null; // Parsed mono samples from pattern-loaded ESX (for playback)
 let esxPatternBuffer = null;  // Raw .esx buffer for pattern editing (write-back)
 let esxPatternFilePath = null; // File path of the currently loaded pattern file
+
+// ── Multi-file (files-as-tabs) store ──────────────────────────
+// Each entry is a self-contained per-file store. The ACTIVE entry's sample
+// array + original buffer are aliased by the legacy globals above
+// (currentSamples / esxOriginalBuffer) via activate()/stashActive(), so every
+// existing esx: handler keeps operating on the active file with ZERO changes.
+// Endianness contract: every entry stores pcmData in ESX-native BIG-endian
+// ("view-native") so get-waveform (readInt16BE), get-wav-preview and all the
+// fx-* handlers work unmodified. E2S entries keep device:'e2s' only for the tab
+// chip + transfer conversion (their PCM is byte-swapped LE→BE on load).
+let openFiles = [{ device: 'esx', samples: currentSamples, esxOriginalBuffer: null, filePath: null, fileName: 'UNTITLED' }];
+let activeFile = 0;
+
 const MAX_UNDO = 50;
 
 function pushUndo(index) {
@@ -1123,6 +1136,217 @@ const e2sFormat  = require('./src/e2s-format');
 const e2patFormat = require('./src/e2pat-format');
 const emxFormat  = require('./src/emx-format');
 const fileIO     = require('./src/file-io');
+
+// ═══════════════════════════════════════════════════════════
+//  MULTI-FILE (FILES-AS-TABS) — file:* handlers
+// ═══════════════════════════════════════════════════════════
+// Pointer discipline: swap-in/swap-out, NOT live aliasing, because legacy
+// handlers (clear-all, open-esx-file) REASSIGN currentSamples. stashActive()
+// captures the live globals back into the active entry; activate() then points
+// the globals at another entry. After activate(), every esx: handler still just
+// sees currentSamples / esxOriginalBuffer — no handler changes needed.
+
+/** Write the live legacy globals back into the active entry. */
+function stashActive() {
+  if (activeFile < 0 || activeFile >= openFiles.length) return;
+  const e = openFiles[activeFile];
+  e.samples = currentSamples;
+  e.esxOriginalBuffer = esxOriginalBuffer;
+}
+
+/** Stash the current entry, then make `idx` active by aliasing the globals. */
+function activate(idx) {
+  stashActive();
+  activeFile = idx;
+  const e = openFiles[idx];
+  currentSamples = e.samples;
+  esxOriginalBuffer = e.esxOriginalBuffer;
+}
+
+/** Tab metadata for the renderer. Stashes first so the active count is fresh. */
+function fileListMeta() {
+  stashActive();
+  return openFiles.map((e, i) => ({
+    index: i,
+    name: e.fileName || 'UNTITLED',
+    device: e.device,
+    count: e.samples.length,
+    active: i === activeFile,
+  }));
+}
+
+/** In-place-safe 16-bit endianness swap (LE<->BE). Returns a fresh Buffer. */
+function swapEndian16(buf) {
+  const out = Buffer.from(buf);
+  if (out.length % 2 === 0) out.swap16();
+  return out;
+}
+
+/**
+ * Parse an e2sSample.all buffer into currentSamples-shaped records. PCM is
+ * byte-swapped LE→BE (endianness only, NO resample; rate stays 48000) so the
+ * ESX view renders it through the unchanged handlers. Per-slot E2S metadata is
+ * stashed on _e2s* fields for lossless transfer back to an E2S bank.
+ */
+function e2sEntryFromBuffer(buffer) {
+  const parsed = e2sFormat.parseE2sAllFile(buffer);
+  const samples = [];
+  for (let i = 0; i < parsed.samples.length; i++) {
+    const s = parsed.samples[i];
+    if (!s || s.error || !s.pcmData || s.pcmData.length === 0) continue;
+    const esli = s.esli || {};
+    const pcmBE = swapEndian16(s.pcmData); // LE→BE (view-native)
+    const sampleRate = esli.sampleRate || e2sFormat.NATIVE_RATE;
+    const numFrames = pcmBE.length / 2;
+    samples.push({
+      name: (esli.name || `Sample ${i}`).substring(0, 16),
+      pcmData: pcmBE, sampleRate, numFrames, duration: numFrames / sampleRate,
+      originalPath: null, folder: null, _undo: [], _redo: [], _original: null,
+      _e2sCategory: esli.category ?? 0,
+      _e2sTune: esli.playLogPeriod ?? 0,
+      _e2sBoost: esli.loudness ?? 127,
+      _e2sMeta: { loopType: esli.loopType ?? 0, playVolume: esli.playVolume ?? 0x4000 },
+    });
+  }
+  return samples;
+}
+
+/**
+ * View-native (BE) currentSamples record → bank-sample in DEVICE-NATIVE
+ * endianness (ESX=BE kept, E2S=BE→LE swapped) for handing to src/bank.js.
+ */
+function toBankSample(rec, device) {
+  const pcm = device === 'e2s' ? swapEndian16(rec.pcmData) : Buffer.from(rec.pcmData);
+  const numFrames = pcm.length / 2;
+  const sampleRate = rec.sampleRate || bank.deviceRate(device);
+  const sample = {
+    name: rec.name, pcmData: pcm, sampleRate, stereo: false, numFrames,
+    duration: numFrames / sampleRate, loopStart: null, loopEnd: null,
+    undoStack: [], redoStack: [], _original: null,
+  };
+  if (device === 'e2s') {
+    const m = rec._e2sMeta || {};
+    sample.category = rec._e2sCategory ?? 0;
+    sample.tune = rec._e2sTune ?? 0;
+    sample.boost = rec._e2sBoost ?? 127;
+    sample._e2s = { loopType: m.loopType ?? 0, playVolume: m.playVolume ?? 0x4000 };
+  }
+  return sample;
+}
+
+/**
+ * bank-sample (DEVICE-NATIVE) → view-native (BE) currentSamples record
+ * (E2S=LE→BE swapped) so the target entry's store stays view-native.
+ */
+function fromBankSample(sample, device) {
+  const pcm = device === 'e2s' ? swapEndian16(sample.pcmData) : Buffer.from(sample.pcmData);
+  const numFrames = pcm.length / 2;
+  const sampleRate = sample.sampleRate || bank.deviceRate(device);
+  const rec = {
+    name: sample.name, pcmData: pcm, sampleRate, numFrames,
+    duration: numFrames / sampleRate, originalPath: null, folder: null,
+    _undo: [], _redo: [], _original: null,
+  };
+  if (device === 'e2s') {
+    const m = sample._e2s || {};
+    rec._e2sCategory = sample.category ?? 0;
+    rec._e2sTune = sample.tune ?? 0;
+    rec._e2sBoost = sample.boost ?? 127;
+    rec._e2sMeta = { loopType: m.loopType ?? 0, playVolume: m.playVolume ?? 0x4000 };
+  }
+  return rec;
+}
+
+// file:list → tab metas
+safeIpcHandle('file:list', async () => ({ tabs: fileListMeta(), activeIndex: activeFile }));
+
+// file:open → dialog (.esx / e2sSample.all) → detect → append → activate
+safeIpcHandle('file:open', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Open Sample File',
+    filters: [
+      { name: 'Electribe Sample Files', extensions: ['esx', 'ESX', 'all', 'ALL'] },
+      { name: 'ESX-1 Files', extensions: ['esx', 'ESX'] },
+      { name: 'E2S Files', extensions: ['all', 'ALL'] },
+    ],
+    properties: ['openFile'],
+  });
+  if (result.canceled) return null;
+  const filePath = result.filePaths[0];
+  const fileName = path.basename(filePath);
+  const buffer = await fsp.readFile(filePath);
+  const device = bank.detectDevice(buffer, fileName);
+  if (!device) return { error: 'Unrecognized file (expected .esx or e2sSample.all)' };
+
+  let entry;
+  if (device === 'esx') {
+    const parsed = esx.parseEsxFile(buffer);
+    const samples = [];
+    for (const s of parsed.monoSamples) {
+      if (s) samples.push({ name: s.name, pcmData: s.pcmData, sampleRate: s.sampleRate, numFrames: s.numFrames, duration: s.duration, originalPath: null, folder: null, _undo: [], _redo: [], _original: null });
+    }
+    entry = { device: 'esx', samples, esxOriginalBuffer: Buffer.from(buffer), filePath, fileName };
+  } else {
+    entry = { device: 'e2s', samples: e2sEntryFromBuffer(buffer), esxOriginalBuffer: null, filePath, fileName };
+  }
+  openFiles.push(entry);
+  activate(openFiles.length - 1);
+  return { index: activeFile, filePath, fileName, device, tabs: fileListMeta(), state: getSamplesInfo() };
+});
+
+// file:switch → activate an already-open file
+safeIpcHandle('file:switch', async (ev, idx) => {
+  if (idx < 0 || idx >= openFiles.length) return { error: 'Invalid file index' };
+  activate(idx);
+  const e = openFiles[idx];
+  return { filePath: e.filePath, fileName: e.fileName, device: e.device, tabs: fileListMeta(), state: getSamplesInfo() };
+});
+
+// file:close → splice; reseed empty ESX entry if none remain
+safeIpcHandle('file:close', async (ev, idx) => {
+  if (idx < 0 || idx >= openFiles.length) return { error: 'Invalid file index' };
+  stashActive();
+  openFiles.splice(idx, 1);
+  if (openFiles.length === 0) {
+    openFiles.push({ device: 'esx', samples: [], esxOriginalBuffer: null, filePath: null, fileName: 'UNTITLED' });
+  }
+  let newActive;
+  if (idx < activeFile) newActive = activeFile - 1;       // active shifted left
+  else if (idx > activeFile) newActive = activeFile;       // active unaffected
+  else newActive = Math.min(idx, openFiles.length - 1);    // closed the active
+  if (newActive < 0) newActive = 0;
+  activeFile = newActive;
+  const e = openFiles[activeFile];
+  currentSamples = e.samples;
+  esxOriginalBuffer = e.esxOriginalBuffer;
+  return { tabs: fileListMeta(), activeIndex: activeFile, state: getSamplesInfo(), filePath: e.filePath, device: e.device };
+});
+
+// file:transfer → COPY one sample from source file into target (ESX<->E2S via bank.js)
+safeIpcHandle('file:transfer', async (ev, fromIdx, sampleIdx, toIdx) => {
+  stashActive(); // capture live globals into the active entry before reading stores
+  const fromEntry = openFiles[fromIdx];
+  const toEntry = openFiles[toIdx];
+  if (!fromEntry || !toEntry) return { ok: false, error: 'Invalid file index' };
+  const srcRec = fromEntry.samples[sampleIdx];
+  if (!srcRec) return { ok: false, error: 'Source sample not found' };
+
+  // Adapt dense view stores → bank shape (source = 1 sample, target = sparse maxSlots).
+  const fromBank = { device: fromEntry.device, samples: [toBankSample(srcRec, fromEntry.device)] };
+  const max = bank.maxSlots(toEntry.device);
+  const toBank = { device: toEntry.device, samples: new Array(max).fill(null) };
+  for (let i = 0; i < toEntry.samples.length && i < max; i++) {
+    toBank.samples[i] = toBankSample(toEntry.samples[i], toEntry.device);
+  }
+
+  const res = bank.copySamples(fromBank, [0], toBank, null); // append-to-next-free, all-or-nothing
+  if (!res.ok) return { ok: false, error: res.error, reason: res.reason };
+
+  // Rebuild the dense target store from non-null bank slots (device-native → BE).
+  toEntry.samples = toBank.samples.filter(Boolean).map(s => fromBankSample(s, toEntry.device));
+  if (toIdx === activeFile) currentSamples = toEntry.samples; // keep alias intact
+  return { ok: true, tabs: fileListMeta(), message: res.message, converted: res.converted };
+});
 
 // ═══════════════════════════════════════════════════════════
 //  E2S HANDLERS

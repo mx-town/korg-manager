@@ -1434,9 +1434,9 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
       <div class="vsb-items">
         <button class="vsb-item active" data-device="esx1" onclick="switchDevice('esx1')" title="ESX-1 Sampler">
           <span class="vsb-icon">◆</span>
-          <span class="vsb-label">ESX-1<small>SAMPLER</small></span>
+          <span class="vsb-label">SAMPLE MANAGER<small>ESX-1 / E2S</small></span>
         </button>
-        <button class="vsb-item" data-device="e2s" onclick="switchDevice('e2s')" title="E2S Sampler">
+        <button class="vsb-item" data-device="e2s" onclick="switchDevice('e2s')" title="E2S Sampler" style="display:none">
           <span class="vsb-icon">◈</span>
           <span class="vsb-label">E2S<small>SAMPLER</small></span>
         </button>
@@ -1444,7 +1444,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
           <span class="vsb-icon">▦</span>
           <span class="vsb-label">PATTERNS<small>VIEWER</small></span>
         </button>
-        <button class="vsb-item" data-device="bank" onclick="switchDevice('bank')" title="Unified Sample Manager (Banks A / B)">
+        <button class="vsb-item" data-device="bank" onclick="switchDevice('bank')" title="Unified Sample Manager (Banks A / B)" style="display:none">
           <span class="vsb-icon">◧</span>
           <span class="vsb-label">SAMPLE MGR<small>A / B</small></span>
         </button>
@@ -1465,7 +1465,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
       <button class="btn" onclick="importSamples()">📥 IMPORT</button>
       <div class="hsep"></div>
       <button class="btn btn-hi" id="btnSave" onclick="saveEsxToFile()" style="display:none">💾 SAVE</button>
-      <button class="btn" onclick="exportNewEsx()">📤 EXPORT NEW</button>
+      <button class="btn" id="btnExportNew" onclick="exportNewEsx()">📤 EXPORT NEW</button>
       <button class="btn" onclick="openGuide()">ℹ BETA INFO</button>
     </div>
   </div>
@@ -1475,6 +1475,25 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
     <div class="sl-w">
       <div class="sl-hdr"><h2>▸ SAMPLES</h2><span class="sc" id="sC">0/256</span><button class="btn btn-sm" id="sortBtn" onclick="toggleSort()">⇅ SORT</button><div class="sel-actions"><button class="btn btn-sm" id="selAllBtn" onclick="toggleSelectAll()">☐ ALL</button><span class="sel-badge" id="selBadge" style="display:none">0</span></div></div>
       <div class="ch"><span></span><span>#</span><span>NAME</span><span>SRC</span><span style="text-align:right">RATE</span><span style="text-align:right">LEN</span><span style="text-align:right">SIZE</span></div>
+      <style>
+        /* ── FILES-AS-TABS bar (additive; touches no existing selector) ── */
+        #fileTabs.file-tabs{display:flex;align-items:stretch;gap:4px;padding:5px 6px 6px;overflow-x:auto;overflow-y:hidden;background:var(--void);border-bottom:1px solid var(--brd);scrollbar-width:thin}
+        #fileTabs.file-tabs::-webkit-scrollbar{height:6px}
+        #fileTabs.file-tabs::-webkit-scrollbar-thumb{background:var(--brd-h);border-radius:2px}
+        #fileTabs .ftab{display:flex;align-items:center;gap:6px;flex:0 0 auto;max-width:180px;padding:5px 8px;background:var(--panel);border:1px solid var(--brd);color:var(--txt-d);font-family:var(--lcd);font-size:11px;letter-spacing:1px;cursor:pointer;white-space:nowrap;clip-path:polygon(4px 0%,100% 0%,calc(100% - 4px) 100%,0% 100%);transition:border-color .12s,color .12s,background .12s}
+        #fileTabs .ftab:hover{border-color:var(--brd-h);color:var(--txt)}
+        #fileTabs .ftab.active{border-color:var(--hi-d);background:var(--cell-a);color:var(--led)}
+        #fileTabs .ftab.drop-hot{border-color:var(--led);background:var(--hi-g);color:var(--led)}
+        #fileTabs .ftab .ftab-name{overflow:hidden;text-overflow:ellipsis;max-width:96px}
+        #fileTabs .ftab .ftab-chip{font-family:var(--head);font-size:8px;font-weight:700;letter-spacing:1px;padding:1px 4px;border:1px solid var(--brd-h);color:var(--txt-x);clip-path:polygon(3px 0%,100% 0%,calc(100% - 3px) 100%,0% 100%)}
+        #fileTabs .ftab.active .ftab-chip{border-color:var(--hi-d);color:var(--hi)}
+        #fileTabs .ftab .ftab-cnt{font-family:var(--lcd);font-size:9px;color:var(--txt-x)}
+        #fileTabs .ftab .ftab-x{font-family:var(--lcd);font-size:12px;color:var(--txt-x);padding:0 1px;line-height:1}
+        #fileTabs .ftab .ftab-x:hover{color:var(--hi)}
+        #fileTabs .ftab-add{flex:0 0 auto;padding:5px 10px;background:var(--void);border:1px dashed var(--brd-h);color:var(--txt-d);font-family:var(--head);font-size:9px;font-weight:700;letter-spacing:2px;cursor:pointer;white-space:nowrap;clip-path:polygon(4px 0%,100% 0%,calc(100% - 4px) 100%,0% 100%);transition:border-color .12s,color .12s}
+        #fileTabs .ftab-add:hover{border-color:var(--led-d);color:var(--led)}
+      </style>
+      <div id="fileTabs" class="file-tabs"></div>
       <div class="sl" id="sL"><div class="es"><div class="dz" id="dZ"><i>⚡</i><p><strong>DROP SAMPLES HERE</strong><br><br>WAV / AIF / ZIP → 16-bit mono 44.1kHz</p></div></div></div>
     </div>
     <div class="sb">
@@ -2101,7 +2120,7 @@ function renderList(){
     const mt=window._sampleTags[s.index];
     const tagDot=mt?`<span class="tag-dot" style="background:${CTX_COLORS[mt]||'#444'}" title="${mt}"></span>`:'';
     const ckClass=ck?'ss-chk on':'ss-chk';
-    h+=`<div class="ss ${a?'act':''} ${ck?'checked':''}" onclick="selS(${s.index})" ondblclick="startRen(${s.index})" oncontextmenu="showCtxMenu(event,${s.index})"><div class="${ckClass}" onclick="handleCheck(event,${s.index})"></div><div class="si">${String(s.index+1).padStart(3,'0')}</div><div class="sn">${tagDot}${esc(s.name)}</div><div class="${fc}" title="${esc(f)}">${esc(f)}</div><div class="sr">${r}</div><div class="sd">${d}</div><div class="sz">${z}</div></div>`}
+    h+=`<div class="ss ${a?'act':''} ${ck?'checked':''}" draggable="true" data-fidx="${s.index}" onclick="selS(${s.index})" ondblclick="startRen(${s.index})" oncontextmenu="showCtxMenu(event,${s.index})"><div class="${ckClass}" onclick="handleCheck(event,${s.index})"></div><div class="si">${String(s.index+1).padStart(3,'0')}</div><div class="sn">${tagDot}${esc(s.name)}</div><div class="${fc}" title="${esc(f)}">${esc(f)}</div><div class="sr">${r}</div><div class="sd">${d}</div><div class="sz">${z}</div></div>`}
   l.innerHTML=h}
 function updateMem(){const b=document.getElementById('mB'),t=document.getElementById('mT'),p=parseFloat(S.usedPercent||0);b.style.width=`${p}%`;t.textContent=`${p}%`;b.classList.remove('w','c');if(p>90)b.classList.add('c');else if(p>70)b.classList.add('w');document.getElementById('mU').textContent=`${((S.totalSizeBytes||0)/1048576).toFixed(1)} MB`;document.getElementById('mD').textContent=(S.totalDuration||0).toFixed(1)}
 function updatePath(){const v=document.getElementById('pV'),s=document.getElementById('pS');if(!fp&&!S.numSamples){v.innerHTML='<span style="color:var(--txt-x)">// no file loaded</span>';s.className='pbar-st em';s.textContent='EMPTY'}else if(!fp){v.innerHTML=`<span style="color:var(--yel)">UNSAVED</span> <span style="color:var(--txt-x)">(${S.numSamples})</span>`;s.className='pbar-st un';s.textContent='NEW'}else{const p=fp.replace(/\\/g,'/').split('/'),fn=p.pop(),fd=p.slice(-3).join('/');v.innerHTML=`<span class="fld">${esc(fd)}/</span><span class="fil">${esc(fn)}</span>`;const cs=sel>=0&&S.samples?S.samples.find(x=>x.index===sel):null;const mod=cs?cs.hasOriginal:false;s.className=mod?'pbar-st un':'pbar-st sv';s.textContent=mod?'MODIFIED':'SAVED'}}
@@ -2167,6 +2186,7 @@ function reportValidation(v){
 async function saveEsxToFile(){
   if(_fxBusy)return;_fxBusy=true;
   try{
+  if(_activeTabDevice()!=='esx'){toast('SAVE is ESX-only','error');return}
   if(!fp){toast('NO FILE LOADED — use EXPORT NEW','error');return}
   if(!S.numSamples){toast('NO SAMPLES','error');return}
   const prog=document.getElementById('expProg');
@@ -2196,6 +2216,7 @@ async function saveEsxToFile(){
 async function exportNewEsx(){
   if(_fxBusy)return;_fxBusy=true;
   try{
+  if(_activeTabDevice()!=='esx'){toast('EXPORT NEW is ESX-only','error');return}
   if(!S.numSamples){toast('NO SAMPLES','error');return}
   const prog=document.getElementById('expProg');
   prog.style.display='flex';
@@ -6303,6 +6324,155 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(DOM.smpPickerBg&
     ov.style.transform='scale(1.8)';
     setTimeout(()=>{if(af)cancelAnimationFrame(af);ov.remove();},600);
   },3400);
+})();
+</script>
+<script>
+// ═══════════════════════════════════════════════════════════
+//  FILES-AS-TABS  (additive — reuses the existing ESX view via updateState)
+//  Shares global scope with the main <script>: S/sel/fp/sortMode/updateState/
+//  renderList/updatePath/updateUndo/hideDet/toast/openEsx are all reachable here.
+// ═══════════════════════════════════════════════════════════
+let fileTabs=[];                 // mirror of file:list -> [{index,name,device,count,active}]
+let activeFileIndex=0;           // which tab the main process has active
+let tabUi={};                    // per-tab client UI: {sel,fp,sortMode,tags}
+
+function _deviceChip(d){return d==='e2s'?'E2S':'ESX-1'}
+
+function renderFileTabs(){
+  const c=document.getElementById('fileTabs');if(!c)return;
+  let h='';
+  for(const t of fileTabs){
+    const act=t.active?' active':'';
+    h+=`<div class="ftab${act}" data-tab="${t.index}" title="${esc(t.name)} · ${_deviceChip(t.device)} · ${t.count} samples">`
+      +`<span class="ftab-chip">${_deviceChip(t.device)}</span>`
+      +`<span class="ftab-name">${esc(t.name||'UNTITLED')}</span>`
+      +`<span class="ftab-cnt">${t.count}</span>`
+      +`<span class="ftab-x" data-close="${t.index}" title="Close">&#10005;</span>`
+      +`</div>`;
+  }
+  h+=`<button class="ftab-add" onclick="openFileTab()" title="Open a .esx or e2sSample.all file in a new tab">&#65291; OPEN</button>`;
+  c.innerHTML=h;
+  // Wire clicks / close / drop-target on each tab
+  c.querySelectorAll('.ftab').forEach(el=>{
+    const idx=+el.dataset.tab;
+    el.addEventListener('click',ev=>{
+      if(ev.target&&ev.target.dataset&&ev.target.dataset.close!==undefined){
+        ev.stopPropagation();closeFileTab(+ev.target.dataset.close);return;
+      }
+      switchFile(idx);
+    });
+    el.addEventListener('dragover',ev=>{ev.preventDefault();if(idx!==activeFileIndex)el.classList.add('drop-hot')});
+    el.addEventListener('dragleave',()=>el.classList.remove('drop-hot'));
+    el.addEventListener('drop',ev=>{ev.preventDefault();el.classList.remove('drop-hot');onTabDrop(idx,ev)});
+  });
+}
+
+function _syncActiveFromTabs(){const a=fileTabs.find(t=>t.active);if(a)activeFileIndex=a.index}
+
+// Device of the currently-active tab (defaults to esx). The ESX-only SAVE/EXPORT
+// NEW paths are gated on this: an E2S tab holds 48kHz PCM that must never be
+// written into a .esx (44.1kHz) container by buildEsxFile().
+function _activeTabDevice(){const a=fileTabs.find(t=>t.active);return a&&a.device?a.device:'esx'}
+function updateSaveExportButtons(filePath){
+  const isEsx=_activeTabDevice()==='esx';
+  document.getElementById('btnSave').style.display=(isEsx&&filePath)?'':'none';
+  const be=document.getElementById('btnExportNew');if(be)be.style.display=isEsx?'':'none';
+}
+
+async function switchFile(idx){
+  if(idx===activeFileIndex)return;
+  // stash current tab's client UI
+  tabUi[activeFileIndex]={sel,fp,sortMode,tags:window._sampleTags};
+  const r=await window.api.file.switch(idx);
+  if(!r||r.error){toast((r&&r.error)||'Switch failed','error');return}
+  stopPlay();hideDet();
+  // restore target tab's UI (or defaults)
+  const u=tabUi[idx]||{};
+  sel=(typeof u.sel==='number')?u.sel:-1;
+  fp=('fp' in u)?u.fp:r.filePath;
+  if(typeof u.sortMode==='number')sortMode=u.sortMode;
+  window._sampleTags=u.tags||{};
+  activeFileIndex=idx;
+  fileTabs=r.tabs||fileTabs;_syncActiveFromTabs();
+  updateState(r.state);                 // EXISTING view re-renders identically for this file
+  updateSaveExportButtons(r.filePath);
+  renderFileTabs();
+}
+
+async function openFileTab(){
+  const r=await window.api.file.open();
+  if(!r)return;                          // dialog cancelled
+  if(r.error){toast(r.error,'error');return}
+  // stash the previously-active tab's UI before the active file changes
+  tabUi[activeFileIndex]={sel,fp,sortMode,tags:window._sampleTags};
+  stopPlay();hideDet();
+  sel=-1;fp=r.filePath;window._sampleTags={};
+  fileTabs=r.tabs||fileTabs;
+  activeFileIndex=(typeof r.index==='number')?r.index:activeFileIndex;_syncActiveFromTabs();
+  updateState(r.state);
+  updateSaveExportButtons(r.filePath);
+  renderFileTabs();
+  toast(`LOADED: ${(r.fileName||r.filePath||'FILE').split(/[\\/]/).pop()}`,'success');
+}
+// Route the existing 📂 OPEN button (openEsx) through the tab-adding flow.
+openEsx=openFileTab;
+
+async function closeFileTab(idx){
+  const r=await window.api.file.close(idx);
+  if(!r||r.error){toast((r&&r.error)||'Close failed','error');return}
+  // main.js spliced openFiles at idx, REINDEXING every tab to the right. tabUi is
+  // keyed by tab index, so drop the closed key and shift keys > idx down by one —
+  // a bare `delete tabUi[idx]` would leave the remaining entries off-by-one and
+  // hand the newly-active file another tab's cached fp (→ SAVE to the wrong path).
+  const nt={};Object.keys(tabUi).forEach(k=>{k=+k;if(k<idx)nt[k]=tabUi[k];else if(k>idx)nt[k-1]=tabUi[k];});tabUi=nt;
+  fileTabs=r.tabs||[];
+  const prevActive=activeFileIndex;
+  activeFileIndex=(typeof r.activeIndex==='number')?r.activeIndex:0;_syncActiveFromTabs();
+  if(activeFileIndex!==prevActive||idx===prevActive){
+    stopPlay();hideDet();
+    const u=tabUi[activeFileIndex]||{};
+    sel=(typeof u.sel==='number')?u.sel:-1;
+    fp=('fp' in u)?u.fp:r.filePath;
+    if(typeof u.sortMode==='number')sortMode=u.sortMode;
+    window._sampleTags=u.tags||{};
+    updateState(r.state);
+    updateSaveExportButtons(r.filePath);
+  }
+  renderFileTabs();
+}
+
+// Drag a sample row from #sL onto ANOTHER tab -> COPY into that file (active view untouched).
+document.addEventListener('DOMContentLoaded',()=>{});
+(function wireRowDrag(){
+  const l=document.getElementById('sL');if(!l)return;
+  l.addEventListener('dragstart',ev=>{
+    const row=ev.target&&ev.target.closest?ev.target.closest('.ss'):null;
+    if(!row||row.dataset.fidx===undefined)return;
+    ev.dataTransfer.setData('text/x-sample-idx',row.dataset.fidx);
+    ev.dataTransfer.setData('text/plain',row.dataset.fidx);
+    ev.dataTransfer.effectAllowed='copy';
+  });
+})();
+
+async function onTabDrop(toIdx,ev){
+  const from=activeFileIndex;
+  if(toIdx===from)return;
+  const raw=ev.dataTransfer.getData('text/x-sample-idx')||ev.dataTransfer.getData('text/plain');
+  const sampleIdx=parseInt(raw,10);
+  if(isNaN(sampleIdx))return;
+  const r=await window.api.file.transfer(from,sampleIdx,toIdx);
+  if(!r||!r.ok){toast((r&&r.error)||'Transfer failed','error');return}
+  fileTabs=r.tabs||fileTabs;_syncActiveFromTabs();
+  renderFileTabs();                      // refresh target count only; active view unchanged
+  toast(r.message||'COPIED',r.converted?'info':'success');
+}
+
+// Initial tab-bar paint (main process seeds one empty ESX tab at startup).
+(async function initFileTabs(){
+  try{
+    const r=await window.api.file.list();
+    if(r&&r.tabs){fileTabs=r.tabs;activeFileIndex=(typeof r.activeIndex==='number')?r.activeIndex:0;_syncActiveFromTabs();renderFileTabs();}
+  }catch(e){console.warn('file:list failed',e)}
 })();
 </script>
 <div class="ctx-menu" id="ctxMenu"><div class="ctx-title">SET TYPE</div><div class="ctx-items" id="ctxItems"></div></div>
