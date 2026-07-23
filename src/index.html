@@ -1350,6 +1350,44 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
   margin-top:1px;
 }
 .pat-item.act .pat-active-dots{color:var(--led)}
+/* ═══ FILE TABS + SPLIT VIEW (unified sample manager) ═══ */
+.ftabs{display:flex;align-items:flex-end;gap:6px;padding:6px 14px 0;background:var(--dark);border-bottom:1px solid var(--brd);flex-shrink:0}
+.ftab{display:flex;align-items:center;gap:8px;padding:5px 10px 5px 12px;background:var(--panel);border:1px solid var(--brd);border-bottom:none;cursor:pointer;clip-path:polygon(4px 0%,100% 0%,calc(100% - 4px) 100%,0% 100%);font-family:var(--lcd);font-size:12px;color:var(--txt-d);user-select:none;max-width:280px;min-width:0}
+.ftab.act{background:var(--cell-a);border-color:var(--hi-d);color:var(--txt)}
+.ftab:hover:not(.act){background:var(--cell-h)}
+.ftab.drop-hot{border-color:var(--hi);background:var(--hi-g)}
+.ftab-dev{font-family:var(--head);font-size:8px;font-weight:700;letter-spacing:1px;padding:2px 5px;background:var(--hi-dk);color:var(--hi);border:1px solid var(--hi-d);flex-shrink:0}
+.ftab-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:1px}
+.ftab-cnt{font-size:10px;color:var(--txt-x);flex-shrink:0}
+.ftab-dot{color:var(--yel);font-size:9px;flex-shrink:0}
+.ftab-x{color:var(--txt-x);font-size:11px;padding:0 2px;flex-shrink:0}
+.ftab-x:hover{color:var(--hi)}
+.ftab-add,.ftab-split{font-family:var(--head);font-size:9px;font-weight:700;letter-spacing:2px;padding:5px 12px;background:var(--panel);border:1px solid var(--brd);color:var(--txt-d);cursor:pointer;clip-path:polygon(4px 0%,100% 0%,calc(100% - 4px) 100%,0% 100%)}
+.ftab-add:hover:not([disabled]),.ftab-split:hover{border-color:var(--brd-h);color:var(--txt)}
+.ftab-add[disabled]{opacity:.35;cursor:default}
+.ftab-split{margin-left:auto}
+.ftab-split.act{color:var(--led);border-color:var(--led-d)}
+/* split mode: hide the single list (+ its header rows), show the two panes */
+.sl-w.split-on .sl{display:none!important}
+.sl-w.split-on .ch{display:none}
+.sl-w.split-on .sl-hdr{display:none}
+#splWrap{flex:1;display:flex;gap:8px;min-height:0;padding:8px}
+.spl-col{flex:1;display:flex;flex-direction:column;min-width:0;border:1px solid var(--brd);background:var(--cell)}
+.spl-col.act{border-color:var(--hi-d)}
+.spl-col.drop-hot{border-color:var(--hi);box-shadow:inset 0 0 14px var(--hi-g)}
+.spl-hdr{display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--dark);border-bottom:1px solid var(--brd);font-family:var(--lcd);font-size:12px;flex-shrink:0}
+.spl-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--led);letter-spacing:1px}
+.spl-cnt{color:var(--txt-x);font-size:10px}
+.spl-chip{font-family:var(--head);font-size:8px;font-weight:700;letter-spacing:1px;padding:2px 5px;background:var(--hi-dk);color:var(--hi);border:1px solid var(--hi-d);flex-shrink:0}
+.spl-ch{display:grid;grid-template-columns:38px 1fr 52px 64px;gap:6px;padding:4px 10px;font-family:var(--lcd);font-size:9px;letter-spacing:2px;color:var(--txt-x);border-bottom:1px solid var(--brd);background:var(--void);flex-shrink:0}
+.spl-list{flex:1;overflow-y:auto;overflow-x:hidden;min-height:0}
+.spl-row{display:grid;grid-template-columns:38px 1fr 52px 64px;gap:6px;padding:5px 10px;font-family:var(--lcd);font-size:12px;color:var(--txt-d);cursor:pointer;border-bottom:1px solid var(--brd);user-select:none}
+.spl-row:hover{background:var(--cell-h)}
+.spl-row.act{background:var(--cell-a);color:var(--txt)}
+.spl-row .spl-n{color:var(--led);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.spl-row.act .spl-n{text-shadow:0 0 6px var(--led)}
+.spl-row .spl-r,.spl-row .spl-d{text-align:right;font-size:11px}
+.spl-empty{padding:24px 12px;text-align:center;font-family:var(--lcd);font-size:11px;color:var(--txt-x)}
 </style>
 <script src="https://unpkg.com/tone@14/build/Tone.js"></script>
 <script src="https://unpkg.com/meyda/dist/web/meyda.min.js"></script>
@@ -1366,11 +1404,12 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
     <nav class="vsb" id="vSidebar">
       <div class="vsb-logo" title="Electribe Sample Manager">⬡</div>
       <div class="vsb-items">
-        <button class="vsb-item active" data-device="esx1" onclick="switchDevice('esx1')" title="ESX-1 Sampler">
+        <button class="vsb-item active" data-device="esx1" onclick="switchDevice('esx1')" title="Sample Manager (ESX-1 / E2S)">
           <span class="vsb-icon">◆</span>
-          <span class="vsb-label">ESX-1<small>SAMPLER</small></span>
+          <span class="vsb-label">SAMPLE<small>MANAGER</small></span>
         </button>
-        <button class="vsb-item" data-device="e2s" onclick="switchDevice('e2s')" title="E2S Sampler">
+        <!-- old E2S sampler view is superseded by the unified sample manager (kept in code, hidden) -->
+        <button class="vsb-item" data-device="e2s" onclick="switchDevice('e2s')" title="E2S Sampler" style="display:none">
           <span class="vsb-icon">◈</span>
           <span class="vsb-label">E2S<small>SAMPLER</small></span>
         </button>
@@ -1389,16 +1428,18 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
   <!-- ═══ ESX-1 VIEW (existing UI) ═══ -->
   <div id="esx1-view" class="device-view active">
   <div class="header">
-    <div class="logo"><span class="logo-badge">ESM</span><div><div class="logo-t">ELECTRIBE SAMPLE MANAGER</div><div class="logo-s">⚠ esx-1 sample manager ⚠</div></div></div>
+    <div class="logo"><span class="logo-badge">ESM</span><div><div class="logo-t">ELECTRIBE SAMPLE MANAGER</div><div class="logo-s">⚠ sample manager · esx-1 / e2s ⚠</div></div></div>
     <div class="ha">
-      <button class="btn" onclick="openEsx()">📂 OPEN</button>
-      <button class="btn" onclick="importSamples()">📥 IMPORT</button>
+      <button class="btn" onclick="openFileTab()">📂 OPEN</button>
+      <button class="btn" id="btnImport" onclick="importSamples()">📥 IMPORT</button>
       <div class="hsep"></div>
-      <button class="btn btn-hi" id="btnSave" onclick="saveEsxToFile()" style="display:none">💾 SAVE</button>
-      <button class="btn" onclick="exportNewEsx()">📤 EXPORT NEW</button>
+      <button class="btn btn-hi" id="btnSave" onclick="saveActiveFile()" style="display:none">💾 SAVE</button>
+      <button class="btn" id="btnExportNew" onclick="exportNewEsx()">📤 EXPORT NEW</button>
       <button class="btn" onclick="openGuide()">ℹ BETA INFO</button>
     </div>
   </div>
+  <!-- ═══ FILE TABS (unified sample manager — browser-style, max 2 files) ═══ -->
+  <div class="ftabs" id="fileTabs"></div>
   <div class="pbar"><span class="pbar-l">LOC&gt;</span><span class="pbar-v" id="pV"><span style="color:var(--txt-x)">// no file loaded</span></span><span class="pbar-st em" id="pS">EMPTY</span></div>
   <div class="export-progress" id="expProg"><div class="export-bar-wrap"><div class="export-bar" id="expBar" style="width:0%"></div></div><span class="export-text" id="expText">BUILDING...</span></div>
   <div class="main">
@@ -1406,6 +1447,19 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
       <div class="sl-hdr"><h2>▸ SAMPLES</h2><span class="sc" id="sC">0/256</span><button class="btn btn-sm" id="sortBtn" onclick="toggleSort()">⇅ SORT</button><div class="sel-actions"><button class="btn btn-sm" id="selAllBtn" onclick="toggleSelectAll()">☐ ALL</button><span class="sel-badge" id="selBadge" style="display:none">0</span></div></div>
       <div class="ch"><span></span><span>#</span><span>NAME</span><span>SRC</span><span style="text-align:right">RATE</span><span style="text-align:right">LEN</span><span style="text-align:right">SIZE</span></div>
       <div class="sl" id="sL"><div class="es"><div class="dz" id="dZ"><i>⚡</i><p><strong>DROP SAMPLES HERE</strong><br><br>WAV / AIF / ZIP → 16-bit mono 44.1kHz</p></div></div></div>
+      <!-- ═══ SPLIT VIEW (two compressed panes; detail panel right stays shared) ═══ -->
+      <div id="splWrap" style="display:none">
+        <div class="spl-col" data-file="0">
+          <div class="spl-hdr"><span class="spl-chip" id="splChip0">ESX-1</span><span class="spl-name" id="splName0">—</span><span class="spl-cnt" id="splCnt0">0</span></div>
+          <div class="spl-ch"><span>#</span><span>NAME</span><span style="text-align:right">RATE</span><span style="text-align:right">LEN</span></div>
+          <div class="spl-list" id="splL0"></div>
+        </div>
+        <div class="spl-col" data-file="1">
+          <div class="spl-hdr"><span class="spl-chip" id="splChip1">ESX-1</span><span class="spl-name" id="splName1">—</span><span class="spl-cnt" id="splCnt1">0</span></div>
+          <div class="spl-ch"><span>#</span><span>NAME</span><span style="text-align:right">RATE</span><span style="text-align:right">LEN</span></div>
+          <div class="spl-list" id="splL1"></div>
+        </div>
+      </div>
     </div>
     <div class="sb">
       <div class="sbs"><div class="sbt">WAVEFORM</div>
@@ -1759,11 +1813,11 @@ async function applyFeatureFlags() {
     if (!activeTab || activeTab.style.display === 'none') visibleTabs[0].click();
   }
 }
-async function init(){updateState(await window.api.getState());applyFeatureFlags();try{if(!localStorage.getItem('betaDisclaimerAccepted')){setTimeout(()=>openGuide(),500)}}catch(e){}} init();
+async function init(){updateState(await window.api.getState());applyFeatureFlags();initFileTabs();try{if(!localStorage.getItem('betaDisclaimerAccepted')){setTimeout(()=>openGuide(),500)}}catch(e){}} init();
 function toast(m,t='info'){const c=document.getElementById('tW'),e=document.createElement('div');e.className=`toast ${t}`;e.textContent=m;c.appendChild(e);setTimeout(()=>{e.classList.add('fading');e.addEventListener('animationend',()=>e.remove(),{once:true})},2750)}
 function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
 function fmtTime(sec){if(sec<0)sec=0;const m=Math.floor(sec/60),s=sec-m*60;return `${m}:${s<10?'0':''}${s.toFixed(3)}`}
-function updateState(s){if(!s)return;S=s;renderList();updateMem();updatePath();if(sel>=0)updateUndo()}
+function updateState(s){if(!s)return;S=s;renderList();updateMem();updatePath();if(sel>=0)updateUndo();scheduleTabsRefresh()}
 
 // ═══ CATEGORY DETECTION ═══
 window._sampleTags={};  // manual category overrides via context menu
@@ -1904,7 +1958,7 @@ function renderList(){
     const mt=window._sampleTags[s.index];
     const tagDot=mt?`<span class="tag-dot" style="background:${CTX_COLORS[mt]||'#444'}" title="${mt}"></span>`:'';
     const ckClass=ck?'ss-chk on':'ss-chk';
-    h+=`<div class="ss ${a?'act':''} ${ck?'checked':''}" onclick="selS(${s.index})" ondblclick="startRen(${s.index})" oncontextmenu="showCtxMenu(event,${s.index})"><div class="${ckClass}" onclick="handleCheck(event,${s.index})"></div><div class="si">${String(s.index+1).padStart(3,'0')}</div><div class="sn">${tagDot}${esc(s.name)}</div><div class="${fc}" title="${esc(f)}">${esc(f)}</div><div class="sr">${r}</div><div class="sd">${d}</div><div class="sz">${z}</div></div>`}
+    h+=`<div class="ss ${a?'act':''} ${ck?'checked':''}" draggable="true" data-idx="${s.index}" onclick="selS(${s.index})" ondblclick="startRen(${s.index})" oncontextmenu="showCtxMenu(event,${s.index})"><div class="${ckClass}" onclick="handleCheck(event,${s.index})"></div><div class="si">${String((s.slot!=null?s.slot:s.index)+1).padStart(3,'0')}</div><div class="sn">${tagDot}${esc(s.name)}</div><div class="${fc}" title="${esc(f)}">${esc(f)}</div><div class="sr">${r}</div><div class="sd">${d}</div><div class="sz">${z}</div></div>`}
   l.innerHTML=h}
 function updateMem(){const b=document.getElementById('mB'),t=document.getElementById('mT'),p=parseFloat(S.usedPercent||0);b.style.width=`${p}%`;t.textContent=`${p}%`;b.classList.remove('w','c');if(p>90)b.classList.add('c');else if(p>70)b.classList.add('w');document.getElementById('mU').textContent=`${((S.totalSizeBytes||0)/1048576).toFixed(1)} MB`;document.getElementById('mD').textContent=(S.totalDuration||0).toFixed(1)}
 function updatePath(){const v=document.getElementById('pV'),s=document.getElementById('pS');if(!fp&&!S.numSamples){v.innerHTML='<span style="color:var(--txt-x)">// no file loaded</span>';s.className='pbar-st em';s.textContent='EMPTY'}else if(!fp){v.innerHTML=`<span style="color:var(--yel)">UNSAVED</span> <span style="color:var(--txt-x)">(${S.numSamples})</span>`;s.className='pbar-st un';s.textContent='NEW'}else{const p=fp.replace(/\\/g,'/').split('/'),fn=p.pop(),fd=p.slice(-3).join('/');v.innerHTML=`<span class="fld">${esc(fd)}/</span><span class="fil">${esc(fn)}</span>`;const cs=sel>=0&&S.samples?S.samples.find(x=>x.index===sel):null;const mod=cs?cs.hasOriginal:false;s.className=mod?'pbar-st un':'pbar-st sv';s.textContent=mod?'MODIFIED':'SAVED'}}
@@ -1947,7 +2001,7 @@ async function remS(i){const s=await window.api.removeSample(i);dirty=true;if(se
 async function remCur(){if(sel>=0){stopPlay();await remS(sel)}}
 async function removeChecked(){if(_fxBusy)return;if(checked.size===0)return;const count=checked.size;if(!confirm(`Delete ${count} sample${count>1?'s':''}?`))return;_fxBusy=true;try{stopPlay();const indices=[...checked].sort((a,b)=>b-a);for(const idx of indices){await window.api.removeSample(idx)}sel=-1;hideDet();checked.clear();updateSelBadge();dirty=true;updateState(await window.api.getState());toast(`${count} SAMPLES DELETED`,'success')}finally{_fxBusy=false}}
 async function selS(i){sel=i;renderList();const ae=document.querySelector('.ss.act');if(ae)ae.scrollIntoView({block:'nearest',behavior:'smooth'});showDet(i);updatePath();const wf=await window.api.getWaveform(i);if(wf)drawWf(wf);updateUndo()}
-function showDet(i){const s=S.samples.find(x=>x.index===i);if(!s)return;['secPlay','secMod','secDet'].forEach(id=>document.getElementById(id).style.display='block');document.getElementById('renIn').value=s.name;const d=s.duration<1?`${(s.duration*1000).toFixed(1)}ms`:`${s.duration.toFixed(3)}s`,z=s.sizeBytes>1048576?`${(s.sizeBytes/1048576).toFixed(2)}MB`:`${(s.sizeBytes/1024).toFixed(1)}KB`;
+function showDet(i){const s=S.samples.find(x=>x.index===i);if(!s)return;['secPlay','secMod','secDet'].forEach(id=>document.getElementById(id).style.display='block');const renIn=document.getElementById('renIn');renIn.maxLength=S.device==='e2s'?24:8;renIn.value=s.name;const d=s.duration<1?`${(s.duration*1000).toFixed(1)}ms`:`${s.duration.toFixed(3)}s`,z=s.sizeBytes>1048576?`${(s.sizeBytes/1048576).toFixed(2)}MB`:`${(s.sizeBytes/1024).toFixed(1)}KB`;
   document.getElementById('detI').innerHTML=`<div class="dr"><span class="dl">RATE</span><span class="dv">${s.sampleRate.toLocaleString()} Hz</span></div><div class="dr"><span class="dl">FRAMES</span><span class="dv">${s.numFrames.toLocaleString()}</span></div><div class="dr"><span class="dl">LENGTH</span><span class="dv">${d}</span></div><div class="dr"><span class="dl">SIZE</span><span class="dv">${z}</span></div>${s.folder?`<div class="dr"><span class="dl">SRC</span><span class="dv" style="color:var(--led)">${esc(s.folder)}</span></div>`:''}`}
 function hideDet(){['secPlay','secMod','secDet'].forEach(id=>document.getElementById(id).style.display='none');document.getElementById('wfC').style.display='none';document.getElementById('wfE').style.display='flex';document.getElementById('wfI').style.display='none'}
 async function renam(){if(sel<0)return;const s=await window.api.renameSample(sel,document.getElementById('renIn').value);dirty=true;updateState(s)}
@@ -2707,7 +2761,7 @@ const GUIDE_HTML = `
 
 // ═══ DRAG & DROP + KEYS ═══
 function setupDrop(){const d=document.getElementById('dZ');if(!d)return;d.addEventListener('dragover',e=>{e.preventDefault();d.classList.add('dg')});d.addEventListener('dragleave',()=>d.classList.remove('dg'));d.addEventListener('drop',e=>{e.preventDefault();d.classList.remove('dg');importSamples()})}
-setupDrop();document.addEventListener('dragover',e=>e.preventDefault());document.addEventListener('drop',e=>{e.preventDefault();if(e.dataTransfer?.files?.length)importSamples()});
+setupDrop();document.addEventListener('dragover',e=>e.preventDefault());document.addEventListener('drop',e=>{e.preventDefault();if(e.dataTransfer?.files?.length&&activeTabDevice()==='esx')importSamples()});
 document.addEventListener('keydown',e=>{
   if(e.target.tagName==='INPUT')return;
   if(e.key==='Escape'){closeModal();tryCloseGuide();return}
@@ -2756,7 +2810,8 @@ function updateStatusBar(){
   if(activeDevice==='esx1'){
     l.innerHTML=`electribe sample manager v${window.appVersion||''}`;
     const n=S.numSamples||0,pct=S.usedPercent||'0',dur=(S.totalDuration||0).toFixed(1);
-    r.innerHTML=`ESX-1 | <span class="bl">${n}/256</span> mono | <span class="bl">${pct}%</span> mem | <span class="bl">${dur}s</span> / 285s`;
+    const dev=S.device==='e2s'?'E2S':'ESX-1',cap=S.maxSamples||256,unit=S.device==='e2s'?'samples':'mono';
+    r.innerHTML=`${dev} | <span class="bl">${n}/${cap}</span> ${unit} | <span class="bl">${pct}%</span> mem | <span class="bl">${dur}s</span>${S.device==='e2s'?'':' / 285s'}`;
   } else if(activeDevice==='e2s'){
     const n=e2sSamples.filter(s=>s).length,sz=(e2sTotalSize/1048576).toFixed(1);
     l.innerHTML=`E2S — <span class="hl">e2sSample.all</span>`;
@@ -2768,6 +2823,251 @@ function updateStatusBar(){
     r.innerHTML=`${fmt} | <span class="bl">${p}</span> pattern${p!==1?'s':''} | Read-Only`;
   }
 }
+
+// ═══════════════════════════════════════════════════════════
+//  FILE TABS + SPLIT VIEW (unified sample manager)
+//  All listeners are wired EXACTLY ONCE at init via event delegation on the
+//  static containers (#fileTabs, #splWrap, #sL). Render functions only ever
+//  replace innerHTML — they never add listeners (the v1 stacking bug is
+//  impossible by construction). updateState() is the single refresh choke
+//  point, so tabs + split panes can never go stale after a mutation.
+// ═══════════════════════════════════════════════════════════
+var fileTabs=[],activeFileIndex=0,splitManual=null,tabUi={},_dragSample=null,_tabsRefreshT=null;
+
+function activeTabDevice(){const t=fileTabs[activeFileIndex];return t&&t.device?t.device:(S.device||'esx')}
+
+function stashTabUi(){tabUi[activeFileIndex]={sel,fp,dirty,sortMode,checked:new Set(checked),tags:window._sampleTags,autoTags:window._autoTags}}
+function restoreTabUi(i){
+  const u=tabUi[i]||{};
+  sel=u.sel!=null?u.sel:-1;
+  fp=u.fp!==undefined?u.fp:(fileTabs[i]&&fileTabs[i].filePath?fileTabs[i].filePath:null);
+  dirty=!!u.dirty;
+  sortMode=u.sortMode||0;
+  checked=u.checked?new Set(u.checked):new Set();
+  window._sampleTags=u.tags||{};window._autoTags=u.autoTags||{};
+  updateSelBadge();
+  const btn=document.getElementById('sortBtn');
+  if(btn){btn.classList.toggle('act',sortMode>0);btn.textContent=sortMode?`⇅ ${SORT_MODES[sortMode]}`:'⇅ SORT'}
+}
+
+function renderFileTabs(){
+  const bar=document.getElementById('fileTabs');if(!bar)return;
+  let h='';
+  fileTabs.forEach((t,i)=>{
+    const act=i===activeFileIndex;
+    const dev=t.device==='e2s'?'E2S':'ESX-1';
+    const isDirty=act?dirty:!!(tabUi[i]&&tabUi[i].dirty);
+    h+=`<div class="ftab ${act?'act':''}" data-tab="${i}" title="${esc(t.filePath||'Neue Datei')}"><span class="ftab-dev">${dev}</span><span class="ftab-name">${esc(t.name)}</span><span class="ftab-cnt">${t.count}</span>${isDirty?'<span class="ftab-dot">●</span>':''}<span class="ftab-x" data-close="${i}" title="Tab schließen">✕</span></div>`;
+  });
+  h+=`<button class="ftab-add" id="ftabAdd" ${fileTabs.length>=2?'disabled':''} title="Datei öffnen (.esx / e2sSample.all)">+ OPEN</button>`;
+  if(fileTabs.length===2)h+=`<button class="ftab-split ${splitOn()?'act':''}" id="ftabSplit" title="Split-Ansicht umschalten">${splitOn()?'▥ SPLIT':'▢ SINGLE'}</button>`;
+  bar.innerHTML=h;
+}
+
+function updateHeaderButtons(){
+  const isEsx=activeTabDevice()==='esx';
+  const bi=document.getElementById('btnImport'),be=document.getElementById('btnExportNew'),bs=document.getElementById('btnSave');
+  if(bi)bi.style.display=isEsx?'':'none';   // WAV import pipeline is ESX-only (Project B)
+  if(be)be.style.display=isEsx?'':'none';   // EXPORT NEW builds a fresh .esx
+  if(bs){bs.style.display=isEsx?(fp?'':'none'):'';bs.textContent=isEsx?'💾 SAVE':'💾 SAVE .ALL'}
+}
+
+// Adopt a file:* response (tabs + active index + fresh state) into the renderer.
+function adoptFileResponse(r){
+  if(r.tabs)fileTabs=r.tabs;
+  if(r.activeIndex!=null)activeFileIndex=r.activeIndex;
+  restoreTabUi(activeFileIndex);
+  stopPlay();
+  updateState(r.state);
+  if(sel>=0&&sel<S.numSamples){selS(sel)}else{sel=-1;hideDet()}
+  updateHeaderButtons();updatePath();updateStatusBar();
+  renderFileTabs();applySplit();
+}
+
+async function openFileTab(){
+  if(_fxBusy)return;
+  stashTabUi();
+  const r=await window.api.file.open();
+  if(!r)return;if(r.error){toast(r.error,'error');return}
+  delete tabUi[r.activeIndex]; // fresh file — no stale per-tab UI
+  adoptFileResponse(r);
+  // load the tag sidecar for ESX files (same behavior as the old openEsx)
+  if(r.device==='esx'&&window.api.esx&&window.api.esx.loadTags){
+    try{
+      const saved=await window.api.esx.loadTags(r.filePath);
+      if(saved&&typeof saved==='object'){
+        for(const[k,v]of Object.entries(saved)){const idx=parseInt(k);if(!isNaN(idx)&&typeof v==='string')window._sampleTags[idx]=v}
+        renderList();
+      }
+    }catch(e){console.warn('Tag load failed:',e)}
+  }
+  toast(`LOADED: ${r.fileName}`,'success');
+}
+
+async function switchFile(i){
+  if(i===activeFileIndex)return;
+  stashTabUi();
+  const r=await window.api.file.switch(i);
+  if(!r||r.error){if(r)toast(r.error,'error');return}
+  adoptFileResponse(r);
+}
+
+async function closeFileTab(i){
+  const t=fileTabs[i];
+  const isDirty=i===activeFileIndex?dirty:!!(tabUi[i]&&tabUi[i].dirty);
+  if(isDirty&&!confirm(`"${t?t.name:'?'}" hat ungespeicherte Änderungen — trotzdem schließen?`))return;
+  stashTabUi();
+  const r=await window.api.file.close(i);
+  if(!r||r.error){if(r)toast(r.error,'error');return}
+  const nu={};for(const[k,v]of Object.entries(tabUi)){const ki=+k;if(ki===i)continue;nu[ki>i?ki-1:ki]=v}
+  tabUi=nu;
+  adoptFileResponse(r);
+}
+
+async function saveActiveFile(){
+  if(activeTabDevice()!=='e2s'){saveEsxToFile();return}
+  if(_fxBusy)return;_fxBusy=true;
+  try{
+    const r=await window.api.file.save();
+    if(!r)return;if(r.error){toast(r.error,'error');return}
+    fp=r.filePath;dirty=false;
+    if(r.tabs)fileTabs=r.tabs;
+    renderFileTabs();updatePath();
+    toast(`SAVED → ${r.filePath.split(/[\\/]/).pop()} [${(r.size/1048576).toFixed(1)}MB]`,'success');
+  }finally{_fxBusy=false}
+}
+
+// ── Transfer (copy with auto-conversion) ──
+async function doTransfer(fromF,indices,toF){
+  if(_fxBusy)return;
+  const r=await window.api.file.transfer(fromF,indices,toF);
+  if(!r||r.error){toast((r&&r.error)||'Transfer fehlgeschlagen','error');return}
+  if(toF===activeFileIndex){dirty=true}else{tabUi[toF]=tabUi[toF]||{};tabUi[toF].dirty=true}
+  if(r.tabs)fileTabs=r.tabs;
+  updateState(r.state); // re-renders list + tabs + split via the choke point
+  toast(r.message.toUpperCase(),'success');
+}
+
+// ── Split view ──
+function splitOn(){return fileTabs.length===2&&splitManual!==false}
+function toggleSplit(){splitManual=splitOn()?false:true;applySplit();renderFileTabs()}
+function applySplit(){
+  const on=splitOn();
+  const wrap=document.getElementById('splWrap');
+  const slw=document.querySelector('#esx1-view .sl-w');
+  if(!wrap||!slw)return;
+  slw.classList.toggle('split-on',on);
+  wrap.style.display=on?'flex':'none';
+  if(on)renderSplitLists();
+}
+async function renderSplitLists(){
+  if(!splitOn())return;
+  const [a,b]=await Promise.all([window.api.file.rows(0),window.api.file.rows(1)]);
+  [a,b].forEach((res,ci)=>{
+    if(!res||res.error)return;
+    const nameEl=document.getElementById('splName'+ci);if(nameEl)nameEl.textContent=res.fileName;
+    const chip=document.getElementById('splChip'+ci);if(chip)chip.textContent=res.device==='e2s'?'E2S':'ESX-1';
+    const cnt=document.getElementById('splCnt'+ci);if(cnt)cnt.textContent=res.count;
+    const col=document.querySelector(`#splWrap .spl-col[data-file="${ci}"]`);
+    if(col)col.classList.toggle('act',ci===activeFileIndex);
+    const selHere=ci===activeFileIndex?sel:(tabUi[ci]&&tabUi[ci].sel!=null?tabUi[ci].sel:-1);
+    let h='';
+    for(const row of res.rows){
+      const rate=row.sampleRate>=1000?`${(row.sampleRate/1000).toFixed(1)}k`:row.sampleRate;
+      const d=row.duration<1?`${(row.duration*1000).toFixed(0)}ms`:`${row.duration.toFixed(2)}s`;
+      const num=(row.slot!=null?row.slot:row.idx)+1;
+      h+=`<div class="spl-row ${row.idx===selHere?'act':''}" draggable="true" data-file="${ci}" data-idx="${row.idx}"><span class="spl-i">${String(num).padStart(3,'0')}</span><span class="spl-n">${esc(row.name)}</span><span class="spl-r">${rate}</span><span class="spl-d">${d}</span></div>`;
+    }
+    if(!res.rows.length)h=`<div class="spl-empty">// leer — Samples hierher ziehen</div>`;
+    const list=document.getElementById('splL'+ci);if(list)list.innerHTML=h;
+  });
+}
+async function splitRowClick(f,i){
+  if(f!==activeFileIndex)await switchFile(f);
+  if(i>=0&&i<S.numSamples)await selS(i);
+  renderSplitLists();
+}
+
+// ── Central refresh (debounced; hooked into updateState) ──
+function scheduleTabsRefresh(){
+  if(!window.api.file||!window.api.file.list)return;
+  clearTimeout(_tabsRefreshT);
+  _tabsRefreshT=setTimeout(async()=>{
+    try{
+      const r=await window.api.file.list();
+      if(!r||r.error)return;
+      fileTabs=r.tabs;activeFileIndex=r.activeIndex;
+      renderFileTabs();updateHeaderButtons();applySplit();
+    }catch(e){}
+  },50);
+}
+async function initFileTabs(){
+  if(!window.api.file||!window.api.file.list)return;
+  try{
+    const r=await window.api.file.list();
+    if(r&&!r.error){fileTabs=r.tabs;activeFileIndex=r.activeIndex;renderFileTabs();updateHeaderButtons();applySplit()}
+  }catch(e){}
+}
+
+// ── One-time delegated wiring (NEVER inside a render function) ──
+(function wireFileTabsBar(){
+  const bar=document.getElementById('fileTabs');if(!bar)return;
+  bar.addEventListener('click',e=>{
+    const x=e.target.closest('[data-close]');if(x){closeFileTab(+x.dataset.close);return}
+    if(e.target.closest('#ftabAdd')){openFileTab();return}
+    if(e.target.closest('#ftabSplit')){toggleSplit();return}
+    const t=e.target.closest('.ftab');if(t)switchFile(+t.dataset.tab);
+  });
+  bar.addEventListener('dragover',e=>{
+    if(!_dragSample)return;
+    bar.querySelectorAll('.ftab').forEach(el=>el.classList.remove('drop-hot'));
+    const t=e.target.closest('.ftab');
+    if(t&&+t.dataset.tab!==_dragSample.file){e.preventDefault();t.classList.add('drop-hot')}
+  });
+  bar.addEventListener('dragleave',e=>{const t=e.target.closest('.ftab');if(t)t.classList.remove('drop-hot')});
+  bar.addEventListener('drop',e=>{
+    const t=e.target.closest('.ftab');if(!t||!_dragSample)return;
+    e.preventDefault();e.stopPropagation();t.classList.remove('drop-hot');
+    const to=+t.dataset.tab;
+    if(to!==_dragSample.file)doTransfer(_dragSample.file,_dragSample.idxs,to);
+  });
+})();
+(function wireSplitPanes(){
+  const wrap=document.getElementById('splWrap');if(!wrap)return;
+  wrap.addEventListener('click',e=>{const r=e.target.closest('.spl-row');if(r)splitRowClick(+r.dataset.file,+r.dataset.idx)});
+  wrap.addEventListener('dblclick',async e=>{const r=e.target.closest('.spl-row');if(r){await splitRowClick(+r.dataset.file,+r.dataset.idx);openModify()}});
+  wrap.addEventListener('dragstart',e=>{
+    const r=e.target.closest('.spl-row');if(!r)return;
+    _dragSample={file:+r.dataset.file,idxs:[+r.dataset.idx]};
+    e.dataTransfer.effectAllowed='copy';e.dataTransfer.setData('text/plain','sample');
+  });
+  wrap.addEventListener('dragover',e=>{
+    if(!_dragSample)return;
+    wrap.querySelectorAll('.spl-col').forEach(c=>c.classList.remove('drop-hot'));
+    const col=e.target.closest('.spl-col');
+    if(col&&+col.dataset.file!==_dragSample.file){e.preventDefault();col.classList.add('drop-hot')}
+  });
+  wrap.addEventListener('drop',e=>{
+    const col=e.target.closest('.spl-col');
+    wrap.querySelectorAll('.spl-col').forEach(c=>c.classList.remove('drop-hot'));
+    if(!col||!_dragSample)return;
+    e.preventDefault();e.stopPropagation();
+    const to=+col.dataset.file;
+    if(to!==_dragSample.file)doTransfer(_dragSample.file,_dragSample.idxs,to);
+  });
+})();
+(function wireMainListDrag(){
+  const l=document.getElementById('sL');if(!l)return;
+  l.addEventListener('dragstart',e=>{
+    const r=e.target.closest('.ss');if(!r||r.dataset.idx===undefined)return;
+    const idx=+r.dataset.idx;
+    // dragging a checked row carries the whole multi-selection (file-manager UX)
+    const idxs=checked.size>0&&checked.has(idx)?[...checked].sort((a,b)=>a-b):[idx];
+    _dragSample={file:activeFileIndex,idxs};
+    e.dataTransfer.effectAllowed='copy';e.dataTransfer.setData('text/plain','sample');
+  });
+})();
+document.addEventListener('dragend',()=>{_dragSample=null;document.querySelectorAll('.drop-hot').forEach(c=>c.classList.remove('drop-hot'))});
 
 // ═══════════════════════════════════════════════════════════
 //  E2S SAMPLE MANAGEMENT
