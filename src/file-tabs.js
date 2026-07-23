@@ -66,6 +66,8 @@ function bankSampleToStore(bs, device, slot) {
       playVolume: e.playVolume ?? 0x4000,
       loopStart: bs.loopStart ?? null,
       loopEnd: bs.loopEnd ?? null,
+      startPoint: e.startPoint ?? 0,
+      endPoint: e.endPoint ?? null, // null => full sample on save
     };
   }
   return store;
@@ -126,6 +128,9 @@ function storeToE2sBank(samples, filePath, fileName) {
     const meta = s._e2s;
     const numFrames = s.pcmData.length / 2;
     const { loopStart, loopEnd } = clampLoop(meta.loopStart, meta.loopEnd, numFrames);
+    // A loop that no longer fits is dropped ENTIRELY — loopType must follow,
+    // else the saved ESLI would claim a loop at the no-loop sentinel.
+    const loopDropped = meta.loopStart != null && loopStart == null;
     arr[slot] = {
       name: s.name,
       pcmData: swap16Copy(s.pcmData), // view-native BE -> device-native LE
@@ -138,7 +143,12 @@ function storeToE2sBank(samples, filePath, fileName) {
       category: meta.category ?? 0,
       tune: meta.tune ?? 0,
       boost: meta.boost ?? 127,
-      _e2s: { loopType: meta.loopType ?? 0, playVolume: meta.playVolume ?? 0x4000 },
+      _e2s: {
+        loopType: loopDropped ? 0 : (meta.loopType ?? 0),
+        playVolume: meta.playVolume ?? 0x4000,
+        startPoint: meta.startPoint ?? 0,
+        endPoint: meta.endPoint ?? undefined, // build clamps to sample length
+      },
       undoStack: [],
       redoStack: [],
       _original: null,

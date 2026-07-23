@@ -288,14 +288,19 @@ function buildE2sAllFile(samples) {
 
     const slot = s.slot ?? i;
     const numFrames = s.pcmData.length / 2; // 16-bit = 2 bytes per frame
+    const lastFrame = numFrames > 0 ? numFrames - 1 : 0;
+    // start/endPoint pass through (hardware-trimmed playback regions must
+    // survive a save), clamped to the current sample length.
+    const startPoint = Math.min(s.startPoint ?? 0, lastFrame);
+    const endPoint = Math.min(s.endPoint ?? lastFrame, lastFrame);
     const esliMeta = {
       category:      s.category   || 0,
       slotNumber:    slot,
       name:          s.name       || `Sample ${slot}`,
       playLogPeriod: s.playLogPeriod || 0,
       playVolume:    s.playVolume ?? 0x4000,
-      startPoint:    0,
-      endPoint:      numFrames > 0 ? numFrames - 1 : 0,
+      startPoint:    startPoint,
+      endPoint:      Math.max(endPoint, startPoint),
       loopStart:     s.loopStart ?? 0xFFFFFFFF,
       loopType:      s.loopType  || 0,
       loudness:      s.loudness  ?? 127,

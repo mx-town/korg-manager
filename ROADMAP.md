@@ -35,6 +35,14 @@ not the Electron UI).
 - **ESX pattern-mapping verification** — use `esx-pattern-diff.js` with hardware dumps to find
   and correct any wrong entries in `src/esx-format.js` + `ESX_FILE_STRUCTURE.md`, with a test
   per fixed knob↔byte relation.
+- **E2S save fidelity (format-level, pre-existing)** — `buildE2sAllFile` rebuilds each
+  ESLI block from zeros and only writes the ~11 known fields; unknown hardware metadata
+  (e.g. slice/marker data past offset 0x34) is lost on every save, slots whose embedded
+  WAV the parser can't read are silently dropped (the unified manager now warns on open),
+  and stereo E2S samples are flattened to a mono flag. Fix: preserve the raw 1,172-byte
+  ESLI block per sample and patch known fields into a copy; keep raw WAV bytes for
+  unparseable slots; carry `numChannels`. Needs a real hardware dump with slices/stereo
+  to verify against.
 
 ## Working agreement (lessons from the parked attempt)
 

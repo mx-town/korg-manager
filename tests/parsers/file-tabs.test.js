@@ -126,6 +126,54 @@ describe('storeToEsxBank', () => {
   });
 });
 
+describe('review fixes', () => {
+  it('convertSample resamples from the ACTUAL rate, not the assumed device rate', () => {
+    // 22050 Hz is a legitimate ESX rate (WAV import keeps it) — converting to
+    // E2S must resample 22050->48000, not 44100->48000.
+    const frames = 2205; // 100ms @ 22050
+    const pcm = Buffer.alloc(frames * 2);
+    for (let i = 0; i < frames; i++) pcm.writeInt16BE(((i % 50) - 25) * 200, i * 2);
+    const out = bank.convertSample(
+      { name: 'LO', pcmData: pcm, sampleRate: 22050, stereo: false, numFrames: frames, duration: frames / 22050, loopStart: 1000, loopEnd: 2000 },
+      'esx', 'e2s');
+    expect(out.sampleRate).toBe(48000);
+    // duration must be preserved (~100ms => ~4800 frames)
+    expect(out.numFrames).toBeGreaterThan(4700);
+    expect(out.numFrames).toBeLessThan(4900);
+    // loop points rescaled by the ACTUAL ratio (~2.177x)
+    expect(out.loopStart).toBeGreaterThan(2100);
+    expect(out.loopStart).toBeLessThan(2260);
+  });
+
+  it('start/endPoint (hardware-trimmed playback region) survive a save round-trip', () => {
+    const numFrames = 480;
+    const pcmLE = Buffer.alloc(numFrames * 2);
+    for (let i = 0; i < numFrames; i++) pcmLE.writeInt16LE((i % 100) * 30, i * 2);
+    const buf = e2s.buildE2sAllFile([{ slot: 3, name: 'TRIM', pcmData: pcmLE, sampleRate: 48000, startPoint: 64, endPoint: 400 }]);
+
+    const store = ft.bankToStore(bank.createE2sBank(buf, null, null));
+    expect(store[0]._e2s.startPoint).toBe(64);
+    const outBuf = bank.serializeBank(ft.storeToBank(store, 'e2s', {}));
+
+    const reparsed = e2s.parseE2sAllFile(outBuf);
+    expect(reparsed.samples[3].esli.startPoint).toBe(64);
+    expect(reparsed.samples[3].esli.endPoint).toBe(400);
+  });
+
+  it('a dropped loop also clears loopType in the saved ESLI', () => {
+    const store = ft.bankToStore(bank.createE2sBank(generateE2SWithSample(0, 'LP', 20), null, null));
+    const s = store[0];
+    s._e2s.loopType = 1;
+    s._e2s.loopStart = 500;
+    s.pcmData = s.pcmData.slice(0, 200); // 100 frames — loop no longer fits
+    s.numFrames = 100;
+    const outBuf = bank.serializeBank(ft.storeToBank([s], 'e2s', {}));
+    const reparsed = e2s.parseE2sAllFile(outBuf);
+    expect(reparsed.samples[0].esli.loopType).toBe(0);
+    expect(reparsed.samples[0].esli.loopStart).toBe(0xFFFFFFFF);
+  });
+});
+
 describe('cross-device transfer through bank.copySamples', () => {
   it('ESX store -> E2S store converts 44.1->48kHz and lands in a free slot', () => {
     // ESX side: one 44.1 BE sample at list position 0

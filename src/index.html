@@ -1983,7 +1983,7 @@ async function openEsx(){
 }
 async function importWav(){const r=await window.api.importWavFiles();if(!r||!r.imported)return;r.imported.filter(x=>x.error).forEach(x=>toast(`${x.originalName}: ${x.error}`,'error'));const ok=r.imported.filter(x=>x.ok).length;if(ok>0){dirty=true;toast(`${ok} IMPORTED`,'success')}updateState(r.state)}
 async function importZip(){const r=await window.api.importZip();if(!r||!r.imported)return;let ok=0,er=0;r.imported.forEach(x=>{if(x.error){er++;if(er<=3)toast(x.error,'error')}else if(x.ok)ok++});if(ok>0){dirty=true;toast(`${ok} EXTRACTED FROM ${r.zipName||'ZIP'}`,'success')}updateState(r.state)}
-async function importSamples(){const r=await window.api.importSamples();if(!r||!r.imported)return;const ok=r.imported.filter(x=>x.ok).length;const fail=r.imported.filter(x=>x.error);if(fail.length>0)fail.slice(0,3).forEach(x=>toast(`${x.originalName}: ${x.error}`,'error'));if(ok>0){dirty=true;toast(`${ok} SAMPLE${ok>1?'S':''} IMPORTED`,'success')}updateState(r.state);
+async function importSamples(){if(activeTabDevice()!=='esx'){toast('IMPORT IST ESX-ONLY (E2S-Import kommt mit Projekt B)','error');return}const r=await window.api.importSamples();if(!r||!r.imported)return;const ok=r.imported.filter(x=>x.ok).length;const fail=r.imported.filter(x=>x.error);if(fail.length>0)fail.slice(0,3).forEach(x=>toast(`${x.originalName}: ${x.error}`,'error'));if(ok>0){dirty=true;toast(`${ok} SAMPLE${ok>1?'S':''} IMPORTED`,'success')}updateState(r.state);
 // Cascade glow on newly imported samples
 if(ok>0){
   setTimeout(()=>{
@@ -2048,7 +2048,7 @@ async function saveEsxToFile(){
     expText.classList.remove('complete');
     prog.style.display='none';
   },1500);
-  dirty=false;updatePath();toast(`SAVED → ${r.filePath.split(/[\\/]/).pop()} [${(r.size/1048576).toFixed(1)}MB]${r.validation&&r.validation.length?'':' · VERIFIED'}`,'success');reportValidation(r.validation)}
+  dirty=false;updatePath();scheduleTabsRefresh();toast(`SAVED → ${r.filePath.split(/[\\/]/).pop()} [${(r.size/1048576).toFixed(1)}MB]${r.validation&&r.validation.length?'':' · VERIFIED'}`,'success');reportValidation(r.validation)}
   finally{_fxBusy=false}}
 async function exportNewEsx(){
   if(_fxBusy)return;_fxBusy=true;
@@ -2064,7 +2064,7 @@ async function exportNewEsx(){
   })}
   const r=await window.api.saveEsxFile('new_samples.esx');
   prog.style.display='none';
-  if(!r)return;if(r.error){toast(r.error,'error');return}fp=r.filePath;dirty=false;updatePath();document.getElementById('btnSave').style.display='';toast(`EXPORTED → ${r.filePath.split(/[\\/]/).pop()} [${(r.size/1048576).toFixed(1)}MB]${r.validation&&r.validation.length?'':' · VERIFIED'}`,'success');reportValidation(r.validation)}
+  if(!r)return;if(r.error){toast(r.error,'error');return}fp=r.filePath;dirty=false;updatePath();scheduleTabsRefresh();document.getElementById('btnSave').style.display='';toast(`EXPORTED → ${r.filePath.split(/[\\/]/).pop()} [${(r.size/1048576).toFixed(1)}MB]${r.validation&&r.validation.length?'':' · VERIFIED'}`,'success');reportValidation(r.validation)}
   finally{_fxBusy=false}}
 async function expWav(){if(sel<0)return;const f=await window.api.exportWav(sel);if(f)toast(`EXPORTED → ${f.split(/[\\/]/).pop()}`,'success')}
 async function clearAll(){if(!S.numSamples)return;if(!confirm('Clear all samples?'))return;stopPlay();sel=-1;fp=null;dirty=false;window._sampleTags={};window._autoTags={};hideDet();document.getElementById('btnSave').style.display='none';updateState(await window.api.clearAll());toast('CLEARED','info')}
@@ -2885,10 +2885,14 @@ function adoptFileResponse(r){
 }
 
 async function openFileTab(){
-  if(_fxBusy)return;
-  stashTabUi();
-  const r=await window.api.file.open();
+  if(_fxBusy)return;_fxBusy=true; // double-click on OPEN must not stack dialogs
+  let r;
+  try{
+    stashTabUi();
+    r=await window.api.file.open();
+  }finally{_fxBusy=false}
   if(!r)return;if(r.error){toast(r.error,'error');return}
+  if(r.warning)toast(r.warning.toUpperCase(),'error');
   delete tabUi[r.activeIndex]; // fresh file — no stale per-tab UI
   adoptFileResponse(r);
   // load the tag sidecar for ESX files (same behavior as the old openEsx)
@@ -2905,11 +2909,12 @@ async function openFileTab(){
 }
 
 async function switchFile(i){
-  if(i===activeFileIndex)return;
+  if(i===activeFileIndex)return true;
   stashTabUi();
   const r=await window.api.file.switch(i);
-  if(!r||r.error){if(r)toast(r.error,'error');return}
+  if(!r||r.error){if(r)toast(r.error,'error');return false}
   adoptFileResponse(r);
+  return true;
 }
 
 async function closeFileTab(i){
@@ -2939,13 +2944,15 @@ async function saveActiveFile(){
 
 // ── Transfer (copy with auto-conversion) ──
 async function doTransfer(fromF,indices,toF){
-  if(_fxBusy)return;
-  const r=await window.api.file.transfer(fromF,indices,toF);
-  if(!r||r.error){toast((r&&r.error)||'Transfer fehlgeschlagen','error');return}
-  if(toF===activeFileIndex){dirty=true}else{tabUi[toF]=tabUi[toF]||{};tabUi[toF].dirty=true}
-  if(r.tabs)fileTabs=r.tabs;
-  updateState(r.state); // re-renders list + tabs + split via the choke point
-  toast(r.message.toUpperCase(),'success');
+  if(_fxBusy)return;_fxBusy=true; // block double-drops while the IPC is in flight
+  try{
+    const r=await window.api.file.transfer(fromF,indices,toF);
+    if(!r||r.error){toast((r&&r.error)||'Transfer fehlgeschlagen','error');return}
+    if(toF===activeFileIndex){dirty=true}else{tabUi[toF]=tabUi[toF]||{};tabUi[toF].dirty=true}
+    if(r.tabs)fileTabs=r.tabs;
+    updateState(r.state); // re-renders list + tabs + split via the choke point
+    toast(r.message.toUpperCase(),'success');
+  }finally{_fxBusy=false}
 }
 
 // ── Split view ──
@@ -2956,6 +2963,8 @@ function applySplit(){
   const wrap=document.getElementById('splWrap');
   const slw=document.querySelector('#esx1-view .sl-w');
   if(!wrap||!slw)return;
+  const was=slw.classList.contains('split-on');
+  if(on&&!was&&checked.size){checked.clear();updateSelBadge()} // the checkbox column is invisible in split — an invisible selection must not drive DEL/MODIFY
   slw.classList.toggle('split-on',on);
   wrap.style.display=on?'flex':'none';
   if(on)renderSplitLists();
@@ -2983,7 +2992,7 @@ async function renderSplitLists(){
   });
 }
 async function splitRowClick(f,i){
-  if(f!==activeFileIndex)await switchFile(f);
+  if(f!==activeFileIndex&&!(await switchFile(f)))return; // a failed switch must not select in the wrong file
   if(i>=0&&i<S.numSamples)await selS(i);
   renderSplitLists();
 }
@@ -3010,6 +3019,9 @@ async function initFileTabs(){
 }
 
 // ── One-time delegated wiring (NEVER inside a render function) ──
+// A sample drag is only honored when the drag data says so — an OS file drag
+// (types: Files) must never be mistaken for a stale _dragSample.
+function _isSampleDrag(e){return _dragSample&&e.dataTransfer&&Array.from(e.dataTransfer.types).includes('text/plain')}
 (function wireFileTabsBar(){
   const bar=document.getElementById('fileTabs');if(!bar)return;
   bar.addEventListener('click',e=>{
@@ -3019,14 +3031,14 @@ async function initFileTabs(){
     const t=e.target.closest('.ftab');if(t)switchFile(+t.dataset.tab);
   });
   bar.addEventListener('dragover',e=>{
-    if(!_dragSample)return;
+    if(!_isSampleDrag(e))return;
     bar.querySelectorAll('.ftab').forEach(el=>el.classList.remove('drop-hot'));
     const t=e.target.closest('.ftab');
     if(t&&+t.dataset.tab!==_dragSample.file){e.preventDefault();t.classList.add('drop-hot')}
   });
   bar.addEventListener('dragleave',e=>{const t=e.target.closest('.ftab');if(t)t.classList.remove('drop-hot')});
   bar.addEventListener('drop',e=>{
-    const t=e.target.closest('.ftab');if(!t||!_dragSample)return;
+    const t=e.target.closest('.ftab');if(!t||!_isSampleDrag(e))return;
     e.preventDefault();e.stopPropagation();t.classList.remove('drop-hot');
     const to=+t.dataset.tab;
     if(to!==_dragSample.file)doTransfer(_dragSample.file,_dragSample.idxs,to);
@@ -3042,7 +3054,7 @@ async function initFileTabs(){
     e.dataTransfer.effectAllowed='copy';e.dataTransfer.setData('text/plain','sample');
   });
   wrap.addEventListener('dragover',e=>{
-    if(!_dragSample)return;
+    if(!_isSampleDrag(e))return;
     wrap.querySelectorAll('.spl-col').forEach(c=>c.classList.remove('drop-hot'));
     const col=e.target.closest('.spl-col');
     if(col&&+col.dataset.file!==_dragSample.file){e.preventDefault();col.classList.add('drop-hot')}
@@ -3050,7 +3062,7 @@ async function initFileTabs(){
   wrap.addEventListener('drop',e=>{
     const col=e.target.closest('.spl-col');
     wrap.querySelectorAll('.spl-col').forEach(c=>c.classList.remove('drop-hot'));
-    if(!col||!_dragSample)return;
+    if(!col||!_isSampleDrag(e))return;
     e.preventDefault();e.stopPropagation();
     const to=+col.dataset.file;
     if(to!==_dragSample.file)doTransfer(_dragSample.file,_dragSample.idxs,to);
@@ -3068,6 +3080,7 @@ async function initFileTabs(){
   });
 })();
 document.addEventListener('dragend',()=>{_dragSample=null;document.querySelectorAll('.drop-hot').forEach(c=>c.classList.remove('drop-hot'))});
+document.addEventListener('drop',()=>{_dragSample=null}); // dragend can be swallowed when the source node was re-rendered mid-drag
 
 // ═══════════════════════════════════════════════════════════
 //  E2S SAMPLE MANAGEMENT

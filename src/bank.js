@@ -157,9 +157,13 @@ function createE2sBank(buffer, filePath, fileName) {
       tune: esli.playLogPeriod ?? 0,
       boost: esli.loudness ?? E2S_DEFAULT_LOUDNESS,
       // Lossless E2S->E2S round-trip bag for fields not surfaced above.
+      // startPoint/endPoint: hardware-trimmed playback region — must survive
+      // a save (buildE2sAllFile would otherwise reset to the full sample).
       _e2s: {
         loopType: esli.loopType ?? 0,
         playVolume: esli.playVolume ?? E2S_DEFAULT_PLAY_VOLUME,
+        startPoint: esli.startPoint ?? 0,
+        endPoint: esli.endPoint ?? null,
       },
       ...newHistory(),
     };
@@ -270,6 +274,8 @@ function serializeBank(bank) {
       loudness: s.boost ?? E2S_DEFAULT_LOUDNESS,
       loopType: e.loopType ?? 0,
       loopStart: s.loopStart == null ? E2S_LOOP_SENTINEL : s.loopStart,
+      startPoint: e.startPoint,
+      endPoint: e.endPoint ?? undefined, // undefined => full sample (build clamps)
     };
   });
   return e2s.buildE2sAllFile(list);
@@ -317,9 +323,14 @@ function convertSample(sample, fromDevice, toDevice) {
 
   const stereo = !!sample.stereo;
 
-  // ESX (BE 44.1) -> E2S (LE 48)
+  // ESX (BE) -> E2S (LE 48). Resample from the sample's ACTUAL rate — ESX
+  // banks legitimately hold 22050/11025 Hz samples; assuming 44.1 would
+  // pitch-shift them (silent corruption of the copy).
   if (fromDevice === 'esx' && toDevice === 'e2s') {
-    const pcmData = e2s.esxToE2s(sample.pcmData);
+    const fromRate = sample.sampleRate || ESX_RATE;
+    const pcmData = fromRate === ESX_RATE
+      ? e2s.esxToE2s(sample.pcmData)
+      : e2s.floatToPcmLE(e2s.resampleLinear(e2s.pcmBEToFloat(sample.pcmData), fromRate, E2S_RATE));
     const numFrames = pcmData.length / 2 / (stereo ? 2 : 1);
     return {
       name: sample.name,
@@ -328,8 +339,8 @@ function convertSample(sample, fromDevice, toDevice) {
       stereo,
       numFrames,
       duration: numFrames / E2S_RATE,
-      loopStart: rescaleFrame(sample.loopStart, ESX_RATE, E2S_RATE, numFrames - 1),
-      loopEnd: rescaleFrame(sample.loopEnd, ESX_RATE, E2S_RATE, numFrames - 1),
+      loopStart: rescaleFrame(sample.loopStart, fromRate, E2S_RATE, numFrames - 1),
+      loopEnd: rescaleFrame(sample.loopEnd, fromRate, E2S_RATE, numFrames - 1),
       category: 0, // "User" on cross-device import
       tune: 0,
       boost: E2S_DEFAULT_LOUDNESS,
@@ -338,8 +349,11 @@ function convertSample(sample, fromDevice, toDevice) {
     };
   }
 
-  // E2S (LE 48) -> ESX (BE 44.1)
-  const pcmData = e2s.e2sToEsx(sample.pcmData);
+  // E2S (LE) -> ESX (BE 44.1) — same actual-rate rule as above.
+  const fromRate = sample.sampleRate || E2S_RATE;
+  const pcmData = fromRate === E2S_RATE
+    ? e2s.e2sToEsx(sample.pcmData)
+    : e2s.floatToPcmBE(e2s.resampleLinear(e2s.pcmLEToFloat(sample.pcmData), fromRate, ESX_RATE));
   const numFrames = pcmData.length / 2 / (stereo ? 2 : 1);
   return {
     name: sample.name,
@@ -348,8 +362,8 @@ function convertSample(sample, fromDevice, toDevice) {
     stereo,
     numFrames,
     duration: numFrames / ESX_RATE,
-    loopStart: rescaleFrame(sample.loopStart, E2S_RATE, ESX_RATE, numFrames - 1),
-    loopEnd: rescaleFrame(sample.loopEnd, E2S_RATE, ESX_RATE, numFrames - 1),
+    loopStart: rescaleFrame(sample.loopStart, fromRate, ESX_RATE, numFrames - 1),
+    loopEnd: rescaleFrame(sample.loopEnd, fromRate, ESX_RATE, numFrames - 1),
     category: undefined,
     tune: undefined,
     boost: undefined,
