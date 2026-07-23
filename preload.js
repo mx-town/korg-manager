@@ -96,9 +96,16 @@ contextBridge.exposeInMainWorld('api', {
     openPatterns: ()            => ipcRenderer.invoke('emx:open-patterns'),
   },
 
-  // ═══ Universal ═══
+  // ═══ Universal + file tabs (unified sample manager) ═══
   file: {
     openAny:    ()              => ipcRenderer.invoke('file:open-any'),
+    list:       ()              => ipcRenderer.invoke('file:list'),
+    open:       ()              => ipcRenderer.invoke('file:open'),
+    switch:     (idx)           => ipcRenderer.invoke('file:switch', idx),
+    close:      (idx)           => ipcRenderer.invoke('file:close', idx),
+    rows:       (idx)           => ipcRenderer.invoke('file:rows', idx),
+    transfer:   (fromIdx, indices, toIdx) => ipcRenderer.invoke('file:transfer', { fromIdx, indices, toIdx }),
+    save:       ()              => ipcRenderer.invoke('file:save'),
   },
 
   // ═══ SD Card ═══
