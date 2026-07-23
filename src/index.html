@@ -1927,8 +1927,15 @@ function getVisibleSampleIndices(){
   if(sm==='TYPE')samples=samples.filter(s=>!catCollapsed[detectCategory(s.name,s.index)]);
   return samples.map(s=>s.index);
 }
+function rowClick(ev,i){
+  // familiar list UX: Ctrl-click toggles, Shift-click range-selects — plain click selects
+  if(ev.shiftKey&&lastCheckedIndex>=0){handleCheck(ev,i);return}
+  if(ev.ctrlKey||ev.metaKey){handleCheck(ev,i);return}
+  selS(i);
+}
 function handleCheck(ev,sampleIndex){
   ev.stopPropagation();
+  if(_justPainted)return; // a paint-drag already applied this gesture
   if(ev.shiftKey&&lastCheckedIndex>=0){
     const vis=getVisibleSampleIndices(),lp=vis.indexOf(lastCheckedIndex),cp=vis.indexOf(sampleIndex);
     if(lp>=0&&cp>=0){const f=Math.min(lp,cp),t=Math.max(lp,cp);for(let i=f;i<=t;i++)checked.add(vis[i])}
@@ -1958,7 +1965,7 @@ function renderList(){
     const mt=window._sampleTags[s.index];
     const tagDot=mt?`<span class="tag-dot" style="background:${CTX_COLORS[mt]||'#444'}" title="${mt}"></span>`:'';
     const ckClass=ck?'ss-chk on':'ss-chk';
-    h+=`<div class="ss ${a?'act':''} ${ck?'checked':''}" draggable="true" data-idx="${s.index}" onclick="selS(${s.index})" ondblclick="startRen(${s.index})" oncontextmenu="showCtxMenu(event,${s.index})"><div class="${ckClass}" onclick="handleCheck(event,${s.index})"></div><div class="si">${String((s.slot!=null?s.slot:s.index)+1).padStart(3,'0')}</div><div class="sn">${tagDot}${esc(s.name)}</div><div class="${fc}" title="${esc(f)}">${esc(f)}</div><div class="sr">${r}</div><div class="sd">${d}</div><div class="sz">${z}</div></div>`}
+    h+=`<div class="ss ${a?'act':''} ${ck?'checked':''}" draggable="true" data-idx="${s.index}" onclick="rowClick(event,${s.index})" ondblclick="startRen(${s.index})" oncontextmenu="showCtxMenu(event,${s.index})"><div class="${ckClass}" onclick="handleCheck(event,${s.index})"></div><div class="si">${String((s.slot!=null?s.slot:s.index)+1).padStart(3,'0')}</div><div class="sn">${tagDot}${esc(s.name)}</div><div class="${fc}" title="${esc(f)}">${esc(f)}</div><div class="sr">${r}</div><div class="sd">${d}</div><div class="sz">${z}</div></div>`}
   l.innerHTML=h}
 function updateMem(){const b=document.getElementById('mB'),t=document.getElementById('mT'),p=parseFloat(S.usedPercent||0);b.style.width=`${p}%`;t.textContent=`${p}%`;b.classList.remove('w','c');if(p>90)b.classList.add('c');else if(p>70)b.classList.add('w');document.getElementById('mU').textContent=`${((S.totalSizeBytes||0)/1048576).toFixed(1)} MB`;document.getElementById('mD').textContent=(S.totalDuration||0).toFixed(1)}
 function updatePath(){const v=document.getElementById('pV'),s=document.getElementById('pS');if(!fp&&!S.numSamples){v.innerHTML='<span style="color:var(--txt-x)">// no file loaded</span>';s.className='pbar-st em';s.textContent='EMPTY'}else if(!fp){v.innerHTML=`<span style="color:var(--yel)">UNSAVED</span> <span style="color:var(--txt-x)">(${S.numSamples})</span>`;s.className='pbar-st un';s.textContent='NEW'}else{const p=fp.replace(/\\/g,'/').split('/'),fn=p.pop(),fd=p.slice(-3).join('/');v.innerHTML=`<span class="fld">${esc(fd)}/</span><span class="fil">${esc(fn)}</span>`;const cs=sel>=0&&S.samples?S.samples.find(x=>x.index===sel):null;const mod=cs?cs.hasOriginal:false;s.className=mod?'pbar-st un':'pbar-st sv';s.textContent=mod?'MODIFIED':'SAVED'}}
@@ -2771,6 +2778,7 @@ document.addEventListener('keydown',e=>{
   if(activeDevice==='esx1'&&e.key==='ArrowDown'&&sel<S.numSamples-1)selS(sel+1);
   if(activeDevice==='esx1'&&e.key==='ArrowUp'&&sel>0)selS(sel-1);
   if(e.key==='F2'&&sel>=0)startRen(sel);
+  if(e.ctrlKey&&e.key==='a'&&activeDevice==='esx1'){e.preventDefault();toggleSelectAll()}
   if(e.ctrlKey&&e.key==='z'){e.preventDefault();doUndo()}
   if(e.ctrlKey&&(e.key==='y'||e.key==='Z')){e.preventDefault();doRedo()}
   if(e.ctrlKey&&e.key==='b'){e.preventDefault();toggleSidebar()}
@@ -3072,11 +3080,52 @@ function _isSampleDrag(e){return _dragSample&&e.dataTransfer&&Array.from(e.dataT
   const l=document.getElementById('sL');if(!l)return;
   l.addEventListener('dragstart',e=>{
     const r=e.target.closest('.ss');if(!r||r.dataset.idx===undefined)return;
+    if(e.target.closest('.ss-chk')||_paintArm||_paint){e.preventDefault();return} // checkbox column selects, it never starts a transfer drag
     const idx=+r.dataset.idx;
     // dragging a checked row carries the whole multi-selection (file-manager UX)
     const idxs=checked.size>0&&checked.has(idx)?[...checked].sort((a,b)=>a-b):[idx];
     _dragSample={file:activeFileIndex,idxs};
     e.dataTransfer.effectAllowed='copy';e.dataTransfer.setData('text/plain','sample');
+  });
+})();
+// ── Paint-select: hold the left button on a checkbox and sweep over rows to
+// (de)select them in one stroke (Gmail/file-manager UX). A plain click still
+// goes through handleCheck; painting only engages once the pointer LEAVES the
+// starting row, so the two can't double-toggle.
+var _paintArm=null,_paint=null,_justPainted=false;
+function paintRow(row,idx,on){
+  if(on)checked.add(idx);else checked.delete(idx);
+  row.classList.toggle('checked',on);
+  const c=row.querySelector('.ss-chk');if(c)c.classList.toggle('on',on);
+  updateSelBadge();
+}
+(function wirePaintSelect(){
+  const l=document.getElementById('sL');if(!l)return;
+  l.addEventListener('mousedown',e=>{
+    if(e.button!==0||e.shiftKey)return; // shift-click keeps its range semantics
+    const chk=e.target.closest('.ss-chk');if(!chk)return;
+    const row=chk.closest('.ss');if(!row||row.dataset.idx===undefined)return;
+    e.preventDefault(); // no text selection / native drag ghost
+    _paintArm={idx:+row.dataset.idx,row,on:!checked.has(+row.dataset.idx)};
+  });
+  l.addEventListener('mouseover',e=>{
+    if(!_paintArm&&!_paint)return;
+    const row=e.target.closest('.ss');if(!row||row.dataset.idx===undefined)return;
+    const idx=+row.dataset.idx;
+    if(_paintArm){
+      if(idx===_paintArm.idx)return; // still on the start row — not painting yet
+      _paint={on:_paintArm.on};
+      paintRow(_paintArm.row,_paintArm.idx,_paint.on);
+      _paintArm=null;
+    }
+    paintRow(row,idx,_paint.on);
+  });
+  document.addEventListener('mouseup',()=>{
+    _paintArm=null;
+    if(_paint){
+      _paint=null;_justPainted=true;setTimeout(()=>{_justPainted=false},0);
+      lastCheckedIndex=-1;renderList();
+    }
   });
 })();
 document.addEventListener('dragend',()=>{_dragSample=null;document.querySelectorAll('.drop-hot').forEach(c=>c.classList.remove('drop-hot'))});
