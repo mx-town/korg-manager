@@ -1237,10 +1237,15 @@ ipcMain.handle('e2s:open-file', async () => {
         sampleRate: s.esli ? s.esli.sampleRate : e2sFormat.NATIVE_RATE,
         category: s.esli ? s.esli.category : 0,
         loopType: s.esli ? s.esli.loopType : 0,
-        loopStart: s.esli ? s.esli.loopStart : 0xFFFFFFFF,
+        loopStart: s.esli ? s.esli.loopStart : null,
+        startPoint: s.esli ? s.esli.startPoint : 0,
+        endPoint: s.esli ? s.esli.endPoint : undefined,
         loudness: s.esli ? s.esli.loudness : 127,
         playLogPeriod: s.esli ? s.esli.playLogPeriod : 0,
         playVolume: s.esli ? s.esli.playVolume : 0x4000,
+        // Preserve the original ESLI block so a save patches only edited fields
+        // and leaves every undocumented per-sample byte hardware-identical.
+        _raw: s.esli ? s.esli._raw : null,
       };
     }
     return { filePath: result.filePaths[0], samples: e2sGetSamplesUI() };

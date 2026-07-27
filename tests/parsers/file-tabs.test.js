@@ -170,7 +170,10 @@ describe('review fixes', () => {
     const outBuf = bank.serializeBank(ft.storeToBank([s], 'e2s', {}));
     const reparsed = e2s.parseE2sAllFile(outBuf);
     expect(reparsed.samples[0].esli.loopType).toBe(0);
-    expect(reparsed.samples[0].esli.loopStart).toBe(0xFFFFFFFF);
+    // New format: a one-shot (no loop) stores loopStart == endPoint (in frames),
+    // not the old 0xFFFFFFFF sentinel — i.e. no loop region before the end.
+    expect(reparsed.samples[0].esli.loopStart)
+      .toBe(reparsed.samples[0].esli.endPoint);
   });
 });
 

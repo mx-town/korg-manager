@@ -61,7 +61,7 @@ describe('device helpers', () => {
     expect(bank.E2S_RATE).toBe(48000);
     expect(bank.ESX_MONO_SLOTS).toBe(256);
     expect(bank.ESX_STEREO_SLOTS).toBe(128);
-    expect(bank.E2S_MAX_SLOTS).toBe(1000);          // file offset-table entries
+    expect(bank.E2S_MAX_SLOTS).toBe(510);           // file offset-table entries (data starts @4096)
     expect(bank.E2S_USER_SLOTS).toBe(499);          // hardware-addressable user slots
     // Budget is capped by the writable sample-data region of the fixed file
     // (ESX_FILE_SIZE - SAMPLE_DATA), not the larger hardware-RAM constant —
@@ -72,7 +72,7 @@ describe('device helpers', () => {
 
   it('maxSlots / deviceRate resolve per device', () => {
     expect(bank.maxSlots('esx')).toBe(256);
-    expect(bank.maxSlots('e2s')).toBe(499);         // user-addressable, not the 1000 table
+    expect(bank.maxSlots('e2s')).toBe(499);         // user-addressable, not the 510-entry table
     expect(bank.deviceRate('esx')).toBe(44100);
     expect(bank.deviceRate('e2s')).toBe(48000);
   });
@@ -107,7 +107,7 @@ describe('detectDevice / createBankFromBuffer', () => {
 
     const b = bank.createBankFromBuffer(buf, '/tmp/e2sSample.all', 'e2sSample.all');
     expect(b.device).toBe('e2s');
-    expect(b.samples.length).toBe(1000);
+    expect(b.samples.length).toBe(510);
     expect(b.originalBuffer).toBeNull();
     expect(b.samples[0]).toBeTruthy();
     expect(b.samples[0].name).toBe('SNARE');

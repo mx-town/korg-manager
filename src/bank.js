@@ -26,7 +26,7 @@ const E2S_RATE = e2s.NATIVE_RATE;               // 48000
 
 const ESX_MONO_SLOTS = esx.NUM.MONO_SAMPLES;    // 256 (mono-addressed slot count)
 const ESX_STEREO_SLOTS = esx.NUM.STEREO_SAMPLES;// 128 (max stereo samples)
-const E2S_MAX_SLOTS = e2s.MAX_SLOTS;            // 1000 (offset-table entries in the file)
+const E2S_MAX_SLOTS = e2s.MAX_SLOTS;            // 510 (offset-table entries in the file)
 const E2S_USER_SLOTS = 499;                     // hardware-addressable user sample slots
 
 // The .esx sample-memory budget must be capped by whichever is smaller: the
@@ -46,7 +46,7 @@ const E2S_DEFAULT_LOUDNESS = 127;
 
 /**
  * Max addressable slots for a device — the copy/allocation ceiling.
- * E2S: user-addressable slots (499), NOT the 1000-entry file offset table —
+ * E2S: user-addressable slots (499), NOT the 510-entry file offset table —
  * copies must never land in slots the hardware can't load.
  */
 function maxSlots(device) {

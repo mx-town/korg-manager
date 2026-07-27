@@ -98,6 +98,10 @@ Fonts: Orbitron (headings), Share Tech Mono (LCD values), Rajdhani (labels).
 - Native sample rate is 48kHz (vs ESX's 44.1kHz) — conversion needed for cross-device
 - No checksums in the format — files can be freely written
 - ESLI metadata chunk is 1,172 bytes inside a `korg` RIFF chunk
+- **Offset table = 510 entries, data starts at 0x1000.** Each entry is `[startOffset, END offset]` — the 2nd field is an absolute end offset, NOT a length. The last used slot stores `0` there → derive length from the RIFF header, not the table. Skip garbage entries; never throw.
+- **ESLI field map is NON-obvious**: name @0x02 (16B, not 24), category @0x12, sampleRate @0x48, points (start/loop/end/length) @0x28/0x2C/0x30/0x3C stored as **BYTES (frame×2)**. There is **no loop-type byte** — a loop is active iff `loopStart < endPoint`.
+- **Writer uses preserve-and-patch**: samples loaded from a real file keep `esli._raw` (the full 1172-byte block); `buildEsliData` patches only known fields so undocumented bytes stay hardware-identical. `main.js` must thread `esli._raw` through `e2sStoredSamples` for this to work in the app.
+- **Read `E2S_FORMAT.md` before touching `e2s-format.js`** — full spec, reverse-engineered from real hardware dumps.
 
 ## Pattern Viewer Architecture
 
