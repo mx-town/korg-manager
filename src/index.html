@@ -1357,6 +1357,9 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 .ftab:hover:not(.act){background:var(--cell-h)}
 .ftab.drop-hot{border-color:var(--hi);background:var(--hi-g)}
 .ftab-dev{font-family:var(--head);font-size:8px;font-weight:700;letter-spacing:1px;padding:2px 5px;background:var(--hi-dk);color:var(--hi);border:1px solid var(--hi-d);flex-shrink:0}
+.ftab-ht{font-family:var(--head);font-size:8px;font-weight:700;letter-spacing:1px;padding:2px 5px;background:var(--panel);color:var(--txt-x);border:1px solid var(--brd);flex-shrink:0;cursor:pointer}
+.ftab-ht.on{background:#031a20;color:var(--led);border-color:var(--led-d)}
+.ftab-ht:hover{border-color:var(--brd-h);color:var(--txt)}
 .ftab-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:1px}
 .ftab-cnt{font-size:10px;color:var(--txt-x);flex-shrink:0}
 .ftab-dot{color:var(--yel);font-size:9px;flex-shrink:0}
@@ -2865,7 +2868,12 @@ function renderFileTabs(){
     const act=i===activeFileIndex;
     const dev=t.device==='e2s'?'E2S':'ESX-1';
     const isDirty=act?dirty:!!(tabUi[i]&&tabUi[i].dirty);
-    h+=`<div class="ftab ${act?'act':''}" data-tab="${i}" title="${esc(t.filePath||'Neue Datei')}"><span class="ftab-dev">${dev}</span><span class="ftab-name">${esc(t.name)}</span><span class="ftab-cnt">${t.count}</span>${isDirty?'<span class="ftab-dot">●</span>':''}<span class="ftab-x" data-close="${i}" title="Tab schließen">✕</span></div>`;
+    // E2S: firmware-mode chip — decides where NEW samples are numbered
+    // (Hacktribe: ab #501, Stock: ab #422). Existing slots are never moved.
+    const ht=t.device==='e2s'
+      ?`<span class="ftab-ht ${t.hacktribe!==false?'on':''}" data-ht="${i}" title="Firmware-Modus umschalten — neue Samples werden ${t.hacktribe!==false?'ab Nr. 501 (Hacktribe)':'ab Nr. 422 (Stock)'} einsortiert">${t.hacktribe!==false?'HACKTRIBE':'STOCK'}</span>`
+      :'';
+    h+=`<div class="ftab ${act?'act':''}" data-tab="${i}" title="${esc(t.filePath||'Neue Datei')}"><span class="ftab-dev">${dev}</span>${ht}<span class="ftab-name">${esc(t.name)}</span><span class="ftab-cnt">${t.count}</span>${isDirty?'<span class="ftab-dot">●</span>':''}<span class="ftab-x" data-close="${i}" title="Tab schließen">✕</span></div>`;
   });
   h+=`<button class="ftab-add" id="ftabAdd" ${fileTabs.length>=2?'disabled':''} title="Datei öffnen (.esx / e2sSample.all)">+ OPEN</button>`;
   if(fileTabs.length===2)h+=`<button class="ftab-split ${splitOn()?'act':''}" id="ftabSplit" title="Split-Ansicht umschalten">${splitOn()?'▥ SPLIT':'▢ SINGLE'}</button>`;
@@ -2935,6 +2943,21 @@ async function closeFileTab(i){
   const nu={};for(const[k,v]of Object.entries(tabUi)){const ki=+k;if(ki===i)continue;nu[ki>i?ki-1:ki]=v}
   tabUi=nu;
   adoptFileResponse(r);
+}
+
+// Firmware-mode toggle per E2S file (Hacktribe vs. Stock) — only changes
+// where NEW samples get numbered; existing slots are never renumbered
+// (E2S patterns reference sample numbers).
+async function toggleHacktribe(i){
+  const t=fileTabs[i];if(!t||t.device!=='e2s')return;
+  const cur=t.hacktribe!==false;
+  const r=await window.api.file.setHacktribe(i,!cur);
+  if(!r||r.error){if(r)toast(r.error,'error');return}
+  if(r.tabs)fileTabs=r.tabs;
+  if(r.activeIndex!=null)activeFileIndex=r.activeIndex;
+  if(r.warning)toast(r.warning.toUpperCase(),'error');
+  toast(!cur?'HACKTRIBE-MODUS: NEUE SAMPLES AB NR. 501':'STOCK-MODUS: NEUE SAMPLES AB NR. 422','info');
+  updateState(r.state); // refreshes list, tabs (chip) + status bar capacity
 }
 
 async function saveActiveFile(){
@@ -3034,6 +3057,7 @@ function _isSampleDrag(e){return _dragSample&&e.dataTransfer&&Array.from(e.dataT
   const bar=document.getElementById('fileTabs');if(!bar)return;
   bar.addEventListener('click',e=>{
     const x=e.target.closest('[data-close]');if(x){closeFileTab(+x.dataset.close);return}
+    const ht=e.target.closest('[data-ht]');if(ht){toggleHacktribe(+ht.dataset.ht);return}
     if(e.target.closest('#ftabAdd')){openFileTab();return}
     if(e.target.closest('#ftabSplit')){toggleSplit();return}
     const t=e.target.closest('.ftab');if(t)switchFile(+t.dataset.tab);

@@ -79,8 +79,10 @@ describe('storeToE2sBank (E2S save path)', () => {
     const dup = { ...store[0], pcmData: Buffer.from(store[0].pcmData), _e2s: { ...store[0]._e2s, slot: null } };
     const outBank = ft.storeToBank([...store, dup], 'e2s', {});
     expect(outBank.samples[0]).toBeTruthy();
-    expect(outBank.samples[1]).toBeTruthy(); // next free slot
-    expect(dup._e2s.slot).toBe(1);           // assigned slot written back to the store
+    // A sample below index 500 marks the bank as stock firmware — the slotless
+    // duplicate is APPENDED into the stock user area (#422+), never packed at 1.
+    expect(outBank.samples[421]).toBeTruthy();
+    expect(dup._e2s.slot).toBe(421);         // assigned slot written back to the store
   });
 
   it('resolves slot collisions instead of overwriting', () => {
@@ -202,7 +204,7 @@ describe('cross-device transfer through bank.copySamples', () => {
     const copied = newStore.find(s => s.name === 'CLAP');
     expect(copied).toBeTruthy();
     expect(copied.sampleRate).toBe(48000);
-    expect(copied._e2s.slot).toBe(1); // next free slot after OLD@0
+    expect(copied._e2s.slot).toBe(421); // OLD@0 → stock firmware → user area #422+
     // store PCM is BE again (readable by all esx: handlers)
     expect(copied.numFrames).toBe(copied.pcmData.length / 2);
   });

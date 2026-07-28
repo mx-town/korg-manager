@@ -1127,7 +1127,7 @@ ipcMain.handle('fx-envelope', async (ev, { index, attackMs, decayMs, sustainLvl,
 // ── DUPLICATE SAMPLE ─────────────────────────────────────
 ipcMain.handle('duplicate-sample', async (ev, index) => {
   const s = currentSamples[index];
-  const cap = openFiles[activeFileIdx].device === 'e2s' ? bankModel.E2S_USER_SLOTS : esx.NUM.MONO_SAMPLES;
+  const cap = openFiles[activeFileIdx].device === 'e2s' ? e2sEntryCapacity(openFiles[activeFileIdx]) : esx.NUM.MONO_SAMPLES;
   if (!s || currentSamples.length >= cap) return null;
   const dup = {
     name: s.name.length <= 6 ? s.name + '_D' : s.name.substring(0, 6) + '_D',
@@ -1156,7 +1156,7 @@ ipcMain.handle('move-sample', async (ev, { index, direction }) => {
 function getSamplesInfo() {
   // Device-aware limits: the active file-tab may hold an E2S bank.
   const device = (openFiles[activeFileIdx] && openFiles[activeFileIdx].device) || 'esx';
-  const maxSamples = device === 'e2s' ? bankModel.E2S_USER_SLOTS : esx.NUM.MONO_SAMPLES;
+  const maxSamples = device === 'e2s' ? e2sEntryCapacity(openFiles[activeFileIdx]) : esx.NUM.MONO_SAMPLES;
   const maxBytes = device === 'e2s' ? fileTabsModel.E2S_MAX_SAMPLE_BYTES : esx.SIZE.MAX_SAMPLE_BYTES;
   let totalSize = 0;
   for (const s of currentSamples) totalSize += 16 + s.pcmData.length;
@@ -1234,6 +1234,7 @@ ipcMain.handle('e2s:open-file', async () => {
       if (!s || s.error) continue;
       e2sStoredSamples[i] = {
         slot: i, name: s.esli ? s.esli.name : '', pcmData: s.pcmData,
+        channels: s.channels || 1,
         sampleRate: s.esli ? s.esli.sampleRate : e2sFormat.NATIVE_RATE,
         category: s.esli ? s.esli.category : 0,
         loopType: s.esli ? s.esli.loopType : 0,
@@ -1279,12 +1280,28 @@ ipcMain.handle('e2s:import-wav', async () => {
   for (const fp of result.filePaths) {
     const displayName = path.basename(fp, path.extname(fp));
     try {
-      // Find next free slot
+      // Append after the highest used slot — never renumber existing slots
+      // (patterns reference sample numbers) and never go below the firmware
+      // user base (Hacktribe ignores entries under #501; base 500 is inside
+      // the stock user area too, so it is safe for both firmwares).
+      let hasBelowBase = false, highest = -1;
+      for (let i = 0; i < e2sStoredSamples.length; i++) {
+        if (!e2sStoredSamples[i]) continue;
+        highest = i;
+        if (i < bankModel.E2S_HACKTRIBE_BASE) hasBelowBase = true;
+      }
+      const base = hasBelowBase ? bankModel.E2S_STOCK_BASE : bankModel.E2S_HACKTRIBE_BASE;
       let freeSlot = -1;
-      for (let i = 0; i < e2sFormat.MAX_SLOTS; i++) {
+      const start = Math.max(base, highest + 1);
+      for (let i = start; i <= bankModel.E2S_MAX_SAMPLE_INDEX; i++) {
         if (!e2sStoredSamples[i]) { freeSlot = i; break; }
       }
-      if (freeSlot < 0) { imported.push({ name: displayName, ok: false, error: 'All 1000 slots full' }); continue; }
+      if (freeSlot < 0) {
+        for (let i = base; i < start; i++) {
+          if (!e2sStoredSamples[i]) { freeSlot = i; break; }
+        }
+      }
+      if (freeSlot < 0) { imported.push({ name: displayName, ok: false, error: 'User sample area full' }); continue; }
 
       const wavBuf = await fsp.readFile(fp);
       const wavInfo = esx.parseWavFile(wavBuf);
@@ -1411,7 +1428,14 @@ function fileEntryMeta(e, i) {
     count: e.samples.length,
     filePath: e.filePath,
     active: i === activeFileIdx,
+    hacktribe: e.device === 'e2s' ? e.hacktribe !== false : undefined,
   };
+}
+
+/** Sample-count capacity of an E2S file entry (user area base..#999). */
+function e2sEntryCapacity(e) {
+  const base = e && e.hacktribe === false ? bankModel.E2S_STOCK_BASE : bankModel.E2S_HACKTRIBE_BASE;
+  return bankModel.E2S_MAX_SAMPLE_INDEX + 1 - base;
 }
 
 /** Tab metadata for the renderer. Stashes first so counts are never stale. */
@@ -1460,6 +1484,7 @@ safeIpcHandle('file:open', async () => {
   let samples;
   let originalBuffer = null;
   let warning = null;
+  let hacktribe;
   if (device === 'esx') {
     originalBuffer = Buffer.from(buffer); // preserve for pattern-safe rebuild
     const parsed = esx.parseEsxFile(buffer);
@@ -1468,7 +1493,9 @@ safeIpcHandle('file:open', async () => {
       if (s) samples.push({ name: s.name, pcmData: s.pcmData, sampleRate: s.sampleRate, numFrames: s.numFrames, duration: s.duration, originalPath: null, folder: null, _undo: [], _redo: [], _original: null });
     }
   } else {
-    samples = fileTabsModel.bankToStore(bankModel.createE2sBank(buffer, filePath, fileName));
+    const e2sBank = bankModel.createE2sBank(buffer, filePath, fileName);
+    samples = fileTabsModel.bankToStore(e2sBank);
+    hacktribe = e2sBank.hacktribe; // auto-detected; user can toggle per file
     // Slots this parser can't read are dropped on a later save — the user
     // must know BEFORE saving over the original file.
     const rawParsed = e2sFormat.parseE2sAllFile(buffer);
@@ -1484,7 +1511,7 @@ safeIpcHandle('file:open', async () => {
   if (!stillReusable && openFiles.length >= MAX_OPEN_FILES)
     return { error: `Maximal ${MAX_OPEN_FILES} Dateien gleichzeitig — erst einen Tab schließen` };
 
-  const entry = { device, samples, esxOriginalBuffer: originalBuffer, filePath, fileName };
+  const entry = { device, samples, esxOriginalBuffer: originalBuffer, filePath, fileName, hacktribe };
   if (stillReusable) {
     openFiles[activeFileIdx] = entry;
   } else {
@@ -1548,9 +1575,9 @@ safeIpcHandle('file:transfer', async (ev, { fromIdx, indices, toIdx }) => {
   const list = (Array.isArray(indices) ? indices : [indices]).map(Number);
 
   const fromBank = fileTabsModel.storeToBank(from.samples, from.device,
-    { filePath: from.filePath, fileName: from.fileName, originalBuffer: from.esxOriginalBuffer });
+    { filePath: from.filePath, fileName: from.fileName, originalBuffer: from.esxOriginalBuffer, hacktribe: from.hacktribe });
   const toBank = fileTabsModel.storeToBank(to.samples, to.device,
-    { filePath: to.filePath, fileName: to.fileName, originalBuffer: to.esxOriginalBuffer });
+    { filePath: to.filePath, fileName: to.fileName, originalBuffer: to.esxOriginalBuffer, hacktribe: to.hacktribe });
 
   const slots = list.map(i => storeIndexToSlot(from, i));
   if (slots.some(s => s == null)) return { error: 'Invalid sample index' };
@@ -1580,6 +1607,23 @@ safeIpcHandle('file:transfer', async (ev, { fromIdx, indices, toIdx }) => {
   return { ok: true, message: res.message, copied: res.copied, converted: res.converted, ...fileTabsPayload(), state: getSamplesInfo() };
 });
 
+// Toggle the firmware layout of an open E2S file. Only affects where NEW
+// samples are placed (Hacktribe: from #501, stock: from #422) — existing
+// slots are never renumbered (device patterns reference sample numbers).
+safeIpcHandle('file:set-hacktribe', async (ev, { idx, hacktribe }) => {
+  if (!Number.isInteger(idx) || idx < 0 || idx >= openFiles.length) return { error: 'Invalid tab index' };
+  const e = openFiles[idx];
+  if (e.device !== 'e2s') return { error: 'Not an E2S file' };
+  e.hacktribe = !!hacktribe;
+  let warning = null;
+  if (e.hacktribe) {
+    const below = e.samples.filter(s => s._e2s && s._e2s.slot != null && s._e2s.slot < bankModel.E2S_HACKTRIBE_BASE).length;
+    if (below > 0)
+      warning = `${below} Sample(s) liegen unter Nr. 501 — Hacktribe ignoriert diese Slots`;
+  }
+  return { ...fileTabsPayload(), warning, state: getSamplesInfo() };
+});
+
 // Native save for the active E2S file (ESX files keep their existing save path).
 safeIpcHandle('file:save', async () => {
   stashActive();
@@ -1592,7 +1636,7 @@ safeIpcHandle('file:save', async () => {
     filters: [{ name: 'E2S Sample File', extensions: ['all'] }],
   });
   if (result.canceled) return null;
-  const b = fileTabsModel.storeToBank(e.samples, 'e2s', { filePath: e.filePath, fileName: e.fileName });
+  const b = fileTabsModel.storeToBank(e.samples, 'e2s', { filePath: e.filePath, fileName: e.fileName, hacktribe: e.hacktribe });
   const buf = bankModel.serializeBank(b);
   await fsp.writeFile(result.filePath, buf);
   e.filePath = result.filePath;

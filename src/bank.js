@@ -26,8 +26,10 @@ const E2S_RATE = e2s.NATIVE_RATE;               // 48000
 
 const ESX_MONO_SLOTS = esx.NUM.MONO_SAMPLES;    // 256 (mono-addressed slot count)
 const ESX_STEREO_SLOTS = esx.NUM.STEREO_SAMPLES;// 128 (max stereo samples)
-const E2S_MAX_SLOTS = e2s.MAX_SLOTS;            // 510 (offset-table entries in the file)
-const E2S_USER_SLOTS = 499;                     // hardware-addressable user sample slots
+const E2S_MAX_SLOTS = e2s.MAX_SLOTS;            // 1020 (offset-table entries in the file)
+const E2S_MAX_SAMPLE_INDEX = e2s.MAX_SAMPLE_INDEX;   // 998 → sample #999, last addressable
+const E2S_STOCK_BASE = e2s.STOCK_USER_BASE;          // 421 → sample #422 (stock user area)
+const E2S_HACKTRIBE_BASE = e2s.HACKTRIBE_USER_BASE;  // 500 → sample #501 (Hacktribe user area)
 
 // The .esx sample-memory budget must be capped by whichever is smaller: the
 // hardware sample-RAM limit, OR the actual writable sample-data region of the
@@ -46,11 +48,34 @@ const E2S_DEFAULT_LOUDNESS = 127;
 
 /**
  * Max addressable slots for a device — the copy/allocation ceiling.
- * E2S: user-addressable slots (499), NOT the 510-entry file offset table —
- * copies must never land in slots the hardware can't load.
+ * E2S: sample numbers go up to #999 (index 998), NOT the full 1020-entry file
+ * offset table — copies must never land in slots the hardware can't address.
  */
 function maxSlots(device) {
-  return device === 'esx' ? ESX_MONO_SLOTS : E2S_USER_SLOTS;
+  return device === 'esx' ? ESX_MONO_SLOTS : E2S_MAX_SAMPLE_INDEX + 1;
+}
+
+/**
+ * First slot index new E2S samples may occupy. Hacktribe firmware keeps sample
+ * numbers 1–500 in flash and IGNORES table entries below index 500 — a sample
+ * written there simply never appears on the device. Stock firmware addresses
+ * user samples from #422 (index 421).
+ */
+function e2sUserBase(bank) {
+  return bank && bank.hacktribe === false ? E2S_STOCK_BASE : E2S_HACKTRIBE_BASE;
+}
+
+/**
+ * Detect the firmware layout from the used slots: any sample below index 500
+ * can only come from a stock-firmware file (Hacktribe never writes there).
+ * Empty banks default to Hacktribe's base — index 500 is inside the stock
+ * user area too, so that default is safe on both firmwares.
+ */
+function detectHacktribe(samples) {
+  for (let i = 0; i < E2S_HACKTRIBE_BASE && i < samples.length; i++) {
+    if (samples[i]) return false;
+  }
+  return true;
 }
 
 /** Native sample rate for a device. */
@@ -164,6 +189,10 @@ function createE2sBank(buffer, filePath, fileName) {
         playVolume: esli.playVolume ?? E2S_DEFAULT_PLAY_VOLUME,
         startPoint: esli.startPoint ?? 0,
         endPoint: esli.endPoint ?? null,
+        // Save-fidelity carriers: the raw 1172-byte ESLI block (preserve-and-
+        // patch) and the WAV channel count (real dumps contain stereo samples).
+        _raw: esli._raw ?? null,
+        channels: s.channels ?? 1,
       },
       ...newHistory(),
     };
@@ -175,6 +204,7 @@ function createE2sBank(buffer, filePath, fileName) {
     fileName: fileName || null,
     samples,
     originalBuffer: null, // E2S has no checksums — no rebuild anchor needed
+    hacktribe: detectHacktribe(samples),
     dirty: false,
   };
 }
@@ -229,6 +259,8 @@ function bankToUI(bank) {
     fileName: bank.fileName,
     dirty: !!bank.dirty,
     maxSlots: maxSlots(bank.device),
+    hacktribe: bank.device === 'e2s' ? bank.hacktribe !== false : undefined,
+    userBase: bank.device === 'e2s' ? e2sUserBase(bank) : undefined,
     count: samples.filter(Boolean).length,
     samples,
   };
@@ -276,6 +308,8 @@ function serializeBank(bank) {
       loopStart: s.loopStart == null ? E2S_LOOP_SENTINEL : s.loopStart,
       startPoint: e.startPoint,
       endPoint: e.endPoint ?? undefined, // undefined => full sample (build clamps)
+      _raw: e._raw ?? null,              // preserve undocumented ESLI bytes
+      channels: e.channels ?? 1,         // keep stereo fmt chunks byte-identical
     };
   });
   return e2s.buildE2sAllFile(list);
@@ -376,7 +410,10 @@ function convertSample(sample, fromDevice, toDevice) {
  * Allocate destination slot indices.
  * - targetSlot given: consecutive slots from targetSlot (overwrite allowed);
  *   fails only if it would run past the device's slot range.
- * - targetSlot null: the next `count` FREE slots; fails if too few remain.
+ * - targetSlot null: free slots. ESX fills from 0 (dense numbering); E2S
+ *   APPENDS after the highest used slot (device patterns reference sample
+ *   numbers, so existing slots are never renumbered) and never allocates
+ *   below the firmware's user base (Hacktribe ignores entries under #501).
  * Returns number[] or null when allocation is impossible.
  */
 function allocateSlots(toBank, count, targetSlot) {
@@ -385,10 +422,27 @@ function allocateSlots(toBank, count, targetSlot) {
     if (targetSlot < 0 || targetSlot + count > max) return null;
     return Array.from({ length: count }, (_, i) => targetSlot + i);
   }
+  if (toBank.device !== 'e2s') {
+    const free = [];
+    for (let i = 0; i < max && free.length < count; i++) {
+      if (!toBank.samples[i]) free.push(i);
+    }
+    return free.length >= count ? free : null;
+  }
+  // E2S: continue after the highest occupied slot, floor at the user base.
+  const base = e2sUserBase(toBank);
+  let highest = -1;
+  for (let i = 0; i < toBank.samples.length; i++) if (toBank.samples[i]) highest = i;
+  const start = Math.max(base, highest + 1);
   const free = [];
-  for (let i = 0; i < max && free.length < count; i++) {
+  for (let i = start; i < max && free.length < count; i++) {
     if (!toBank.samples[i]) free.push(i);
   }
+  // Top of the range exhausted — fall back to free holes at/above the base.
+  for (let i = base; i < start && free.length < count; i++) {
+    if (!toBank.samples[i]) free.push(i);
+  }
+  free.sort((a, b) => a - b);
   return free.length >= count ? free : null;
 }
 
@@ -515,7 +569,12 @@ module.exports = {
   ESX_MONO_SLOTS,
   ESX_STEREO_SLOTS,
   E2S_MAX_SLOTS,
-  E2S_USER_SLOTS,
+  E2S_MAX_SAMPLE_INDEX,
+  E2S_STOCK_BASE,
+  E2S_HACKTRIBE_BASE,
+  e2sUserBase,
+  detectHacktribe,
+  allocateSlots,
   ESX_MAX_SAMPLE_BYTES,
   ESX_BLOCK_OVERHEAD,
 

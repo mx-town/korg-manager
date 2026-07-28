@@ -225,90 +225,108 @@ describe('E2S - All-file build/parse', () => {
 });
 
 // ── Real hardware offset-table format (regression) ───────
-// Real Korg Electribe2 Sampler .e2sSample.all files use a 510-entry offset
-// table (data begins at 0x1000 = 4096), and each 8-byte entry is
-// [uint32 startOffset, uint32 END offset] — NOT [offset, length]. A file
-// exported by real hardware was crashing the parser (issue: it computed
-// start+endOffset, overran the file, and threw, killing the whole load).
+// Real .e2sSample.all files (verified against a 403-sample Hacktribe dump and
+// the Oe2sSLE reference implementation) use a 1020-entry offset table of
+// 4-byte uint32LE START offsets at 0x10 (0 = empty slot); data begins at
+// 0x1000 = 4096. Table index == hardware sample number − 1, and the ESLI
+// uint16 @0x00 stores that same 0-based index (the osc number).
+//
+// The previous reader treated the table as 510 × 8-byte [start, end] pairs —
+// double stride — and therefore saw only every SECOND sample ("202" of 403);
+// its writer produced files whose samples the hardware never referenced.
 describe('E2S - real hardware offset-table format (regression)', () => {
-  // Extract a single valid WAV body from a built all-file, format-agnostically.
+  // Extract a single valid WAV body from a built all-file.
   function extractWav(allBuf, slot = 0) {
     const off = allBuf.readUInt32LE(HEADER_SIZE + slot * OFFSET_ENTRY);
     const riffLen = allBuf.readUInt32LE(off + 4) + 8; // RIFF size + 8-byte tag/size
     return allBuf.slice(off, off + riffLen);
   }
 
-  // Lay out an all-file exactly like real hardware: end-offset table, data @4096.
-  // opts.zeroLastEnd mirrors the observed quirk that the LAST used slot stores 0
-  // in its end-offset field.
-  function buildHardwareFormatFile(entries, opts = {}) {
+  // Lay out an all-file exactly like real hardware: 4-byte start-offset table,
+  // WAV data back-to-back from 4096.
+  function buildHardwareFormatFile(entries) {
     const dataLen = entries.reduce((n, e) => n + e.wav.length, 0);
     const buf = Buffer.alloc(DATA_START + dataLen, 0);
     MAGIC.copy(buf, 0);
     let pos = DATA_START;
-    entries.forEach((e, idx) => {
-      const tp = HEADER_SIZE + e.slot * OFFSET_ENTRY;
-      const isLast = idx === entries.length - 1;
-      buf.writeUInt32LE(pos, tp);                             // start offset
-      buf.writeUInt32LE(                                       // END offset (hardware format)
-        opts.zeroLastEnd && isLast ? 0 : pos + e.wav.length, tp + 4);
+    for (const e of entries) {
+      buf.writeUInt32LE(pos, HEADER_SIZE + e.slot * OFFSET_ENTRY);
       e.wav.copy(buf, pos);
       pos += e.wav.length;
-    });
+    }
     return buf;
   }
 
-  it('uses a 510-entry table with data starting at 4096', () => {
+  it('uses a 1020-entry table of 4-byte start offsets, data at 4096', () => {
     expect(DATA_START).toBe(4096);
-    expect(MAX_SLOTS).toBe(510);
+    expect(MAX_SLOTS).toBe(1020);
+    expect(OFFSET_ENTRY).toBe(4);
     expect(HEADER_SIZE + MAX_SLOTS * OFFSET_ENTRY).toBe(DATA_START);
   });
 
-  it('buildE2sAllFile writes END offsets (not lengths) and data @4096', () => {
+  it('buildE2sAllFile writes start offsets only, back-to-back data @4096', () => {
     const pcm = Buffer.alloc(200);
     for (let i = 0; i < 100; i++) pcm.writeInt16LE(i * 100, i * 2);
-    const buf = buildE2sAllFile([{ slot: 0, name: 'ENDOFF', pcmData: pcm, sampleRate: NATIVE_RATE }]);
+    const buf = buildE2sAllFile([
+      { slot: 500, name: 'A', pcmData: pcm, sampleRate: NATIVE_RATE },
+      { slot: 501, name: 'B', pcmData: pcm, sampleRate: NATIVE_RATE },
+    ]);
 
-    const startOff = buf.readUInt32LE(HEADER_SIZE);
-    const field2   = buf.readUInt32LE(HEADER_SIZE + 4);
-    const wavLen   = buf.readUInt32LE(startOff + 4) + 8; // real WAV byte length
+    const offA = buf.readUInt32LE(HEADER_SIZE + 500 * OFFSET_ENTRY);
+    const offB = buf.readUInt32LE(HEADER_SIZE + 501 * OFFSET_ENTRY);
+    const wavLenA = buf.readUInt32LE(offA + 4) + 8;
 
-    expect(startOff).toBe(DATA_START);          // 4096
-    expect(field2).toBe(startOff + wavLen);      // field2 == END offset
-    expect(field2).not.toBe(wavLen);             // and NOT the raw length
+    expect(offA).toBe(DATA_START);         // first sample starts at 4096
+    expect(offB).toBe(offA + wavLenA);     // contiguous, no gaps
+    // Every untouched entry is 0.
+    expect(buf.readUInt32LE(HEADER_SIZE)).toBe(0);
+    expect(buf.readUInt32LE(HEADER_SIZE + 502 * OFFSET_ENTRY)).toBe(0);
   });
 
-  it('parses a real-hardware-format file without throwing (the reported bug)', () => {
+  it('stamps the ESLI osc index (u16 @0x00) with the slot', () => {
+    const pcm = Buffer.alloc(200);
+    const buf = buildE2sAllFile([{ slot: 518, name: 'OSC', pcmData: pcm, sampleRate: NATIVE_RATE }]);
+    const wav = extractWav(buf, 518);
+    const esliAt = wav.indexOf(Buffer.from('esli')) + 8;
+    expect(wav.readUInt16LE(esliAt)).toBe(518);
+
+    const parsed = parseE2sAllFile(buf);
+    expect(parsed.samples[518].esli.slotNumber).toBe(518);
+  });
+
+  it('parses samples in high Hacktribe slots (user area starts at 500)', () => {
     const pcm = Buffer.alloc(400);
     for (let i = 0; i < 200; i++) pcm.writeInt16LE(i * 50 - 5000, i * 2);
     const wav = extractWav(
-      buildE2sAllFile([{ slot: 0, name: 'REAL', pcmData: pcm, sampleRate: NATIVE_RATE }])
+      buildE2sAllFile([{ slot: 518, name: 'REAL', pcmData: pcm, sampleRate: NATIVE_RATE }]), 518
     );
-    // Place it high in the slot space, like the real file (samples at 259-460).
-    const buf = buildHardwareFormatFile([{ slot: 300, wav }]);
+    const buf = buildHardwareFormatFile([{ slot: 518, wav }, { slot: 920, wav }]);
 
     let parsed;
     expect(() => { parsed = parseE2sAllFile(buf); }).not.toThrow();
-    expect(parsed.samples[300]).not.toBeNull();
-    expect(parsed.samples[300].esli.name).toBe('REAL');
-    expect(parsed.samples[300].pcmData.equals(pcm)).toBe(true);
+    expect(parsed.samples[518]).not.toBeNull();
+    expect(parsed.samples[518].esli.name).toBe('REAL');
+    expect(parsed.samples[518].pcmData.equals(pcm)).toBe(true);
+    expect(parsed.samples[920]).not.toBeNull();
+    expect(parsed.samples[919]).toBeNull();
   });
 
-  it('loads the last sample even when its end-offset field is 0', () => {
-    const pcm = Buffer.alloc(300);
-    for (let i = 0; i < 150; i++) pcm.writeInt16LE(i * 60, i * 2);
+  it('parses CONSECUTIVE slots — the double-stride bug dropped every 2nd sample', () => {
+    const pcm = Buffer.alloc(200);
+    for (let i = 0; i < 100; i++) pcm.writeInt16LE(i * 100, i * 2);
     const wav = extractWav(
-      buildE2sAllFile([{ slot: 0, name: 'LAST', pcmData: pcm, sampleRate: NATIVE_RATE }])
+      buildE2sAllFile([{ slot: 0, name: 'SEQ', pcmData: pcm, sampleRate: NATIVE_RATE }])
     );
-    // Two samples; the last one's end field is 0 (the real-hardware quirk).
+    // Four consecutive slots, like every real dump. The old 8-byte-stride
+    // reader saw slots 10 and 12 only.
     const buf = buildHardwareFormatFile(
-      [{ slot: 10, wav }, { slot: 11, wav }], { zeroLastEnd: true });
+      [10, 11, 12, 13].map(slot => ({ slot, wav })));
 
     const parsed = parseE2sAllFile(buf);
-    expect(parsed.samples[11]).not.toBeNull();
-    expect(parsed.samples[11].error).toBeUndefined();
-    expect(parsed.samples[11].esli.name).toBe('LAST');
-    expect(parsed.samples[11].pcmData.equals(pcm)).toBe(true);
+    for (const slot of [10, 11, 12, 13]) {
+      expect(parsed.samples[slot], `slot ${slot}`).not.toBeNull();
+      expect(parsed.samples[slot].esli.name).toBe('SEQ');
+    }
   });
 
   it('skips garbage/out-of-range table entries instead of throwing', () => {
@@ -318,11 +336,8 @@ describe('E2S - real hardware offset-table format (regression)', () => {
       buildE2sAllFile([{ slot: 0, name: 'OK', pcmData: pcm, sampleRate: NATIVE_RATE }])
     );
     const buf = buildHardwareFormatFile([{ slot: 5, wav }]);
-    // Corrupt a neighbouring entry with an out-of-range offset (real garbage
-    // slots point well past the file end).
-    const tp = HEADER_SIZE + 6 * OFFSET_ENTRY;
-    buf.writeUInt32LE(buf.length + 1_000_000, tp);
-    buf.writeUInt32LE(buf.length + 2_000_000, tp + 4);
+    // Corrupt a neighbouring entry with an out-of-range offset.
+    buf.writeUInt32LE(buf.length + 1_000_000, HEADER_SIZE + 6 * OFFSET_ENTRY);
 
     let parsed;
     expect(() => { parsed = parseE2sAllFile(buf); }).not.toThrow();

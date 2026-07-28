@@ -106,6 +106,7 @@ contextBridge.exposeInMainWorld('api', {
     rows:       (idx)           => ipcRenderer.invoke('file:rows', idx),
     transfer:   (fromIdx, indices, toIdx) => ipcRenderer.invoke('file:transfer', { fromIdx, indices, toIdx }),
     save:       ()              => ipcRenderer.invoke('file:save'),
+    setHacktribe: (idx, hacktribe) => ipcRenderer.invoke('file:set-hacktribe', { idx, hacktribe }),
   },
 
   // ═══ SD Card ═══

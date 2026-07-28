@@ -5,13 +5,17 @@
  *
  * File layout of e2sSample.all:
  *   [0x0000 – 0x000F]  16-byte magic header
- *   [0x0010 – 0x0FFF]  Offset table – 510 slots × 8 bytes (start offset + END offset)
- *   [0x1000 …]         Concatenated RIFF WAV data
+ *   [0x0010 – 0x0FFF]  Offset table – 1020 slots × uint32LE START offset (0 = empty)
+ *   [0x1000 …]         Concatenated RIFF WAV data, back-to-back in slot order
  *
- * NOTE: each 8-byte table entry is [uint32LE startOffset, uint32LE endOffset].
- * The second field is the ABSOLUTE end offset of the WAV, not its length —
- * sample length = endOffset − startOffset. (Verified against real hardware
- * .e2sSample.all dumps; treating it as a length overruns the file and crashes.)
+ * Table index == hardware sample number − 1 (slot 518 shows as 519 on the
+ * device). WAV length is self-describing (RIFF size + 8); the table stores
+ * start offsets only. Verified against a 403-sample Hacktribe hardware dump
+ * and the Oe2sSLE reference implementation.
+ *
+ * Sample-number ranges: stock E2S user samples are 422–999 (indices 421–998);
+ * Hacktribe ignores every entry below index 500 (numbers 1–500 live in
+ * firmware), so its user samples must sit at indices 500–998.
  */
 
 'use strict';
@@ -25,12 +29,19 @@ const MAGIC = Buffer.from([
   0x6C, 0x6C, 0x1A, 0x00, // "ll\x1A\0"
 ]);
 
-const MAX_SLOTS       = 510;                           // offset-table entries; data follows
+const MAX_SLOTS       = 1020;                          // offset-table entries; data follows
 const HEADER_SIZE     = 16;
-const OFFSET_ENTRY    = 8;                             // uint32LE startOffset + uint32LE endOffset
+const OFFSET_ENTRY    = 4;                             // uint32LE startOffset (0 = empty)
 const OFFSET_TABLE_AT = HEADER_SIZE;                   // 0x10
 const OFFSET_TABLE_SZ = MAX_SLOTS * OFFSET_ENTRY;     // 4080
 const DATA_START      = HEADER_SIZE + OFFSET_TABLE_SZ; // 0x1000 = 4096
+
+// Hardware sample-number bases (0-based slot indices). The device shows
+// index + 1. Stock firmware addresses user samples from #422; Hacktribe's E2
+// firmware keeps #1–#500 in flash and ignores table entries below 500.
+const STOCK_USER_BASE     = 421;                       // sample #422
+const HACKTRIBE_USER_BASE = 500;                       // sample #501
+const MAX_SAMPLE_INDEX    = 998;                       // sample #999
 
 const NATIVE_RATE     = 48000;
 const BITS            = 16;
@@ -123,9 +134,13 @@ function buildEsliData(meta) {
     ? Buffer.from(meta._raw.slice(0, ESLI_DATA_SIZE))
     : Buffer.from(ESLI_TEMPLATE);
 
-  // NOTE: 0x00 is an internal id field (NOT the addressing slot — that comes from
-  // the offset-table position), so it is left as-is (preserved from _raw, or 0
-  // from the template) rather than stamped with the slot index.
+  // 0x00 is the 0-based osc number and must equal the offset-table index —
+  // verified across all 403 samples of a real Hacktribe dump. Stamp it when the
+  // caller addresses a slot (a sample copied to a new slot must carry the new
+  // number); otherwise keep the preserved value.
+  if (meta.slotNumber != null) {
+    buf.writeUInt16LE(meta.slotNumber & 0xFFFF, ESLI.SLOT_NUM);
+  }
 
   buf.fill(0, ESLI.NAME, ESLI.NAME + ESLI_NAME_LEN);
   buf.write(String(meta.name || '').substring(0, ESLI_NAME_LEN), ESLI.NAME, 'ascii');
@@ -221,7 +236,9 @@ function parseE2sWav(buffer) {
  */
 function buildE2sWav(pcmData, esliMeta) {
   const sampleRate  = esliMeta.sampleRate || NATIVE_RATE;
-  const numChannels = 1;
+  // Real dumps contain a few stereo samples; carrying the channel count through
+  // keeps their fmt chunk (and thus a load→save) byte-identical.
+  const numChannels = esliMeta.channels === 2 ? 2 : 1;
   const byteRate    = sampleRate * numChannels * (BITS / 8);
   const blockAlign  = numChannels * (BITS / 8);
   const audioSize   = pcmData.length;
@@ -259,6 +276,12 @@ function buildE2sWav(pcmData, esliMeta) {
   wav.writeUInt16LE(blockAlign, pos); pos += 2;
   wav.writeUInt16LE(BITS, pos); pos += 2;
 
+  // data chunk — hardware writes korg AFTER data (korg sits at the file end);
+  // matching that order keeps a load→save of a real dump byte-identical.
+  wav.write('data', pos); pos += 4;
+  wav.writeUInt32LE(audioSize, pos); pos += 4;
+  pcmData.copy(wav, pos); pos += audioSize;
+
   // korg chunk (contains esli sub-chunk)
   wav.write('korg', pos); pos += 4;
   wav.writeUInt32LE(esliChunkSize, pos); pos += 4;
@@ -268,12 +291,6 @@ function buildE2sWav(pcmData, esliMeta) {
   wav.write('esli', pos); pos += 4;
   wav.writeUInt32LE(ESLI_DATA_SIZE, pos); pos += 4;
   buildEsliData({ ...esliMeta, totalFrames: pcmData.length / 2 }).copy(wav, pos);
-  pos += ESLI_DATA_SIZE;
-
-  // data chunk
-  wav.write('data', pos); pos += 4;
-  wav.writeUInt32LE(audioSize, pos); pos += 4;
-  pcmData.copy(wav, pos);
 
   return wav;
 }
@@ -293,21 +310,18 @@ function parseE2sAllFile(buffer) {
     throw new Error('Invalid e2sSample.all magic header');
   }
 
-  // Read offset table
+  // Read offset table: one uint32LE start offset per slot, 0 = empty.
   const samples = new Array(MAX_SLOTS).fill(null);
   for (let i = 0; i < MAX_SLOTS; i++) {
     const tablePos = OFFSET_TABLE_AT + i * OFFSET_ENTRY;
     const fileOff  = buffer.readUInt32LE(tablePos);
 
     // Skip — never throw on — any entry that isn't a valid in-bounds WAV.
-    // Empty slots read as 0; real files also carry stale/garbage table slots
-    // past the used range. One bad entry must not kill the entire load.
+    // Empty slots read as 0; a corrupt entry must not kill the entire load.
     if (fileOff < DATA_START || fileOff + 8 > buffer.length) continue;
     if (buffer.toString('latin1', fileOff, fileOff + 4) !== 'RIFF') continue;
 
-    // WAV length is self-describing (RIFF chunk size + 8). The table's second
-    // field is an END offset, but the LAST used slot stores 0 there — so trust
-    // the RIFF header, which is always correct and is bounds-checked here.
+    // WAV length is self-describing (RIFF chunk size + 8), bounds-checked here.
     const wavLen = buffer.readUInt32LE(fileOff + 4) + 8;
     if (wavLen <= 8 || fileOff + wavLen > buffer.length) continue;
 
@@ -315,10 +329,11 @@ function parseE2sAllFile(buffer) {
     try {
       const parsed = parseE2sWav(wavBuf);
       samples[i] = {
-        slot:    i,
-        esli:    parsed.esli,
-        fmt:     parsed.fmt,
-        pcmData: parsed.pcmData,
+        slot:     i,
+        esli:     parsed.esli,
+        fmt:      parsed.fmt,
+        channels: parsed.fmt ? parsed.fmt.numChannels : 1,
+        pcmData:  parsed.pcmData,
       };
     } catch (err) {
       // Slot contains invalid WAV – skip with warning
@@ -355,6 +370,7 @@ function buildE2sAllFile(samples) {
     const loopStart = s.loopStart == null ? null : Math.min(s.loopStart, lastFrame);
     const esliMeta = {
       category:      s.category   || 0,
+      channels:      s.channels   || 1,
       slotNumber:    slot,
       name:          s.name       || `Sample ${slot}`,
       playLogPeriod: s.playLogPeriod || 0,
@@ -385,17 +401,15 @@ function buildE2sAllFile(samples) {
   // Write magic
   MAGIC.copy(out, 0);
 
-  // Write WAVs and offset table
+  // Write WAVs and offset table (start offsets only; 0 = empty slot)
   let writePos = DATA_START;
   for (let i = 0; i < MAX_SLOTS; i++) {
     const tablePos = OFFSET_TABLE_AT + i * OFFSET_ENTRY;
     if (!wavBuffers[i]) {
       out.writeUInt32LE(0, tablePos);
-      out.writeUInt32LE(0, tablePos + 4);
       continue;
     }
-    out.writeUInt32LE(writePos, tablePos);                            // start offset
-    out.writeUInt32LE(writePos + wavBuffers[i].length, tablePos + 4); // END offset (not length)
+    out.writeUInt32LE(writePos, tablePos);
     wavBuffers[i].copy(out, writePos);
     writePos += wavBuffers[i].length;
   }
@@ -554,6 +568,9 @@ module.exports = {
   OFFSET_ENTRY,
   OFFSET_TABLE_AT,
   DATA_START,
+  STOCK_USER_BASE,
+  HACKTRIBE_USER_BASE,
+  MAX_SAMPLE_INDEX,
   NATIVE_RATE,
   ESLI_DATA_SIZE,
   ESLI,

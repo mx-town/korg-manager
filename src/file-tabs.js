@@ -68,6 +68,10 @@ function bankSampleToStore(bs, device, slot) {
       loopEnd: bs.loopEnd ?? null,
       startPoint: e.startPoint ?? 0,
       endPoint: e.endPoint ?? null, // null => full sample on save
+      // Save-fidelity carriers (see bank.createE2sBank): raw ESLI block for
+      // preserve-and-patch, channel count for byte-identical stereo fmt chunks.
+      _raw: e._raw ?? null,
+      channels: e.channels ?? 1,
     };
   }
   return store;
@@ -101,17 +105,29 @@ function clampLoop(loopStart, loopEnd, numFrames) {
  * Dense view-native store array -> E2S bank (LE PCM, slot-addressed).
  * Samples keep their original slot when it is still free; samples without a
  * slot (new imports, duplicates, cross-device copies that bypassed bank.js)
- * get the next free slot. The assigned slot is written back into the store
- * sample's `_e2s.slot` so dense-index -> slot translation stays reliable
- * (transfer and save both depend on it).
+ * are APPENDED after the highest used slot, never below the firmware's user
+ * base (opts.hacktribe; auto-detected from the preserved slots when absent —
+ * Hacktribe ignores table entries under #501). The assigned slot is written
+ * back into the store sample's `_e2s.slot` so dense-index -> slot translation
+ * stays reliable (transfer and save both depend on it).
  */
-function storeToE2sBank(samples, filePath, fileName) {
+function storeToE2sBank(samples, filePath, fileName, opts = {}) {
   const arr = new Array(bank.E2S_MAX_SLOTS).fill(null);
+  const hacktribe = opts.hacktribe != null
+    ? !!opts.hacktribe
+    : !samples.some(s => s && s._e2s && s._e2s.slot != null && s._e2s.slot < bank.E2S_HACKTRIBE_BASE);
+  const base = hacktribe ? bank.E2S_HACKTRIBE_BASE : bank.E2S_STOCK_BASE;
 
   const place = (s) => {
     const want = s._e2s && s._e2s.slot != null ? s._e2s.slot : null;
     if (want != null && want >= 0 && want < bank.E2S_MAX_SLOTS && !arr[want]) return want;
-    for (let i = 0; i < bank.E2S_MAX_SLOTS; i++) if (!arr[i]) return i;
+    // Append after the highest occupied slot, floor at the user base; fall
+    // back to free holes at/above the base when the top range is exhausted.
+    let highest = -1;
+    for (let i = 0; i < arr.length; i++) if (arr[i]) highest = i;
+    const start = Math.max(base, highest + 1);
+    for (let i = start; i <= bank.E2S_MAX_SAMPLE_INDEX; i++) if (!arr[i]) return i;
+    for (let i = base; i < start; i++) if (!arr[i]) return i;
     return null;
   };
 
@@ -122,7 +138,7 @@ function storeToE2sBank(samples, filePath, fileName) {
   for (const s of [...withSlot, ...withoutSlot]) {
     if (!s || !s.pcmData || s.pcmData.length === 0) continue;
     const slot = place(s);
-    if (slot == null) break; // file table full — silently drop is impossible (1000 slots)
+    if (slot == null) break; // user area full (base..#999) — nothing left to assign
     if (!s._e2s) s._e2s = {};
     s._e2s.slot = slot; // write-back: keeps dense-index -> slot translation reliable
     const meta = s._e2s;
@@ -148,6 +164,8 @@ function storeToE2sBank(samples, filePath, fileName) {
         playVolume: meta.playVolume ?? 0x4000,
         startPoint: meta.startPoint ?? 0,
         endPoint: meta.endPoint ?? undefined, // build clamps to sample length
+        _raw: meta._raw ?? null,
+        channels: meta.channels ?? 1,
       },
       undoStack: [],
       redoStack: [],
@@ -161,6 +179,7 @@ function storeToE2sBank(samples, filePath, fileName) {
     fileName: fileName || null,
     samples: arr,
     originalBuffer: null,
+    hacktribe,
     dirty: false,
   };
 }
@@ -204,9 +223,9 @@ function storeToEsxBank(samples, filePath, fileName, originalBuffer) {
 }
 
 /** Dense store array -> bank, dispatched by device. */
-function storeToBank(samples, device, { filePath, fileName, originalBuffer } = {}) {
+function storeToBank(samples, device, { filePath, fileName, originalBuffer, hacktribe } = {}) {
   return device === 'e2s'
-    ? storeToE2sBank(samples, filePath, fileName)
+    ? storeToE2sBank(samples, filePath, fileName, { hacktribe })
     : storeToEsxBank(samples, filePath, fileName, originalBuffer);
 }
 
