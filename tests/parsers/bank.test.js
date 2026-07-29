@@ -65,10 +65,12 @@ describe('device helpers', () => {
     expect(bank.E2S_MAX_SAMPLE_INDEX).toBe(998);    // sample #999, last addressable
     expect(bank.E2S_STOCK_BASE).toBe(421);          // stock user area starts at #422
     expect(bank.E2S_HACKTRIBE_BASE).toBe(500);      // Hacktribe user area starts at #501
-    // Budget is capped by the writable sample-data region of the fixed file
-    // (ESX_FILE_SIZE - SAMPLE_DATA), not the larger hardware-RAM constant —
-    // otherwise a save could silently truncate the last sample's PCM.
-    expect(bank.ESX_MAX_SAMPLE_BYTES).toBe(24117248);
+    // Budget is the hardware sample-memory ceiling declared by the free-space block
+    // that every real .esx ends with. It used to be clamped to (ESX_FILE_SIZE -
+    // SAMPLE_DATA) = 24,117,248 to dodge silent truncation into a fixed-size buffer,
+    // but .esx files are variable-sized (0x250010 + currentOffset) and the writers now
+    // throw instead of truncating — so the real ~25 MB ceiling applies.
+    expect(bank.ESX_MAX_SAMPLE_BYTES).toBe(25165822);
     expect(bank.ESX_BLOCK_OVERHEAD).toBe(16);
   });
 

@@ -61,6 +61,8 @@ contextBridge.exposeInMainWorld('api', {
 
   // ═══ ESX Patterns ═══
   esx: {
+    getGlobalParams: ()         => ipcRenderer.invoke('esx:get-global-params'),
+    setGlobalParams: (changes)  => ipcRenderer.invoke('esx:set-global-params', changes),
     openPatterns: ()            => ipcRenderer.invoke('esx:open-patterns'),
     getPatternSamples: (nums)   => ipcRenderer.invoke('esx:get-pattern-samples', nums),
     getPatternList: ()          => ipcRenderer.invoke('esx:get-pattern-list'),

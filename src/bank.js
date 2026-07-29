@@ -32,12 +32,10 @@ const E2S_STOCK_BASE = e2s.STOCK_USER_BASE;          // 421 → sample #422 (sto
 const E2S_HACKTRIBE_BASE = e2s.HACKTRIBE_USER_BASE;  // 500 → sample #501 (Hacktribe user area)
 
 // The .esx sample-memory budget must be capped by whichever is smaller: the
-// hardware sample-RAM limit, OR the actual writable sample-data region of the
-// fixed-size file. buildEsxFile/rebuildEsxFile copy blocks into that region and
-// Buffer.copy silently truncates past its end — so an over-region total would
-// pass a RAM-only check yet corrupt the last sample on save.
-const ESX_SAMPLE_REGION = esx.ESX_FILE_SIZE - esx.ADDR.SAMPLE_DATA; // 24,117,248
-const ESX_MAX_SAMPLE_BYTES = Math.min(esx.SIZE.MAX_SAMPLE_BYTES, ESX_SAMPLE_REGION);
+// hardware sample-RAM limit. .esx files are variable-sized (0x250010 + currentOffset),
+// so the ceiling is the sample memory the free-space block declares, not a file size.
+// buildEsxFile/rebuildEsxFile now throw rather than truncate past it.
+const ESX_MAX_SAMPLE_BYTES = Math.min(esx.SIZE.MAX_SAMPLE_BYTES, esx.SAMPLE_MEM_END);
 const ESX_BLOCK_OVERHEAD = 16;                  // per-sample block header in buildEsxFile
 
 const E2S_LOOP_SENTINEL = 0xFFFFFFFF;           // "no loop" in ESLI / ESX headers

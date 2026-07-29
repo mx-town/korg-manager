@@ -23,7 +23,16 @@ const ADDR = {
   SAMPLE_DATA:          0x00250000,   // PCM sample data starts here
 };
 
-const ESX_FILE_SIZE = 0x1950000;        // 26,542,080 bytes — hardware-required fixed file size
+// NOTE: .esx files are NOT a fixed size. Verified byte-exact on four real files
+// (4.5 MB to 26.7 MB, one of them LARGER than the value below):
+//     filesize = 0x250010 + currentOffset(@0x001B0028)
+// i.e. header region + PCM data + a 16-byte free-space terminator block.
+// This constant is kept only as a legacy reference; do not size buffers with it.
+const ESX_FILE_SIZE = 0x1950000;        // 26,542,080 bytes — legacy, NOT hardware-enforced
+
+// End offset of the sample memory area, taken from the free-space terminator block
+// that every real file ends with. This is the true capacity ceiling.
+const SAMPLE_MEM_END = 0x017FFFFE;      // 25,165,822 bytes
 
 const SIZE = {
   HEADER: 32,
@@ -31,6 +40,7 @@ const SIZE = {
   SAMPLE_HDR_STEREO: 44,
   FILE_MIN: 0x00250010,              // Minimum .esx file size (no samples)
   MAX_SAMPLE_BYTES: 0xC00000 * 2,    // ~25MB max sample memory
+  SLICE_BLOCK: 2048,                 // slice data per sample slot (256 slots)
 };
 
 const NUM = {
@@ -535,32 +545,22 @@ function createEmptyEsx() {
   buffer[GP + 0x05] = 0x0F;  // MIDI bitflags: note + sysex + CC + PC all enabled
   buffer[GP + 0x06] = 0x0E;  // Pitch bend range: +2 semitones
 
-  // MIDI channel assignments (0x00=Ch1 .. 0x0F=Ch16)
+  // MIDI channel assignments — exactly 3 bytes (Korg TABLE26).
+  // The ESX-1 has only three MIDI channels for sixteen parts: every drum, stretch,
+  // slice and audio-in part shares +0x09 and is distinguished by note number alone.
+  // +0x07 is what the device's global menu calls "the" Global MIDI Channel.
   buffer[GP + 0x07] = 0x00;  // Keyboard 1 → Ch.1
   buffer[GP + 0x08] = 0x01;  // Keyboard 2 → Ch.2
-  buffer[GP + 0x09] = 0x09;  // Drum 1 → Ch.10 (GM standard)
-  buffer[GP + 0x0A] = 0x09;  // Drum 2 → Ch.10
-  buffer[GP + 0x0B] = 0x09;  // Drum 3 → Ch.10
-  buffer[GP + 0x0C] = 0x09;  // Drum 4 → Ch.10
-  buffer[GP + 0x0D] = 0x09;  // Drum 5 → Ch.10
-  buffer[GP + 0x0E] = 0x09;  // Drum 6 → Ch.10
-  buffer[GP + 0x0F] = 0x09;  // Drum 7 → Ch.10
-  buffer[GP + 0x10] = 0x09;  // Drum 8 → Ch.10
-  buffer[GP + 0x11] = 0x09;  // Drum 9 → Ch.10
-  buffer[GP + 0x12] = 0x09;  // Stretch 1 → Ch.10
-  buffer[GP + 0x13] = 0x09;  // Stretch 2 → Ch.10
-  buffer[GP + 0x14] = 0x09;  // Slice → Ch.10
-  buffer[GP + 0x15] = 0x09;  // Audio In → Ch.10
-  buffer[GP + 0x16] = 0x00;  // Accent → Ch.1
+  buffer[GP + 0x09] = 0x09;  // Drum/Stretch/Slice/AudioIn → Ch.10 (GM drums)
 
-  // Part note numbers (MIDI note that triggers each part)
-  // Values match GM drum map: Kick=36, Snare=38, etc.
+  // Part note numbers, 13 bytes at +0x0A..+0x16 (Korg TABLE27).
+  // Drum parts 6 and 7 each carry two triggerable notes (6A/6B, 7A/7B).
   const partNotes = [36, 38, 40, 41, 43, 42, 46, 49, 51, 9, 10, 11, 12];
   // Drum1=C2(36), Drum2=D2(38), Drum3=E2(40), Drum4=F2(41), Drum5=G2(43),
   // Drum6a=F#2(42), Drum6b=A#2(46), Drum7a=C#3(49), Drum7b=D#3(51),
   // Stretch1=A-1(9), Stretch2=A#-1(10), Slice=B-1(11), AudioIn=C0(12)
   for (let i = 0; i < partNotes.length; i++) {
-    buffer.writeUInt8(partNotes[i], ADDR.GLOBAL_PARAMS + 0x0A + i);
+    buffer.writeUInt8(partNotes[i], GP + 0x0A + i);
   }
 
   // MIDI CC assignments (33 bytes — factory defaults from ESX1_Fact.ESX)
@@ -587,7 +587,13 @@ function createEmptyEsx() {
     buffer.writeUInt8(midiCCs[i], ADDR.GLOBAL_PARAMS + 0x17 + i);
   }
 
-  // Remaining global params (pattern set params etc.) stay zero-initialized
+  // +0x38..+0x3F reserved (zeros).
+  // Pattern Set Parameters, 128 bytes at +0x40..+0xBF (Korg TABLE13): each slot holds
+  // the pattern it recalls. Zeroing them would point all 128 slots at pattern 0, so
+  // write an identity mapping — slot n recalls pattern n.
+  for (let i = 0; i < 128; i++) {
+    buffer.writeUInt8(i, GP + 0x40 + i);
+  }
 
   // ════ Initialize all 256 Patterns ════
   for (let p = 0; p < NUM.PATTERNS; p++) {
@@ -618,12 +624,9 @@ function createEmptyEsx() {
   buffer.writeUInt32BE(0, ADDR.NUM_STEREO_SAMPLES);
   buffer.writeUInt32BE(0, ADDR.CURRENT_OFFSET);
 
-  // Write the small header at sample data start
-  // First 16 bytes of sample data area are a header
-  buffer.writeUInt32BE(0x00000000, ADDR.SAMPLE_DATA);
-  buffer.writeUInt32BE(0x00000000, ADDR.SAMPLE_DATA + 4);
-  buffer.writeUInt32BE(0x00000000, ADDR.SAMPLE_DATA + 8);
-  buffer.writeUInt32BE(0x00000000, ADDR.SAMPLE_DATA + 12);
+  // Sample memory is entirely free: write the free-space terminator block that real
+  // files end with (spanning offset 0 to the end of sample memory).
+  buildFreeSpaceBlock(0).copy(buffer, ADDR.SAMPLE_DATA);
 
   return buffer;
 }
@@ -652,6 +655,51 @@ function buildSampleDataBlock(pcmData, sampleIndex, startOffset) {
   pcmData.copy(block, 16);
 
   return block;
+}
+
+/**
+ * Build the 16-byte free-space terminator block that closes the sample data area.
+ * Every real .esx file ends with one; it describes the unused remainder of sample
+ * memory as a block spanning [currentOffset, SAMPLE_MEM_END].
+ *
+ *   80 00 7F FF | currentOffset | SAMPLE_MEM_END | 00 FF FF FF
+ *
+ * @param {number} currentOffset - first free byte in sample memory
+ * @returns {Buffer} 16-byte block
+ */
+function buildFreeSpaceBlock(currentOffset) {
+  const block = Buffer.alloc(16);
+  PCM_SIG.copy(block, 0);
+  block.writeUInt32BE(currentOffset, 4);
+  block.writeUInt32BE(SAMPLE_MEM_END, 8);
+  block.writeUInt8(0x00, 12);
+  block.writeUInt8(0xFF, 13);
+  block.writeUInt16BE(0xFFFF, 14);
+  return block;
+}
+
+/**
+ * Assemble the final .esx buffer at its true, variable size.
+ * Replaces the old behaviour of allocating a fixed ESX_FILE_SIZE buffer, which
+ * padded small files with megabytes of zeros and silently truncated large ones.
+ *
+ * @param {Buffer} headerBuffer - everything up to ADDR.SAMPLE_DATA
+ * @param {Buffer} sampleDataBuffer - packed PCM blocks (length === currentOffset)
+ * @param {number} currentOffset - first free byte in sample memory
+ * @returns {Buffer} complete .esx file, length = 0x250010 + currentOffset
+ */
+function assembleEsxBuffer(headerBuffer, sampleDataBuffer, currentOffset) {
+  if (currentOffset > SAMPLE_MEM_END) {
+    throw new Error(
+      `Sample data (${currentOffset.toLocaleString()} bytes) exceeds ESX sample memory ` +
+      `(${SAMPLE_MEM_END.toLocaleString()} bytes). Remove or shorten samples.`
+    );
+  }
+  const finalBuffer = Buffer.alloc(ADDR.SAMPLE_DATA + currentOffset + 16, 0);
+  headerBuffer.copy(finalBuffer, 0, 0, Math.min(headerBuffer.length, ADDR.SAMPLE_DATA));
+  sampleDataBuffer.copy(finalBuffer, ADDR.SAMPLE_DATA);
+  buildFreeSpaceBlock(currentOffset).copy(finalBuffer, ADDR.SAMPLE_DATA + currentOffset);
+  return finalBuffer;
 }
 
 /**
@@ -782,14 +830,10 @@ function buildEsxFile(samples) {
   }
   headerBuffer.writeUInt32BE(checksum, ADDR.BPS_HEADER + 0x0C);
 
-  // Combine header + sample data into fixed-size hardware buffer
+  // Combine header + sample data at the file's true, variable size
   const sampleDataBuffer = Buffer.concat(dataBlocks);
 
-  const finalBuffer = Buffer.alloc(ESX_FILE_SIZE, 0);
-  headerBuffer.copy(finalBuffer, 0);
-  sampleDataBuffer.copy(finalBuffer, ADDR.SAMPLE_DATA);
-
-  return finalBuffer;
+  return assembleEsxBuffer(headerBuffer, sampleDataBuffer, currentOffset);
 }
 
 // ── Bit-packed step helpers ───────────────────────────────
@@ -1274,10 +1318,21 @@ function rebuildEsxFile(originalBuffer, samples) {
   const headerBuffer = Buffer.alloc(ADDR.SAMPLE_DATA + 0x10, 0);
   originalBuffer.copy(headerBuffer, 0, 0, Math.min(originalBuffer.length, headerBuffer.length));
 
-  // Clear sample headers with 0xFF (factory default for empty slots) and slice data with 0x00
+  // Keep a copy of the original slice region before clearing it. Slice data is indexed
+  // by sample slot (256 x 2048 bytes), so when samples are reordered or removed it has
+  // to follow its sample to the new slot — otherwise slice points end up attached to
+  // the wrong sample. Samples without an original index (freshly imported) get zeros.
+  const originalSlices = Buffer.alloc(ADDR.SAMPLE_DATA - ADDR.SLICE_DATA);
+  headerBuffer.copy(originalSlices, 0, ADDR.SLICE_DATA, ADDR.SAMPLE_DATA);
+
+  // Clear sample headers with 0xFF (factory default for empty slots).
   headerBuffer.fill(0xFF, ADDR.SAMPLE_HDR_MONO, ADDR.SAMPLE_HDR_STEREO);
   headerBuffer.fill(0xFF, ADDR.SAMPLE_HDR_STEREO, ADDR.SLICE_DATA);
-  headerBuffer.fill(0, ADDR.SLICE_DATA, ADDR.SAMPLE_DATA);
+
+  // Clear ONLY the 256-slot slice table (0x1B4200..0x234200). The region between the
+  // end of that table and the PCM data (0x234200..0x250000, 115,712 bytes) is not
+  // understood yet but is populated in real files, so it is carried over untouched.
+  headerBuffer.fill(0, ADDR.SLICE_DATA, ADDR.SLICE_DATA + NUM.MONO_SAMPLES * SIZE.SLICE_BLOCK);
 
   // BPS version string at 0x1B0010
   Buffer.from('01000000', 'ascii').copy(headerBuffer, 0x1B0010);
@@ -1317,6 +1372,16 @@ function rebuildEsxFile(originalBuffer, samples) {
     headerBuffer.writeUInt8(0x00, hdrOff + 38);
     headerBuffer.writeUInt8(0x00, hdrOff + 39);
 
+    // Carry this sample's slice data over to its new slot
+    if (Number.isInteger(sample.index) && sample.index >= 0 && sample.index < NUM.MONO_SAMPLES) {
+      originalSlices.copy(
+        headerBuffer,
+        ADDR.SLICE_DATA + monoCount * SIZE.SLICE_BLOCK,
+        sample.index * SIZE.SLICE_BLOCK,
+        (sample.index + 1) * SIZE.SLICE_BLOCK
+      );
+    }
+
     dataBlocks.push(block);
     currentOffset += blockSize;
 
@@ -1330,9 +1395,61 @@ function rebuildEsxFile(originalBuffer, samples) {
     monoCount++;
   }
 
+  // ── Preserve stereo samples ────────────────────────────────
+  // The app never loads stereo PCM into memory (parseEsxFile reads stereo metadata
+  // only), so they are carried over as raw bytes straight from the original file.
+  // Mono samples were just repacked, so the stored absolute offsets are stale and both
+  // the sample header and each block's own embedded offsets have to be re-pointed.
+  let stereoCount = 0;
+  const origHasPcm = originalBuffer.length > ADDR.SAMPLE_DATA;
+
+  for (let i = 0; origHasPcm && i < NUM.STEREO_SAMPLES; i++) {
+    const src = ADDR.SAMPLE_HDR_STEREO + i * SIZE.SAMPLE_HDR_STEREO;
+    if (src + SIZE.SAMPLE_HDR_STEREO > originalBuffer.length) break;
+
+    const chans = [
+      [originalBuffer.readUInt32BE(src + 8), originalBuffer.readUInt32BE(src + 12)],
+      [originalBuffer.readUInt32BE(src + 16), originalBuffer.readUInt32BE(src + 20)],
+    ];
+    // 0xFFFFFFFF marks an empty slot
+    if (chans[0][0] === 0xFFFFFFFF || chans[0][1] === 0xFFFFFFFF) continue;
+
+    // Both channel blocks must lie inside the original PCM region to be usable
+    const usable = chans.every(([s, e]) =>
+      e > s && ADDR.SAMPLE_DATA + e <= originalBuffer.length);
+    if (!usable) continue;
+
+    // Copy the header, then patch in the new offsets channel by channel
+    const dst = ADDR.SAMPLE_HDR_STEREO + stereoCount * SIZE.SAMPLE_HDR_STEREO;
+    originalBuffer.copy(headerBuffer, dst, src, src + SIZE.SAMPLE_HDR_STEREO);
+
+    chans.forEach(([s, e], ch) => {
+      const block = Buffer.from(
+        originalBuffer.subarray(ADDR.SAMPLE_DATA + s, ADDR.SAMPLE_DATA + e));
+      // Each block repeats its own start/end offsets at +4 and +8
+      if (block.length >= 12) {
+        block.writeUInt32BE(currentOffset, 4);
+        block.writeUInt32BE(currentOffset + block.length, 8);
+      }
+      headerBuffer.writeUInt32BE(currentOffset, dst + 8 + ch * 8);
+      headerBuffer.writeUInt32BE(currentOffset + block.length, dst + 12 + ch * 8);
+
+      dataBlocks.push(block);
+      currentOffset += block.length;
+
+      const aligned = (currentOffset + 4) & ~3;
+      if (aligned > currentOffset) {
+        dataBlocks.push(Buffer.alloc(aligned - currentOffset, 0));
+        currentOffset = aligned;
+      }
+    });
+
+    stereoCount++;
+  }
+
   // Update counters
   headerBuffer.writeUInt32BE(monoCount, ADDR.NUM_MONO_SAMPLES);
-  headerBuffer.writeUInt32BE(0, ADDR.NUM_STEREO_SAMPLES);
+  headerBuffer.writeUInt32BE(stereoCount, ADDR.NUM_STEREO_SAMPLES);
   headerBuffer.writeUInt32BE(currentOffset, ADDR.CURRENT_OFFSET);
 
   // Compute BPS checksum
@@ -1342,14 +1459,10 @@ function rebuildEsxFile(originalBuffer, samples) {
   }
   headerBuffer.writeUInt32BE(checksum, ADDR.BPS_HEADER + 0x0C);
 
-  // Combine header + sample data into fixed-size hardware buffer
+  // Combine header + sample data at the file's true, variable size
   const sampleDataBuffer = Buffer.concat(dataBlocks);
 
-  const finalBuffer = Buffer.alloc(ESX_FILE_SIZE, 0);
-  headerBuffer.copy(finalBuffer, 0);
-  sampleDataBuffer.copy(finalBuffer, ADDR.SAMPLE_DATA);
-
-  return finalBuffer;
+  return assembleEsxBuffer(headerBuffer, sampleDataBuffer, currentOffset);
 }
 
 // ── Part parameter offset maps (relative to part start) ──────
@@ -1430,6 +1543,205 @@ function writePartParam(buf, patIdx, partIdx, paramKey, value) {
   buf.writeUInt8(value & 0xFF, partBase + paramOff);
 }
 
+// ── Global parameters (Korg TABLE13) ─────────────────────────
+
+const MIDI_CHANNEL_PARTS = ['keyboard1', 'keyboard2', 'drumStretchSliceAudioIn'];
+
+const DRUM_NOTE_PARTS = [
+  'Drum1', 'Drum2', 'Drum3', 'Drum4', 'Drum5', 'Drum6A', 'Drum6B',
+  'Drum7A', 'Drum7B', 'Stretch1', 'Stretch2', 'Slice', 'AudioIn',
+];
+
+const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+
+/** Format a MIDI note number the way Korg prints it (note 0 = C-1, so 36 -> "C2"). */
+function noteName(n) {
+  return NOTE_NAMES[n % 12] + (Math.floor(n / 12) - 1);
+}
+
+/**
+ * Read the global parameter block (192 bytes at 0x20) of an .esx file.
+ *
+ * The ESX-1 has only THREE MIDI channels for sixteen parts: Keyboard 1, Keyboard 2,
+ * and one shared channel for every drum/stretch/slice/audio-in part, which are told
+ * apart by note number only. Korg's global menu edits `channels.keyboard1` — that is
+ * what the manual calls "the" Global MIDI Channel.
+ *
+ * Loading an .esx into the hardware overwrites the device's global settings, so bad
+ * values in a file re-break a hand-configured device on every load.
+ *
+ * @param {Buffer} buffer - full .esx file
+ * @returns {object} decoded global parameters
+ */
+function parseGlobalParams(buffer) {
+  const GP = ADDR.GLOBAL_PARAMS;
+  if (!Buffer.isBuffer(buffer) || buffer.length < GP + 192) {
+    throw new Error('Buffer too small to contain ESX global parameters');
+  }
+  const flags = buffer[GP + 0x05];
+
+  const channels = {};
+  MIDI_CHANNEL_PARTS.forEach((part, i) => {
+    const raw = buffer[GP + 0x07 + i];
+    channels[part] = { raw, channel: raw + 1, valid: raw <= 0x0F };
+  });
+
+  const drumNotes = {};
+  DRUM_NOTE_PARTS.forEach((part, i) => {
+    const raw = buffer[GP + 0x0A + i];
+    drumNotes[part] = { note: raw, name: raw <= 127 ? noteName(raw) : null, valid: raw <= 127 };
+  });
+
+  return {
+    memoryProtect: buffer[GP + 0x00] === 1,
+    arpControl: buffer[GP + 0x02],            // 0 = Normal, 1 = Reverse
+    audioInMode: buffer[GP + 0x03],           // 0 = L/Mono, 1 = Stereo
+    midiClock: buffer[GP + 0x04],             // 0 = Int, 1 = Ext, 2 = Auto
+    midiClockValid: buffer[GP + 0x04] <= 2,
+    filters: {
+      note: !!(flags & 0x01),
+      sysEx: !!(flags & 0x02),
+      controlChange: !!(flags & 0x04),
+      programChange: !!(flags & 0x08),
+      raw: flags,
+    },
+    pitchBendRange: buffer[GP + 0x06] - 12,   // stored 0..12..24 => -12..0..+12
+    pitchBendValid: buffer[GP + 0x06] <= 24,
+    channels,
+    globalChannel: buffer[GP + 0x07] + 1,     // = Keyboard Part 1 channel
+    drumNotes,
+    ccAssignments: Array.from(buffer.subarray(GP + 0x17, GP + 0x38)),
+    patternSet: Array.from(buffer.subarray(GP + 0x40, GP + 0xC0)),
+  };
+}
+
+/**
+ * Check an .esx file's global parameters for values the hardware cannot represent.
+ * Reports problems only — it never rewrites anything, because MIDI routing is the
+ * user's decision and silently forcing channel numbers would break every setup that
+ * deliberately wires MIDI differently.
+ *
+ * @param {Buffer} buffer - full .esx file
+ * @returns {Array<{field: string, value: number, message: string}>} problems found
+ */
+function validateGlobalParams(buffer) {
+  const g = parseGlobalParams(buffer);
+  const problems = [];
+
+  if (!g.midiClockValid) {
+    problems.push({ field: 'midiClock', value: g.midiClock,
+      message: `MIDI clock is ${g.midiClock}; hardware accepts only 0=Int, 1=Ext, 2=Auto.` });
+  }
+  if (!g.pitchBendValid) {
+    problems.push({ field: 'pitchBendRange', value: g.pitchBendRange + 12,
+      message: 'Pitch bend range is outside the valid 0..24 range.' });
+  }
+  for (const [part, c] of Object.entries(g.channels)) {
+    if (!c.valid) {
+      problems.push({ field: `channels.${part}`, value: c.raw,
+        message: `MIDI channel byte for ${part} is ${c.raw}; valid range is 0-15 (Ch.1-16).` });
+    }
+  }
+  for (const [part, n] of Object.entries(g.drumNotes)) {
+    if (!n.valid) {
+      problems.push({ field: `drumNotes.${part}`, value: n.note,
+        message: `Note number for ${part} is ${n.note}; valid range is 0-127.` });
+    }
+  }
+  const seen = new Map();
+  for (const [part, n] of Object.entries(g.drumNotes)) {
+    if (seen.has(n.note)) {
+      problems.push({ field: `drumNotes.${part}`, value: n.note,
+        message: `${part} shares note ${n.note} (${n.name}) with ${seen.get(n.note)} — ` +
+                 `both parts trigger together, since they also share one MIDI channel.` });
+    } else {
+      seen.set(n.note, part);
+    }
+  }
+  return problems;
+}
+
+// EMX-1 factory MIDI channels (owner's manual p.79): Synth part 1 (= its global
+// channel) on Ch.1, Synth parts 2-5 on Ch.2-5, Drum parts 1-7B on Ch.10.
+const EMX_DEFAULT_CHANNELS = {
+  1: 'EMX Synth 1 (global)',
+  2: 'EMX Synth 2',
+  3: 'EMX Synth 3',
+  4: 'EMX Synth 4',
+  5: 'EMX Synth 5',
+  10: 'EMX Drum parts 1-7B',
+};
+
+const CHANNEL_LABELS = {
+  keyboard1: 'Keyboard 1',
+  keyboard2: 'Keyboard 2',
+  drumStretchSliceAudioIn: 'Drum / Stretch / Slice / Audio In',
+};
+
+/**
+ * Report ESX parts whose MIDI channel lands on an EMX-1 factory channel.
+ *
+ * With an ESX driving an EMX, any shared channel makes both machines sound at once.
+ * The ESX has only three channel bytes for sixteen parts, and its global menu edits
+ * just Keyboard 1 — so moving "the" MIDI channel on the device leaves Keyboard 2 and
+ * the whole drum section sitting on the EMX's channels.
+ *
+ * @param {Buffer} buffer - full .esx file
+ * @returns {Array<{part: string, label: string, channel: number, collidesWith: string}>}
+ */
+function findEmxChannelCollisions(buffer) {
+  const g = parseGlobalParams(buffer);
+  const hits = [];
+  for (const [part, c] of Object.entries(g.channels)) {
+    const owner = EMX_DEFAULT_CHANNELS[c.channel];
+    if (c.valid && owner) {
+      hits.push({ part, label: CHANNEL_LABELS[part] || part, channel: c.channel, collidesWith: owner });
+    }
+  }
+  return hits;
+}
+
+/**
+ * Write MIDI channel and/or drum note values into a copy of an .esx buffer.
+ *
+ * Only the fields actually present in `changes` are written — everything else in the
+ * global block, and the rest of the file, is left byte-for-byte alone. MIDI routing is
+ * the user's decision, so nothing here applies a default or "repairs" a value on its
+ * own; callers pass exactly what the user chose.
+ *
+ * @param {Buffer} buffer - full .esx file
+ * @param {object} changes - { channels?: {keyboard1?, keyboard2?, drumStretchSliceAudioIn?},
+ *                             drumNotes?: {Drum1?, ... AudioIn?} } — raw byte values
+ * @returns {Buffer} a new buffer with the requested bytes patched
+ */
+function writeGlobalParams(buffer, changes = {}) {
+  const GP = ADDR.GLOBAL_PARAMS;
+  if (!Buffer.isBuffer(buffer) || buffer.length < GP + 192) {
+    throw new Error('Buffer too small to contain ESX global parameters');
+  }
+  const out = Buffer.from(buffer);
+
+  for (const [part, value] of Object.entries(changes.channels || {})) {
+    const i = MIDI_CHANNEL_PARTS.indexOf(part);
+    if (i === -1) throw new Error(`Unknown MIDI channel part "${part}"`);
+    if (!Number.isInteger(value) || value < 0 || value > 15) {
+      throw new Error(`MIDI channel for ${part} must be 0-15 (Ch.1-16), got ${value}`);
+    }
+    out[GP + 0x07 + i] = value;
+  }
+
+  for (const [part, value] of Object.entries(changes.drumNotes || {})) {
+    const i = DRUM_NOTE_PARTS.indexOf(part);
+    if (i === -1) throw new Error(`Unknown drum note part "${part}"`);
+    if (!Number.isInteger(value) || value < 0 || value > 127) {
+      throw new Error(`Note number for ${part} must be 0-127, got ${value}`);
+    }
+    out[GP + 0x0A + i] = value;
+  }
+
+  return out;
+}
+
 module.exports = {
   parseWavFile,
   convertTo16BitMono,
@@ -1443,10 +1755,21 @@ module.exports = {
   parsePatternBlock,
   packStepBits,
   writePartParam,
+  parseGlobalParams,
+  validateGlobalParams,
+  writeGlobalParams,
+  findEmxChannelCollisions,
+  MIDI_CHANNEL_PARTS,
+  DRUM_NOTE_PARTS,
+  CHANNEL_LABELS,
+  EMX_DEFAULT_CHANNELS,
+  buildFreeSpaceBlock,
+  assembleEsxBuffer,
   ADDR,
   SIZE,
   NUM,
   ESX_FILE_SIZE,
+  SAMPLE_MEM_END,
   PATTERN_SIZE,
   PATTERN_COUNT,
   PATTERN_OFFSETS,

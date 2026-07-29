@@ -234,6 +234,30 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 .toast.fading{animation:tout 250ms ease forwards}
 @keyframes tout{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(16px)}}
 
+/* ═══ MIDI GLOBALS MODAL ═══ */
+.mg-modal{background:var(--dark);border:2px solid var(--blue-d);width:94%;max-width:860px;max-height:90%;display:grid;grid-template-rows:auto 1fr auto;clip-path:polygon(10px 0%,100% 0%,100% calc(100% - 10px),calc(100% - 10px) 100%,0% 100%,0% 10px);box-shadow:0 0 80px rgba(30,80,160,.06)}
+.mg-body{padding:18px 24px;overflow-y:auto}
+.mg-sec{font-family:var(--head);font-size:10px;font-weight:700;color:var(--blue-d);letter-spacing:3px;margin:18px 0 10px;display:flex;align-items:center;gap:10px}
+.mg-sec::after{content:'';flex:1;height:1px;background:var(--brd)}
+.mg-note{font-family:var(--ui);font-size:14px;color:var(--txt-d);line-height:1.5;margin-bottom:6px}
+.mg-note b{color:var(--led);font-weight:600}
+.mg-note-sm{font-size:13px;color:var(--txt-x);margin:-4px 0 10px}
+.mg-grid{display:grid;grid-template-columns:1fr auto;gap:8px 14px;align-items:center}
+.mg-grid-n{grid-template-columns:repeat(2,1fr auto)}
+.mg-lbl{font-family:var(--lcd);font-size:13px;color:var(--txt);letter-spacing:1px}
+.mg-lbl small{display:block;color:var(--txt-x);font-size:11px;letter-spacing:0}
+.mg-modal select,.mg-modal input{background:var(--cell);border:1px solid var(--brd-h);color:var(--led);font-family:var(--lcd);font-size:13px;padding:6px 10px;letter-spacing:1px;clip-path:polygon(4px 0%,100% 0%,calc(100% - 4px) 100%,0% 100%);min-width:120px}
+.mg-modal select:focus,.mg-modal input:focus{outline:none;border-color:var(--led-d);box-shadow:0 0 10px rgba(0,204,255,.12)}
+.mg-modal .chg{border-color:var(--hi);color:var(--hi)}
+.mg-warn{border:1px solid var(--warn);background:rgba(255,102,0,.08);padding:10px 14px;margin:12px 0;font-family:var(--ui);font-size:13px;color:var(--warn);line-height:1.5;clip-path:polygon(4px 0%,100% 0%,calc(100% - 4px) 100%,0% 100%)}
+.mg-warn b{color:#ffa050}
+.mg-warn ul{margin:6px 0 0 16px;padding:0}
+.mg-ro{font-family:var(--lcd);font-size:12px;color:var(--txt-x);line-height:1.8;letter-spacing:1px}
+.mg-ro span{color:var(--txt-d)}
+.mg-foot{display:flex;align-items:center;gap:10px;padding:14px 24px;border-top:2px solid var(--blue-d);background:linear-gradient(0deg,#0e1830,var(--dark))}
+.mg-status{flex:1;font-family:var(--lcd);font-size:12px;color:var(--txt-x);letter-spacing:1px}
+.mg-hint{margin-top:8px;font-family:var(--lcd);font-size:11px;color:var(--warn);letter-spacing:1px;line-height:1.4}
+
 /* ═══ MODIFY MODAL ═══ */
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(2,4,12,.9);z-index:10000;backdrop-filter:blur(8px)}
 .modal-bg.show{display:flex;align-items:center;justify-content:center;animation:mIn .2s ease}
@@ -1492,6 +1516,11 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
           <button class="btn btn-sm btn-warn" onclick="checked.size>0?removeChecked():remCur()">✕ DEL</button>
         </div>
       </div>
+      <div class="sbs" id="secMidi" style="display:none">
+        <div class="sbt">MIDI</div>
+        <button class="btn" style="width:100%" onclick="openMidiGlobals()">◈ MIDI GLOBALS</button>
+        <div class="mg-hint" id="mgWarn" style="display:none"></div>
+      </div>
       <div class="ms" style="margin-top:auto">
         <div class="sbt">STORAGE</div>
         <div class="mo"><div class="mi" id="mB" style="width:0%"></div><div class="mt" id="mT">0%</div></div>
@@ -1719,6 +1748,41 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 <div class="guide-modal">
   <div class="modal-hdr"><span class="modal-title">ℹ BETA GUIDE</span><button class="modal-close" onclick="tryCloseGuide()">✕ ESC</button></div>
   <div class="guide-body" id="guideBody"></div>
+</div>
+</div>
+
+<!-- ═══ MIDI GLOBALS MODAL ═══ -->
+<div class="modal-bg" id="mgBg" onclick="if(event.target===this)closeMidiGlobals()">
+<div class="mg-modal">
+  <div class="modal-hdr">
+    <span class="modal-title">◈ MIDI GLOBALS</span>
+    <span class="modal-sample" id="mgFile"></span>
+    <button class="modal-close" onclick="closeMidiGlobals()">✕ ESC</button>
+  </div>
+  <div class="mg-body">
+    <div class="mg-note">The ESX-1 has only <b>three</b> MIDI channels for sixteen parts. The device's global
+      menu edits <b>Keyboard 1</b> only — Keyboard 2 and the whole drum section keep their own channels.
+      Loading an .esx <b>overwrites the device's global settings</b>, so set these here and the file will
+      carry them.</div>
+
+    <div id="mgCollide"></div>
+
+    <div class="mg-sec">MIDI CHANNELS</div>
+    <div class="mg-grid" id="mgChans"></div>
+
+    <div class="mg-sec">DRUM NOTE NUMBERS</div>
+    <div class="mg-note mg-note-sm">All parts below share the single Drum channel above — they are told apart
+      by note number alone. Two parts on the same note always fire together.</div>
+    <div class="mg-grid mg-grid-n" id="mgNotes"></div>
+
+    <div class="mg-sec">READ ONLY</div>
+    <div class="mg-ro" id="mgRo"></div>
+  </div>
+  <div class="mg-foot">
+    <span class="mg-status" id="mgStatus"></span>
+    <button class="btn" onclick="closeMidiGlobals()">CANCEL</button>
+    <button class="btn btn-hi" id="mgApply" onclick="applyMidiGlobals()">APPLY CHANGES</button>
+  </div>
 </div>
 </div>
 
@@ -1971,7 +2035,8 @@ function renderList(){
     h+=`<div class="ss ${a?'act':''} ${ck?'checked':''}" draggable="true" data-idx="${s.index}" onclick="rowClick(event,${s.index})" ondblclick="startRen(${s.index})" oncontextmenu="showCtxMenu(event,${s.index})"><div class="${ckClass}" onclick="handleCheck(event,${s.index})"></div><div class="si">${String((s.slot!=null?s.slot:s.index)+1).padStart(3,'0')}</div><div class="sn">${tagDot}${esc(s.name)}</div><div class="${fc}" title="${esc(f)}">${esc(f)}</div><div class="sr">${r}</div><div class="sd">${d}</div><div class="sz">${z}</div></div>`}
   l.innerHTML=h}
 function updateMem(){const b=document.getElementById('mB'),t=document.getElementById('mT'),p=parseFloat(S.usedPercent||0);b.style.width=`${p}%`;t.textContent=`${p}%`;b.classList.remove('w','c');if(p>90)b.classList.add('c');else if(p>70)b.classList.add('w');document.getElementById('mU').textContent=`${((S.totalSizeBytes||0)/1048576).toFixed(1)} MB`;document.getElementById('mD').textContent=(S.totalDuration||0).toFixed(1)}
-function updatePath(){const v=document.getElementById('pV'),s=document.getElementById('pS');if(!fp&&!S.numSamples){v.innerHTML='<span style="color:var(--txt-x)">// no file loaded</span>';s.className='pbar-st em';s.textContent='EMPTY'}else if(!fp){v.innerHTML=`<span style="color:var(--yel)">UNSAVED</span> <span style="color:var(--txt-x)">(${S.numSamples})</span>`;s.className='pbar-st un';s.textContent='NEW'}else{const p=fp.replace(/\\/g,'/').split('/'),fn=p.pop(),fd=p.slice(-3).join('/');v.innerHTML=`<span class="fld">${esc(fd)}/</span><span class="fil">${esc(fn)}</span>`;const cs=sel>=0&&S.samples?S.samples.find(x=>x.index===sel):null;const mod=cs?cs.hasOriginal:false;s.className=mod?'pbar-st un':'pbar-st sv';s.textContent=mod?'MODIFIED':'SAVED'}}
+function updatePath(){const v=document.getElementById('pV'),s=document.getElementById('pS');if(!fp&&!S.numSamples){v.innerHTML='<span style="color:var(--txt-x)">// no file loaded</span>';s.className='pbar-st em';s.textContent='EMPTY'}else if(!fp){v.innerHTML=`<span style="color:var(--yel)">UNSAVED</span> <span style="color:var(--txt-x)">(${S.numSamples})</span>`;s.className='pbar-st un';s.textContent='NEW'}else{const p=fp.replace(/\\/g,'/').split('/'),fn=p.pop(),fd=p.slice(-3).join('/');v.innerHTML=`<span class="fld">${esc(fd)}/</span><span class="fil">${esc(fn)}</span>`;const cs=sel>=0&&S.samples?S.samples.find(x=>x.index===sel):null;const mod=cs?cs.hasOriginal:false;s.className=mod?'pbar-st un':'pbar-st sv';s.textContent=mod?'MODIFIED':'SAVED'}
+  if(typeof refreshMidiGlobalsHint==='function')refreshMidiGlobalsHint();}
 
 // ═══ ACTIONS ═══
 async function openEsx(){
@@ -2039,10 +2104,10 @@ async function saveEsxToFile(){
   const prog=document.getElementById('expProg');
   prog.style.display='flex';
   document.getElementById('expBar').style.width='0%';
-  document.getElementById('expText').textContent='WRITING 26,542,080 BYTES';
+  document.getElementById('expText').textContent='WRITING ESX FILE...';
   if(window.api.onExportProgress){window.api.onExportProgress(({phase,percent})=>{
     document.getElementById('expBar').style.width=percent+'%';
-    document.getElementById('expText').textContent=phase==='building'?'REBUILDING ESX...':phase==='writing'?'WRITING 26,542,080 BYTES':phase==='verifying'?'VERIFYING...':'DONE';
+    document.getElementById('expText').textContent=phase==='building'?'REBUILDING ESX...':phase==='writing'?'WRITING ESX FILE...':phase==='verifying'?'VERIFYING...':'DONE';
   })}
   const r=await window.api.saveEsxOverwrite(fp);
   if(!r){prog.style.display='none';return}
@@ -2540,6 +2605,118 @@ async function openModify(){
 function closeModalBg(id){const el=document.getElementById(id);if(!el||!el.classList.contains('show'))return;el.classList.add('hiding');el.addEventListener('animationend',()=>{el.classList.remove('show','hiding')},{once:true})}
 function closeModal(){closeModalBg('modalBg')}
 
+// ═══ MIDI GLOBALS ═══
+// The ESX carries its MIDI routing inside the .esx file, and loading a file overwrites
+// the device's own global settings. Nothing here is written unless the user changes a
+// control — MIDI wiring is their decision, not something to "repair" behind their back.
+const MG_NOTE_NAMES=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+function mgNoteName(n){return MG_NOTE_NAMES[n%12]+(Math.floor(n/12)-1)}
+let mgState=null;
+
+async function refreshMidiGlobalsHint(){
+  const sec=document.getElementById('secMidi'),warn=document.getElementById('mgWarn');
+  if(!sec)return;
+  if(S.device!=='esx'||!fp){sec.style.display='none';return}
+  sec.style.display='block';
+  const r=await window.api.esx.getGlobalParams();
+  if(!r||r.error){warn.style.display='none';return}
+  const c=r.emxCollisions||[];
+  if(!c.length){warn.style.display='none';return}
+  warn.style.display='block';
+  warn.textContent=`⚠ ${c.length} part${c.length>1?'s':''} on EMX channel${c.length>1?'s':''}`;
+}
+
+async function openMidiGlobals(){
+  const r=await window.api.esx.getGlobalParams();
+  if(!r||r.error){toast(r&&r.error?r.error:'NO ESX FILE LOADED','error');return}
+  mgState={params:r.params,labels:r.labels||{},noteParts:r.noteParts||[]};
+  document.getElementById('mgFile').textContent=fp?fp.replace(/\\/g,'/').split('/').pop():'';
+  mgRender(r);
+  document.getElementById('mgBg').classList.add('show');
+}
+function closeMidiGlobals(){closeModalBg('mgBg');mgState=null}
+
+function mgRender(r){
+  const p=r.params,labels=mgState.labels;
+  // Channels
+  const ch=document.getElementById('mgChans');
+  ch.innerHTML=Object.keys(p.channels).map(part=>{
+    const cur=p.channels[part].raw;
+    const opts=Array.from({length:16},(_,i)=>
+      `<option value="${i}"${i===cur?' selected':''}>Ch. ${i+1}</option>`).join('');
+    return `<div class="mg-lbl">${esc(labels[part]||part)}${part==='keyboard1'?'<small>= Global MIDI Channel</small>':''}${part==='drumStretchSliceAudioIn'?'<small>all 9 drums + stretch + slice + audio in</small>':''}</div>`+
+           `<select id="mgc_${part}" data-orig="${cur}" onchange="mgMark(this)">${opts}</select>`;
+  }).join('');
+
+  // Drum notes
+  const nt=document.getElementById('mgNotes');
+  nt.innerHTML=mgState.noteParts.map(part=>{
+    const v=p.drumNotes[part].note;
+    return `<div class="mg-lbl">${esc(part)}<small>${esc(p.drumNotes[part].name||'')}</small></div>`+
+           `<input type="number" min="0" max="127" value="${v}" id="mgn_${part}" data-orig="${v}" oninput="mgMark(this)">`;
+  }).join('');
+
+  // Read-only block
+  document.getElementById('mgRo').innerHTML=
+    `MIDI CLOCK <span>${['INT','EXT','AUTO'][p.midiClock]||'?('+p.midiClock+')'}</span> &nbsp;·&nbsp; `+
+    `PITCH BEND <span>${p.pitchBendRange>0?'+':''}${p.pitchBendRange}</span> &nbsp;·&nbsp; `+
+    `MEM PROTECT <span>${p.memoryProtect?'ON':'OFF'}</span><br>`+
+    `FILTERS &nbsp; NOTE <span>${p.filters.note?'ON':'OFF'}</span> &nbsp; SYSEX <span>${p.filters.sysEx?'ON':'OFF'}</span> `+
+    `&nbsp; CC <span>${p.filters.controlChange?'ON':'OFF'}</span> &nbsp; PGM <span>${p.filters.programChange?'ON':'OFF'}</span>`;
+
+  mgRenderWarnings(r);
+  mgUpdateStatus();
+}
+
+function mgRenderWarnings(r){
+  const box=document.getElementById('mgCollide');
+  const col=r.emxCollisions||[],prob=r.problems||[];
+  let html='';
+  if(col.length){
+    html+=`<div class="mg-warn"><b>⚠ EMX-1 CHANNEL COLLISION</b><br>`+
+      `These ESX parts sit on channels the EMX-1 uses by default — both machines will sound at once:`+
+      `<ul>${col.map(c=>`<li>${esc(c.label)} on <b>Ch.${c.channel}</b> → ${esc(c.collidesWith)}</li>`).join('')}</ul>`+
+      `EMX factory channels are 1–5 and 10. Free: <b>6–9, 11–16</b>.</div>`;
+  }
+  if(prob.length){
+    html+=`<div class="mg-warn"><b>⚠ INVALID VALUES</b><ul>${prob.map(p=>`<li>${esc(p.message)}</li>`).join('')}</ul></div>`;
+  }
+  box.innerHTML=html;
+}
+
+function mgMark(el){
+  el.classList.toggle('chg',String(el.value)!==String(el.dataset.orig));
+  mgUpdateStatus();
+}
+function mgCollect(){
+  const channels={},drumNotes={};
+  document.querySelectorAll('[id^="mgc_"]').forEach(el=>{
+    if(String(el.value)!==String(el.dataset.orig))channels[el.id.slice(4)]=+el.value;
+  });
+  document.querySelectorAll('[id^="mgn_"]').forEach(el=>{
+    if(String(el.value)!==String(el.dataset.orig))drumNotes[el.id.slice(4)]=+el.value;
+  });
+  return {channels,drumNotes};
+}
+function mgUpdateStatus(){
+  const c=mgCollect(),n=Object.keys(c.channels).length+Object.keys(c.drumNotes).length;
+  document.getElementById('mgStatus').textContent=n?`${n} CHANGE${n>1?'S':''} PENDING — NOT SAVED TO DISK YET`:'NO CHANGES';
+  document.getElementById('mgApply').disabled=!n;
+}
+
+async function applyMidiGlobals(){
+  const changes=mgCollect();
+  if(!Object.keys(changes.channels).length&&!Object.keys(changes.drumNotes).length){
+    toast('NO CHANGES','info');return;
+  }
+  const r=await window.api.esx.setGlobalParams(changes);
+  if(!r||r.error){toast(r&&r.error?r.error:'WRITE FAILED','error');return}
+  mgState.params=r.params;
+  mgRender(r);
+  await refreshMidiGlobalsHint();
+  toast('MIDI GLOBALS UPDATED — SAVE THE FILE TO KEEP THEM','success');
+}
+
 async function applyFxSingle(id,idx){
   let r;const gv=i=>+document.getElementById(i).value;
   switch(id){
@@ -2641,7 +2818,7 @@ const GUIDE_HTML = `
     <li><strong>Step 2:</strong> Insert it into a card reader on your PC</li>
     <li><strong>Step 3:</strong> Open Windows Explorer — the card appears as a drive (e.g. D: or E:)</li>
     <li><strong>Step 4:</strong> Copy ALL <strong>.esx files</strong> into a safe folder on your PC</li>
-    <li><strong>Step 5:</strong> Check: every .esx file must be exactly <strong>25.3 MB</strong> (26,542,080 bytes)</li>
+    <li><strong>Step 5:</strong> Check the size: .esx files are <strong>not</strong> a fixed size — anything from a few MB up to ~26.7 MB is normal. The file ends right after its sample data.</li>
   </ul>
   <div class="g-tip">Don't touch the backup folder. Work only with COPIES in the app.</div>
 </div>
@@ -2774,7 +2951,8 @@ function setupDrop(){const d=document.getElementById('dZ');if(!d)return;d.addEve
 setupDrop();document.addEventListener('dragover',e=>e.preventDefault());document.addEventListener('drop',e=>{e.preventDefault();if(e.dataTransfer?.files?.length&&activeTabDevice()==='esx')importSamples()});
 document.addEventListener('keydown',e=>{
   if(e.target.tagName==='INPUT')return;
-  if(e.key==='Escape'){closeModal();tryCloseGuide();return}
+  if(e.key==='Escape'){closeModal();tryCloseGuide();closeMidiGlobals();return}
+  if(document.getElementById('mgBg')?.classList.contains('show'))return;
   if(document.getElementById('modalBg')?.classList.contains('show')||document.getElementById('guideBg')?.classList.contains('show')){if(e.key===' '&&sel>=0){e.preventDefault();togglePlay()}return}
   if(e.key==='Delete'){if(checked.size>0)removeChecked();else if(sel>=0)remCur()}
   if(e.key===' '&&sel>=0){e.preventDefault();togglePlay()}

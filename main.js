@@ -1706,6 +1706,45 @@ function esxPatternToUI(esxPat) {
   };
 }
 
+// Read the global parameter block of the currently loaded .esx.
+// Read-only on purpose: loading an .esx overwrites the device's global settings, so a
+// user needs to SEE what MIDI routing a file carries. Nothing is rewritten here —
+// forcing channel numbers would break every setup that wires MIDI deliberately.
+ipcMain.handle('esx:get-global-params', () => {
+  if (!esxOriginalBuffer) return { error: 'No .esx file loaded' };
+  try {
+    return {
+      params: esx.parseGlobalParams(esxOriginalBuffer),
+      problems: esx.validateGlobalParams(esxOriginalBuffer),
+      emxCollisions: esx.findEmxChannelCollisions(esxOriginalBuffer),
+      labels: esx.CHANNEL_LABELS,
+      noteParts: esx.DRUM_NOTE_PARTS,
+    };
+  } catch (err) {
+    return { error: err.message };
+  }
+});
+
+// Patch MIDI channels / drum notes into the loaded .esx. Writes ONLY the fields the
+// user actually changed — no defaults are applied and nothing else in the file moves.
+// The result lands in esxOriginalBuffer, so the next save carries it through.
+ipcMain.handle('esx:set-global-params', (ev, changes) => {
+  if (!esxOriginalBuffer) return { error: 'No .esx file loaded' };
+  try {
+    const patched = esx.writeGlobalParams(esxOriginalBuffer, changes || {});
+    esxOriginalBuffer = patched;
+    openFiles[activeFileIdx].esxOriginalBuffer = patched;
+    return {
+      ok: true,
+      params: esx.parseGlobalParams(patched),
+      problems: esx.validateGlobalParams(patched),
+      emxCollisions: esx.findEmxChannelCollisions(patched),
+    };
+  } catch (err) {
+    return { error: err.message };
+  }
+});
+
 ipcMain.handle('esx:open-patterns', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     title: 'Open ESX File (Patterns)',
