@@ -303,7 +303,10 @@ function initDrumPart(buffer, offset) {
  */
 function initKeyboardPart(buffer, offset) {
   buffer.writeUInt16BE(0x0000, offset + 0);  // samplepointer (sample 0)
-  buffer.writeUInt8(0xFF, offset + 2);       // slice = 0xFF (no slice — plays whole sample)
+  buffer.writeUInt8(0x00, offset + 2);       // slice — 958 of 1024 keyboard parts in
+                                             // two real files hold 0x00 here; 0xFF
+                                             // appears only 14 times and is not the
+                                             // hardware's empty state
   buffer.writeUInt8(0x00, offset + 3);       // reserved
   buffer.writeUInt8(0x00, offset + 4);       // glide
   buffer.writeUInt8(0x00, offset + 5);       // filtertype (LPF)
@@ -424,12 +427,13 @@ function initMotionSeqs(buffer, offset) {
  *   [1148-1159] FX Params (3 × 4 = 12 bytes)
  *   [1160-4279] Motion Sequences (24 × 130 = 3120 bytes)
  */
-function initDefaultPattern(buffer, patternOffset, patternIndex) {
-  // +0-7: name = bank naming "A.001" .. "D.064" (space-padded, factory default)
-  const bank = String.fromCharCode(65 + Math.floor(patternIndex / 64));
-  const num = String((patternIndex % 64) + 1).padStart(3, '0');
-  const name = `${bank}.${num}`.padEnd(8, ' ');
-  buffer.write(name, patternOffset, 'ascii');
+function initDefaultPattern(buffer, patternOffset) {
+  // +0-7: name = "Init" — what the hardware itself writes for an empty pattern.
+  // 104 of the 105 "Init" patterns in a real factory file are byte-identical,
+  // and the same block appears 98x in an independent hardware dump. The bank
+  // notation "A.001".."D.064" this used to write is a Korg Manager invention;
+  // the device shows the bank position from the slot, not from the name.
+  buffer.write('Init    ', patternOffset, 'ascii');
 
   // +8-9: tempo = 0x3C00 (120.0 BPM, encoding: BPM × 128)
   buffer.writeUInt16BE(0x3C00, patternOffset + 8);
@@ -598,7 +602,7 @@ function createEmptyEsx() {
   // ════ Initialize all 256 Patterns ════
   for (let p = 0; p < NUM.PATTERNS; p++) {
     const patternOffset = ADDR.PATTERN_DATA + p * 4280;
-    initDefaultPattern(buffer, patternOffset, p);
+    initDefaultPattern(buffer, patternOffset);
   }
 
   // ════ Initialize all 64 Songs ════

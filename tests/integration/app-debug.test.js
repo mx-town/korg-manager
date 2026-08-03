@@ -285,13 +285,11 @@ describe('Integration - Pattern data after sample assignment', () => {
     }
   });
 
-  it('should keep unassigned patterns at default bank name state', () => {
+  it('should keep unassigned patterns at the hardware init name', () => {
     const buf = generateESXWithNSamples(3);
 
-    // Pattern 1 (unassigned) should still be "A.002"
     const pat1Off = ADDR.PATTERN_DATA + 4280;
-    const name = buf.toString('ascii', pat1Off, pat1Off + 8).trim();
-    expect(name).toBe('A.002');
+    expect(buf.toString('ascii', pat1Off, pat1Off + 8)).toBe('Init    ');
   });
 });
 
