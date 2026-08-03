@@ -48,3 +48,34 @@ describe('ESX init state - pattern', () => {
     expect(buf[off + 606]).toBe(0x00); // KB2 +2
   });
 });
+
+const EMPTY_SONG = fs.readFileSync(path.join(FIXTURES, 'esx-empty-song.bin'));
+
+describe('ESX init state - song', () => {
+  let buf;
+
+  beforeAll(() => {
+    buf = createEmptyEsx();
+  });
+
+  it('fixture is one song block', () => {
+    expect(EMPTY_SONG).toHaveLength(528);
+  });
+
+  it('every one of the 64 songs matches the hardware empty song', () => {
+    for (let s = 0; s < NUM.SONGS; s++) {
+      const off = ADDR.SONG_DATA + s * 528;
+      const block = buf.slice(off, off + 528);
+      const firstDiff = block.findIndex((b, i) => b !== EMPTY_SONG[i]);
+      expect(
+        firstDiff,
+        `song ${s} differs at byte +${firstDiff}: got 0x${block[firstDiff]?.toString(16)}, want 0x${EMPTY_SONG[firstDiff]?.toString(16)}`
+      ).toBe(-1);
+    }
+  });
+
+  it('pads song names with spaces, not NULs', () => {
+    const off = ADDR.SONG_DATA;
+    expect(buf.toString('ascii', off, off + 8)).toBe('        ');
+  });
+});

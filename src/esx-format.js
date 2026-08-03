@@ -499,10 +499,9 @@ function initDefaultPattern(buffer, patternOffset) {
  * Initialize a single song (528 bytes) with default values.
  */
 function initDefaultSong(buffer, songOffset) {
-  // +0-7: name = 8x 0x00 (empty)
-  for (let i = 0; i < 8; i++) {
-    buffer.writeUInt8(0x00, songOffset + i);
-  }
+  // +0-7: name = 8x 0x20. All 60 unused songs in a real factory file are
+  // byte-identical and space-padded here, not NUL-padded.
+  buffer.fill(0x20, songOffset, songOffset + 8);
 
   // +8-9: tempo = 0x3C00 (120.0 BPM, uint16BE)
   buffer.writeUInt16BE(0x3C00, songOffset + 8);
