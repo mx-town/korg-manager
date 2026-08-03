@@ -3872,6 +3872,17 @@ async function patSplitAll(){
   else if(r&&r.error)toast(r.error,'error');
 }
 
+// Pattern position as the device itself addresses it. ESX-1 and EMX-1 hold 256
+// patterns in four banks of 64 (A.001..D.064); E2/E2S hold 250 numbered flat.
+// Empty patterns are all named "Init" on the hardware, so the position — not the
+// name — is what identifies a slot.
+// patternToUI() in main.js still passes the raw E2 header byte (0=E2, 1=E2S)
+// instead of the documented string, and it is only ever called for E2/E2S files
+// — so a numeric deviceId means the E2 family too.
+function patPosLabel(deviceId,i){
+  if(deviceId==='e2'||deviceId==='e2s'||typeof deviceId==='number')return String(i+1).padStart(3,'0');
+  return String.fromCharCode(65+Math.floor(i/64))+'.'+String((i%64)+1).padStart(3,'0');
+}
 let _patListItems=[];  // cached DOM elements
 function patBuildListDOM(){
   _patListItems=[];
@@ -3880,7 +3891,7 @@ function patBuildListDOM(){
     const el=document.createElement('div');
     el.className='pat-item';
     el.dataset.idx=i;
-    el.innerHTML=`<div class="pi">${i}</div><div class="pn"></div><span class="pat-active-dots"></span><div class="pb2"></div>`;
+    el.innerHTML=`<div class="pi"></div><div class="pn"></div><span class="pat-active-dots"></span><div class="pb2"></div>`;
     _patListItems.push(el);
     DOM.patList.appendChild(el);
   }
@@ -3894,6 +3905,7 @@ function patRenderList(){
     const p=patData[i];
     const name=p.name||'Pattern';
     const el=_patListItems[i];
+    el.children[0].textContent=patPosLabel(p.deviceId,i);
     el.style.display='';
     const a=i===patSel;
     el.classList.toggle('act',a);
@@ -3924,6 +3936,7 @@ function patUpdateInfoBar(){
   const fmtLabel=p.format||patFormat||'';
 
   DOM.patInfoBar.innerHTML=`
+    <span class="pat-badge">${esc(patPosLabel(p.deviceId,patSel))}</span>
     <span class="pat-badge pat-badge-name">${esc(p.name||'Pattern')}</span>
     <span class="pat-badge">${(p.bpm||120).toFixed(1)} <small>BPM</small></span>
     <span class="pat-badge">SW <b>${p.swing||50}%</b></span>
