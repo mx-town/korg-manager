@@ -3876,15 +3876,16 @@ async function patSplitAll(){
 }
 
 // Pattern position as the device itself addresses it. ESX-1 and EMX-1 hold 256
-// patterns in four banks of 64 (A.001..D.064); E2/E2S hold 250 numbered flat.
+// patterns in four banks of 64, so the bank slot needs two digits: A.01..D.64.
+// E2/E2S hold 250 patterns numbered flat, unpadded: 1..250.
 // Empty patterns are all named "Init" on the hardware, so the position — not the
 // name — is what identifies a slot.
 // patternToUI() in main.js still passes the raw E2 header byte (0=E2, 1=E2S)
 // instead of the documented string, and it is only ever called for E2/E2S files
 // — so a numeric deviceId means the E2 family too.
 function patPosLabel(deviceId,i){
-  if(deviceId==='e2'||deviceId==='e2s'||typeof deviceId==='number')return String(i+1).padStart(3,'0');
-  return String.fromCharCode(65+Math.floor(i/64))+'.'+String((i%64)+1).padStart(3,'0');
+  if(deviceId==='e2'||deviceId==='e2s'||typeof deviceId==='number')return String(i+1);
+  return String.fromCharCode(65+Math.floor(i/64))+'.'+String((i%64)+1).padStart(2,'0');
 }
 let _patListItems=[];  // cached DOM elements
 function patBuildListDOM(){
