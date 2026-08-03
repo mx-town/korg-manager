@@ -796,35 +796,11 @@ function buildEsxFile(samples) {
   headerBuffer.writeUInt32BE(0, ADDR.NUM_STEREO_SAMPLES);
   headerBuffer.writeUInt32BE(currentOffset, ADDR.CURRENT_OFFSET);
 
-  // Auto-assign loaded samples to drum parts across patterns (9 parts per pattern).
-  // Only Part 0 gets active steps — rest are silent until user programs them.
-  if (monoCount > 0) {
-    const patternsNeeded = Math.ceil(monoCount / 9);
-    for (let pat = 0; pat < Math.min(patternsNeeded, NUM.PATTERNS); pat++) {
-      const patOff = ADDR.PATTERN_DATA + pat * 4280;
-
-      // Name the pattern
-      const patName = 'A.' + String(pat + 1).padStart(3, '0');
-      headerBuffer.fill(0x20, patOff, patOff + 8);
-      headerBuffer.write(patName, patOff, 'ascii');
-
-      // Assign samples to this pattern's 9 drum parts
-      for (let p = 0; p < 9; p++) {
-        const sampleIdx = pat * 9 + p;
-        const partOff = patOff + 24 + p * 34;
-        if (sampleIdx < monoCount) {
-          headerBuffer.writeUInt16BE(sampleIdx, partOff + 0);
-        }
-        // Only Part 0 gets active steps (four-on-the-floor: steps 0,4,8,12)
-        // LSB-first bit-packed: byte 0 = steps 0-7, step 0 (bit0) + step 4 (bit4) = 0x11
-        if (p === 0) {
-          headerBuffer.writeUInt8(0x11, partOff + 18 + 0); // steps 0,4
-          headerBuffer.writeUInt8(0x11, partOff + 18 + 1); // steps 8,12
-          // bytes 2-15 remain 0x00 (no active steps beyond step 15)
-        }
-      }
-    }
-  }
+  // Patterns, songs and globals stay at the hardware init state from
+  // createEmptyEsx(). This used to auto-assign samples to drum parts and write a
+  // four-on-the-floor into ceil(n/9) patterns — with 241 samples that produced 27
+  // throwaway patterns a user then had to clear on the device. Callers who want to
+  // keep an existing file's patterns must use rebuildEsxFile(), not this function.
 
   // Compute BPS checksum (sum of all sample data bytes)
   let checksum = 0;

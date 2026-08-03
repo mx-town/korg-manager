@@ -452,23 +452,16 @@ describe('ESX Patterns - File with samples', () => {
     const patterns = parseEsxPatterns(buf);
 
     expect(patterns).toHaveLength(PATTERN_COUNT);
-    // Pattern 0 should have samples assigned to drums
     const drum1 = patterns[0].parts[0];
     expect(drum1.sampleNum).toBe(0);
   });
 
-  it('should detect active steps in pattern with samples', () => {
+  it('should leave patterns empty — loading samples programs no steps', () => {
     const buf = generateESXWithNSamples(1);
     const patterns = parseEsxPatterns(buf);
 
-    // buildEsxFile writes four-on-the-floor: steps 0,4,8,12 active
     const drum1 = patterns[0].parts[0];
-    const activeCount = drum1.steps.filter(s => s).length;
-    expect(activeCount).toBe(4);
-    expect(drum1.steps[0]).toBe(true);
-    expect(drum1.steps[4]).toBe(true);
-    expect(drum1.steps[8]).toBe(true);
-    expect(drum1.steps[12]).toBe(true);
+    expect(drum1.steps.filter(s => s)).toHaveLength(0);
   });
 });
 
