@@ -2129,6 +2129,9 @@ async function exportNewEsx(){
   if(_fxBusy)return;_fxBusy=true;
   try{
   if(!S.numSamples){toast('NO SAMPLES','error');return}
+  // EXPORT NEW builds from scratch: only the samples carry over. Everything the
+  // loaded file holds besides samples is dropped. SAVE keeps all of it.
+  if(fp&&!confirm('EXPORT NEW baut ein leeres File und übernimmt nur die Samples.\n\nVerworfen werden: alle 256 Patterns, alle 64 Songs und die MIDI-Globals des geladenen Files.\n\nWenn du die behalten willst: abbrechen und SAVE benutzen.\n\nTrotzdem exportieren?')){return}
   const prog=document.getElementById('expProg');
   prog.style.display='flex';
   document.getElementById('expBar').style.width='0%';
