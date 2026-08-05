@@ -75,8 +75,8 @@ describe('ESX Patterns - Header defaults', () => {
     pattern = parseEsxPatterns(generateMinimalESX())[0];
   });
 
-  it('should parse default pattern name as "Init"', () => {
-    expect(pattern.name).toBe('Init');
+  it('should parse the default pattern name as empty', () => {
+    expect(pattern.name).toBe('');
   });
 
   it('should parse default tempo as 120.0 BPM', () => {
@@ -105,7 +105,7 @@ describe('ESX Patterns - Header defaults', () => {
   });
 });
 
-// ── All patterns named "Init" ────────────────────────────
+// ── All patterns unnamed ─────────────────────────────────
 
 describe('ESX Patterns - All 256 defaults', () => {
   let patterns;
@@ -114,9 +114,9 @@ describe('ESX Patterns - All 256 defaults', () => {
     patterns = parseEsxPatterns(generateMinimalESX());
   });
 
-  it('should have all patterns named "Init"', () => {
+  it('should have no pattern names at all', () => {
     patterns.forEach((p) => {
-      expect(p.name).toBe('Init');
+      expect(p.name).toBe('');
     });
   });
 

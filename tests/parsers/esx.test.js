@@ -164,10 +164,10 @@ describe('ESX - Pattern defaults', () => {
     buf = generateMinimalESX();
   });
 
-  it('should name all 256 patterns "Init" like the hardware does', () => {
+  it('should leave all 256 pattern names blank like the hardware does', () => {
     for (let p = 0; p < NUM.PATTERNS; p++) {
       const off = ADDR.PATTERN_DATA + p * 4280;
-      expect(buf.toString('ascii', off, off + 8)).toBe('Init    ');
+      expect(buf.toString('ascii', off, off + 8)).toBe('        ');
     }
   });
 

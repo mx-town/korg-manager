@@ -412,7 +412,8 @@ function initMotionSeqs(buffer, offset) {
 
 /**
  * Initialize a single pattern (4280 bytes) with default values.
- * Matches factory "Init" pattern (pattern 200 in ESX1_Fact.ESX).
+ * Matches the factory init pattern (pattern 200 in ESX1_Fact.ESX) apart from the
+ * 8 name bytes — see initDefaultPattern().
  *
  * Layout:
  *   [0-23]     Pattern header (24 bytes)
@@ -428,12 +429,15 @@ function initMotionSeqs(buffer, offset) {
  *   [1160-4279] Motion Sequences (24 × 130 = 3120 bytes)
  */
 function initDefaultPattern(buffer, patternOffset) {
-  // +0-7: name = "Init" — what the hardware itself writes for an empty pattern.
-  // 104 of the 105 "Init" patterns in a real factory file are byte-identical,
-  // and the same block appears 98x in an independent hardware dump. The bank
-  // notation "A.001".."D.064" this used to write is a Korg Manager invention;
-  // the device shows the bank position from the slot, not from the name.
-  buffer.write('Init    ', patternOffset, 'ascii');
+  // +0-7: name = 8 spaces — an empty pattern carries no name.
+  // Survey of 49 real .esx files, split by author (a file the ESX-1 wrote has data
+  // in the two device-internal regions at 0x10BA00 and 0x15F500, a PC-written one
+  // has zeros there): every hardware-saved user bank leaves untouched patterns
+  // blank — BILITIS 253/256, PARANS 230/256, VINTAGE 242/256, CX500 247/256.
+  // "Init" appears only in Korg's own factory banks and files re-saved from them.
+  // The bank notation "A.001".."D.064" this used to write exists in no real file
+  // at all; the device labels a slot by its position, never from the name field.
+  buffer.fill(0x20, patternOffset, patternOffset + 8);
 
   // +8-9: tempo = 0x3C00 (120.0 BPM, encoding: BPM × 128)
   buffer.writeUInt16BE(0x3C00, patternOffset + 8);

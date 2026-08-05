@@ -221,7 +221,7 @@ Offset  Size   Description
 ```
 Offset  Size  Type        Description
 ──────────────────────────────────────────────────────────────
-+0      8     ASCII       Name (space-padded, e.g., "Init    ")
++0      8     ASCII       Name (space-padded; empty pattern = 8 spaces, see below)
 +8      2     uint16BE    Tempo (BPM × 128, e.g., 0x3C00 = 120.0)
 +10     1     uint8       Swing (0x00 = 50%)
 +11     1     uint8       Flags
@@ -234,6 +234,19 @@ Offset  Size  Type        Description
 +20     2     uint16BE    Output bus status (bitfield)
 +22     2     uint16BE    Accent status (bitfield)
 ```
+
+**Pattern name conventions** (survey of 49 real files, grouped by author — a file the
+ESX-1 wrote has data in the device-internal regions at `0x10BA00` and `0x15F500`, a
+PC-written one has zeros there):
+
+| Author | Empty pattern name |
+|--------|--------------------|
+| Bank saved by the ESX-1 | **8 spaces** (BILITIS 253/256, PARANS 230/256, VINTAGE 242/256, CX500 247/256) |
+| Korg factory bank | `Init    ` (ESX1_Fact 105/256, ESXSD_Factory 33/256) |
+| Bank converted from an ES-1 | 8 spaces; used patterns get `ES1_A.01`-style names |
+
+The bank position (`A.01`..`D.64`) is **never** stored in the name field — the device
+derives it from the slot index. `createEmptyEsx` therefore writes 8 spaces.
 
 ### Drum Part (34 bytes, 9 parts)
 ```

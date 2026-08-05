@@ -274,11 +274,11 @@ describe('Integration - Pattern data after sample assignment', () => {
     }
   });
 
-  it('should keep unassigned patterns at the hardware init name', () => {
+  it('should keep unassigned patterns unnamed', () => {
     const buf = generateESXWithNSamples(3);
 
     const pat1Off = ADDR.PATTERN_DATA + 4280;
-    expect(buf.toString('ascii', pat1Off, pat1Off + 8)).toBe('Init    ');
+    expect(buf.toString('ascii', pat1Off, pat1Off + 8)).toBe('        ');
   });
 });
 

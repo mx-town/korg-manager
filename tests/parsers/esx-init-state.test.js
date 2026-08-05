@@ -23,22 +23,25 @@ describe('ESX init state - pattern', () => {
     expect(INIT_PATTERN).toHaveLength(4280);
   });
 
-  it('every one of the 256 patterns matches the hardware init block', () => {
+  // Bytes 0-7 are the pattern name and are compared separately: the fixture comes
+  // from a Korg factory bank, which names its empty patterns "Init". Banks the
+  // ESX-1 itself saves leave untouched patterns blank, and that is what we write.
+  it('every one of the 256 patterns matches the hardware init block from byte 8 on', () => {
     for (let p = 0; p < NUM.PATTERNS; p++) {
       const off = ADDR.PATTERN_DATA + p * 4280;
-      const block = buf.slice(off, off + 4280);
-      const firstDiff = block.findIndex((b, i) => b !== INIT_PATTERN[i]);
+      const block = buf.slice(off + 8, off + 4280);
+      const firstDiff = block.findIndex((b, i) => b !== INIT_PATTERN[i + 8]);
       expect(
         firstDiff,
-        `pattern ${p} differs at byte +${firstDiff}: got 0x${block[firstDiff]?.toString(16)}, want 0x${INIT_PATTERN[firstDiff]?.toString(16)}`
+        `pattern ${p} differs at byte +${firstDiff + 8}: got 0x${block[firstDiff]?.toString(16)}, want 0x${INIT_PATTERN[firstDiff + 8]?.toString(16)}`
       ).toBe(-1);
     }
   });
 
-  it('names every pattern "Init"', () => {
+  it('leaves every pattern name blank, like a hardware-saved user bank', () => {
     for (let p = 0; p < NUM.PATTERNS; p++) {
       const off = ADDR.PATTERN_DATA + p * 4280;
-      expect(buf.toString('ascii', off, off + 8)).toBe('Init    ');
+      expect(buf.toString('ascii', off, off + 8)).toBe('        ');
     }
   });
 
@@ -106,11 +109,12 @@ describe('ESX init state - buildEsxFile leaves patterns alone', () => {
   it('writes no demo patterns — all 256 stay at the hardware init block', () => {
     for (let p = 0; p < NUM.PATTERNS; p++) {
       const off = ADDR.PATTERN_DATA + p * 4280;
-      const block = built.slice(off, off + 4280);
-      const firstDiff = block.findIndex((b, i) => b !== INIT_PATTERN[i]);
+      expect(built.toString('ascii', off, off + 8)).toBe('        ');
+      const block = built.slice(off + 8, off + 4280);   // name compared above
+      const firstDiff = block.findIndex((b, i) => b !== INIT_PATTERN[i + 8]);
       expect(
         firstDiff,
-        `pattern ${p} differs at byte +${firstDiff}`
+        `pattern ${p} differs at byte +${firstDiff + 8}`
       ).toBe(-1);
     }
   });
