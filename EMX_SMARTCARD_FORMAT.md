@@ -25,7 +25,7 @@ Offset  Size  Field            Value (BEST.EMX)           Notes
 0x000   4     Magic            "KORG" (4B 4F 52 47)      Same across all files
 0x004   4     Version          0x00000069                 Same across all files
 0x008   4     Type             "EMX\0"                    Format identifier
-0x00C   4     Checksum/Serial  varies per file            BEST: 9F86A0BA, DA4TO: 7E80F5AF
+0x00C   4     Version/Serial   varies per FILE, not data  BEST: 9F86A0BA, DA4TO: 7E80F5AF
 0x010   4     Flags            varies per file            BEST: 00010000, DA4TO: 00020001
 0x014   12    Reserved         all zeros
 0x020   96    Global tables    varies (osc/wave maps)     133 byte differences between files
@@ -35,11 +35,26 @@ Offset  Size  Field            Value (BEST.EMX)           Notes
 
 **Format detection**: Check `magic == "KORG"` AND `type == "EMX"` AND `size == 1,736,704`.
 
+**0x00C is NOT a checksum** (measured 2026-08-12). BEST.EMX and ZRITERLY.EMX carry the
+identical value `9F86A0BA` there — and identical flags `00010000` at 0x010 — while their
+pattern areas differ completely (sum32 `07b2a726` vs `0764dfe8`). A value that stays put
+while the data changes cannot be a checksum over that data. DA4TOFE.EMX differs
+(`7E80F5AF` / `00020001`), which fits a different firmware or tool revision rather than
+different content.
+
+**Consequence**: rearranging pattern blocks does not invalidate the header. Nothing has
+to be recomputed on write.
+
 ---
 
 ## 2. Pattern Block (4,806 bytes)
 
 Each pattern starts at `0x200 + index × 4806`. There are 256 patterns (A01-P16).
+
+**Pattern blocks are position-independent** (measured 2026-08-12). Across all 4,806 byte
+positions and all 256 slots, in all three dumps, no byte tracks the slot number (checked
+against both `index` and `index+1`). A block carries no record of where it sits, so moving
+one is a plain block copy.
 
 ### 2.1 Pattern Header (24 bytes: +0x00 to +0x17)
 
@@ -158,8 +173,21 @@ Byte 0 bits 7-0 = steps 0-7, Byte 1 = steps 8-15, etc.
 
 505,856 bytes containing song data and global parameters.
 
-- **BEST.EMX**: Substantial non-zero data (factory songs)
-- **ZRITERLY.EMX**: Mostly zeros with sparse non-zero bytes (no songs)
+Occupancy measured 2026-08-12 — **all three cards are densely populated here**:
+
+| File | Non-zero | 0xFF bytes | First non-zero |
+|------|----------|-----------|----------------|
+| BEST.EMX | 231,722 (45.8%) | 38 | 0x12C801 |
+| DA4TOFE.EMX | 255,008 (50.4%) | 28 | 0x12C800 |
+| ZRITERLY.EMX | 206,211 (40.8%) | 128,593 | 0x12C809 |
+
+An earlier note claiming ZRITERLY.EMX is "mostly zeros (no songs)" is wrong: it is 40.8%
+non-zero, plus a quarter of the area filled with 0xFF, which looks like erased flash
+rather than empty song slots.
+
+**Consequence**: a file cannot be tested for "has songs" by occupancy. Any warning about
+songs breaking must be unconditional until the structure is known.
+
 - **Structure**: [UNCONFIRMED] Likely 64 songs × ~7,900 bytes each
 
 ---
