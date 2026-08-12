@@ -44,6 +44,34 @@ describe.skipIf(!hasDump)('E2S - real Hacktribe hardware dump', () => {
     }
   });
 
+  // Ground truth for the fields a freshly imported sample must also fill in.
+  // Every one of these holds for all 403 samples in the dump; a cross-device
+  // import used to leave them at 0, which the hardware rejects on LOAD ALL.
+  it('satisfies the slot-derived and playback ESLI invariants for every sample', () => {
+    let checked = 0;
+    for (const s of parsed.samples) {
+      if (!s || s.error) continue;
+      const r = s.esli._raw;
+      const i = s.slot;
+      expect(r.readUInt16LE(0x00), `slot ${i} osc index`).toBe(i);
+      expect(r.readUInt16LE(0x14), `slot ${i} import number`).toBe(i + 50);
+      expect(r.readUInt16LE(0x4e), `slot ${i} user number`).toBe(i - 500);
+      // playLogPeriod is a pure function of the sample rate (exact, 403/403).
+      const sr = r.readUInt32LE(0x48);
+      expect(r.readUInt16LE(0x22), `slot ${i} playLogPeriod`)
+        .toBe(Math.round(63132 - 3072 * Math.log2(sr)));
+      // playVolume is a 16-bit level, never zero (0xFFFF = 100%).
+      expect(r.readUInt16LE(0x24), `slot ${i} playVolume`).toBeGreaterThan(0);
+      // 0x34 is an explicit ONE-SHOT flag, not derived: 1 = one-shot, 0 = loop.
+      const looped = r.readUInt32LE(0x2c) < r.readUInt32LE(0x30);
+      expect(r.readUInt32LE(0x34), `slot ${i} one-shot flag`).toBe(looped ? 0 : 1);
+      // Categories 0 (Analog) and 1 (Audio In) are firmware-only.
+      expect(r.readUInt16LE(0x12), `slot ${i} category`).toBeGreaterThan(1);
+      checked++;
+    }
+    expect(checked).toBe(403);
+  });
+
   it('round-trips the ENTIRE file byte-identically (load → save)', () => {
     const rebuilt = buildE2sAllFile(
       parsed.samples
@@ -57,6 +85,7 @@ describe.skipIf(!hasDump)('E2S - real Hacktribe hardware dump', () => {
           category: s.esli.category,
           loudness: s.esli.loudness,
           playLogPeriod: s.esli.playLogPeriod,
+          playVolume: s.esli.playVolume,
           startPoint: s.esli.startPoint,
           endPoint: s.esli.endPoint,
           loopStart: s.esli.loopType ? s.esli.loopStart : null,

@@ -1243,7 +1243,7 @@ ipcMain.handle('e2s:open-file', async () => {
         endPoint: s.esli ? s.esli.endPoint : undefined,
         loudness: s.esli ? s.esli.loudness : 127,
         playLogPeriod: s.esli ? s.esli.playLogPeriod : 0,
-        playVolume: s.esli ? s.esli.playVolume : 0x4000,
+        playVolume: s.esli ? s.esli.playVolume : e2sFormat.PLAY_VOLUME_FULL,
         // Preserve the original ESLI block so a save patches only edited fields
         // and leaves every undocumented per-sample byte hardware-identical.
         _raw: s.esli ? s.esli._raw : null,
@@ -1320,9 +1320,10 @@ ipcMain.handle('e2s:import-wav', async () => {
       const name = displayName.substring(0, 24).toUpperCase().replace(/[^A-Z0-9 _\-\.]/g, '');
       e2sStoredSamples[freeSlot] = {
         slot: freeSlot, name, pcmData: pcmLE,
-        sampleRate: e2sFormat.NATIVE_RATE, category: 0,
+        sampleRate: e2sFormat.NATIVE_RATE, category: bankModel.E2S_USER_CATEGORY,
         loopType: 0, loopStart: 0xFFFFFFFF, loudness: 127,
-        playLogPeriod: 0, playVolume: 0x4000,
+        // 0 => buildEsliData derives the period from the rate; volume goes full scale.
+        playLogPeriod: 0, playVolume: e2sFormat.PLAY_VOLUME_FULL,
       };
       imported.push({ name, ok: true, slot: freeSlot });
     } catch (err) { imported.push({ name: displayName, ok: false, error: err.message }); }

@@ -63,7 +63,7 @@ function bankSampleToStore(bs, device, slot) {
       tune: bs.tune ?? 0,
       boost: bs.boost ?? 127,
       loopType: e.loopType ?? 0,
-      playVolume: e.playVolume ?? 0x4000,
+      playVolume: e.playVolume ?? bank.E2S_DEFAULT_PLAY_VOLUME,
       loopStart: bs.loopStart ?? null,
       loopEnd: bs.loopEnd ?? null,
       startPoint: e.startPoint ?? 0,
@@ -161,7 +161,7 @@ function storeToE2sBank(samples, filePath, fileName, opts = {}) {
       boost: meta.boost ?? 127,
       _e2s: {
         loopType: loopDropped ? 0 : (meta.loopType ?? 0),
-        playVolume: meta.playVolume ?? 0x4000,
+        playVolume: meta.playVolume ?? bank.E2S_DEFAULT_PLAY_VOLUME,
         startPoint: meta.startPoint ?? 0,
         endPoint: meta.endPoint ?? undefined, // build clamps to sample length
         _raw: meta._raw ?? null,

@@ -244,8 +244,10 @@ describe('copySamples — all four directions', () => {
     expect(dst.numFrames).toBeGreaterThan(origFrames);
     expect(dst.pcmData.length).toBe(expFrames * 2);
 
-    // Cross-device import lands in category 0 = "User".
-    expect(dst.category).toBe(0);
+    // Cross-device import lands in the "User" category (E2S_CATS index 17).
+    // Index 0 is 'Analog' — a firmware-only category that never appears on a
+    // user sample in a real hardware dump.
+    expect(dst.category).toBe(bank.E2S_USER_CATEGORY);
     expect(dst.tune).toBe(0);
     expect(dst._e2s).toBeDefined();
     expect(to.dirty).toBe(true);
@@ -458,7 +460,7 @@ describe('convertSample', () => {
     const src = bank.createEsxBank(makeEsxBuffer([{ name: 'X', frames: 300 }])).samples[0];
     const out = bank.convertSample(src, 'esx', 'e2s');
     expect(out.sampleRate).toBe(48000);
-    expect(out.category).toBe(0);
+    expect(out.category).toBe(bank.E2S_USER_CATEGORY);
     expect(out.numFrames).toBe(expectedResampledFrames(300, 44100, 48000));
   });
 });
@@ -519,5 +521,62 @@ describe('E2S slot allocation (append-after-highest, firmware base)', () => {
     b.samples[998] = b.samples[997];
     // top full → falls back to the free user-area holes below
     expect(bank.allocateSlots(b, 1, null)).toEqual([500]);
+  });
+});
+
+// ── Cross-device import: hardware-conformant ESLI ──────────
+//
+// Regression for the "LOAD ALL SAMPLES → File Error" bug. Dragging an ESX
+// sample onto an E2S bank produces a sample with no preserved _raw ESLI block,
+// so every field has to be synthesized. Six of them used to stay 0 — most
+// damagingly the 0x34 one-shot flag, which left the saved sample claiming a
+// loop over an empty region. Ground truth: tests/parsers/e2s-realdump.test.js.
+
+describe('ESX → E2S import writes a hardware-conformant ESLI block', () => {
+  const e2s = require('../../src/e2s-format');
+
+  /** Import one ESX sample into an E2S bank, save, and re-read the new slot. */
+  function importAndReadBack({ loopStart = null } = {}) {
+    const esxBank = bank.createEsxBank(
+      makeEsxBuffer([{ name: 'ESXDRUM', frames: 8000, loopStart }]), null, 'a.esx');
+    const e2sBank = bank.createE2sBank(generateEmptyE2S(), null, 'e2sSample.all');
+    const res = bank.copySamples(esxBank, [0], e2sBank);
+    expect(res.ok).toBe(true);
+    const slot = res.assignments[0].to;
+    const parsed = e2s.parseE2sAllFile(bank.serializeBank(e2sBank));
+    return { slot, raw: parsed.samples[slot].esli._raw, esli: parsed.samples[slot].esli };
+  }
+
+  it('derives playLogPeriod from the 48 kHz target rate instead of writing 0', () => {
+    const { raw } = importAndReadBack();
+    expect(raw.readUInt16LE(0x22)).toBe(15360); // 0x3C00 == 48 kHz reference
+  });
+
+  it('writes a non-zero play volume', () => {
+    const { raw } = importAndReadBack();
+    expect(raw.readUInt16LE(0x24)).toBe(0xFFFF);
+  });
+
+  it('flags an unlooped import as ONE-SHOT (0x34 == 1), not as a loop', () => {
+    const { raw } = importAndReadBack();
+    expect(raw.readUInt32LE(0x34)).toBe(1);
+  });
+
+  it('keeps the loop flag clear (0x34 == 0) when the ESX sample is looped', () => {
+    const { raw, esli } = importAndReadBack({ loopStart: 1000 });
+    expect(raw.readUInt32LE(0x34)).toBe(0);
+    expect(esli.loopType).toBe(1);
+  });
+
+  it('stamps all three slot-derived index fields', () => {
+    const { slot, raw } = importAndReadBack();
+    expect(raw.readUInt16LE(0x00)).toBe(slot);
+    expect(raw.readUInt16LE(0x14)).toBe(slot + 50);
+    expect(raw.readUInt16LE(0x4e)).toBe(slot - 500);
+  });
+
+  it('assigns the "User" category, not firmware-only category 0 (Analog)', () => {
+    const { raw } = importAndReadBack();
+    expect(raw.readUInt16LE(0x12)).toBe(17); // E2S_CATS index of 'User'
   });
 });

@@ -29,6 +29,7 @@ const {
   DATA_START,
   NATIVE_RATE,
   ESLI_DATA_SIZE,
+  deriveEsliNumbering,
 } = require('../../src/e2s-format');
 const {
   generateEmptyE2S,
@@ -103,19 +104,26 @@ describe('E2S - ESLI real hardware field map (regression)', () => {
     expect(parsed.endPoint).toBe(5000);
   });
 
-  it('derives loopType from loopStart vs endPoint (no separate loop-type byte)', () => {
-    const oneShot = parseEsliData(buildEsliData({ endPoint: 5000, loopStart: null }));
+  it('flags one-shot vs loop explicitly at 0x34 (1 = one-shot, 0 = loop)', () => {
+    const oneShotBuf = buildEsliData({ endPoint: 5000, loopStart: null });
+    expect(oneShotBuf.readUInt32LE(0x34)).toBe(1);
+    const oneShot = parseEsliData(oneShotBuf);
     expect(oneShot.loopType).toBe(0);
     expect(oneShot.loopStart).toBe(oneShot.endPoint);
 
-    const looped = parseEsliData(buildEsliData({ endPoint: 5000, loopStart: 2000 }));
+    const loopedBuf = buildEsliData({ endPoint: 5000, loopStart: 2000 });
+    expect(loopedBuf.readUInt32LE(0x34)).toBe(0);
+    const looped = parseEsliData(loopedBuf);
     expect(looped.loopType).toBe(1);
     expect(looped.loopStart).toBe(2000);
   });
 
   it('preserve-and-patch: editing the name leaves every other ESLI byte intact', () => {
-    // A sample "loaded from a real file" carries its raw 1172-byte block.
-    const original = buildEsliData({ name: 'ORIG', category: 9, endPoint: 4000, sampleRate: 44100 });
+    // A sample "loaded from a real file" carries its raw 1172-byte block — and
+    // always a slot number, which the slot-derived index fields depend on.
+    const original = buildEsliData({
+      slotNumber: 700, name: 'ORIG', category: 9, endPoint: 4000, sampleRate: 44100,
+    });
     const loaded = parseEsliData(original);           // provides loaded._raw
     expect(loaded._raw).toHaveLength(ESLI_DATA_SIZE);
 
@@ -126,6 +134,181 @@ describe('E2S - ESLI real hardware field map (regression)', () => {
       if (o >= 0x02 && o < 0x02 + 16) continue; // name field
       expect(patched[o]).toBe(original[o]);
     }
+  });
+});
+
+// Regression for the "LOAD ALL SAMPLES → File Error" bug: a sample with no
+// preserved _raw block (cross-device ESX→E2S import, fresh WAV import) used to
+// be written with six hardware-invariant ESLI fields left at 0. Ground truth for
+// each expectation is asserted against all 403 dump samples in
+// tests/parsers/e2s-realdump.test.js.
+describe('E2S - fresh sample ESLI matches hardware invariants', () => {
+  it('derives playLogPeriod (u16 @0x22) from the sample rate', () => {
+    // 48 kHz is the reference rate and yields exactly 0x3C00.
+    expect(buildEsliData({ sampleRate: 48000 }).readUInt16LE(0x22)).toBe(15360);
+    for (const sr of [22053, 32058, 16004, 44100]) {
+      expect(buildEsliData({ sampleRate: sr }).readUInt16LE(0x22))
+        .toBe(Math.round(63132 - 3072 * Math.log2(sr)));
+    }
+    // The low half of the 0x20 dword stays 0, as in every real sample.
+    expect(buildEsliData({ sampleRate: 48000 }).readUInt16LE(0x20)).toBe(0);
+  });
+
+  it('keeps an explicitly supplied playLogPeriod (E2S→E2S round-trip)', () => {
+    const buf = buildEsliData({ sampleRate: 48000, playLogPeriod: 20228 });
+    expect(buf.readUInt16LE(0x22)).toBe(20228);
+    expect(parseEsliData(buf).playLogPeriod).toBe(20228);
+  });
+
+  it('writes a non-zero play volume (u16 @0x24), full scale by default', () => {
+    expect(buildEsliData({}).readUInt16LE(0x24)).toBe(0xFFFF);
+    const buf = buildEsliData({ playVolume: 0xD998 });
+    expect(buf.readUInt16LE(0x24)).toBe(0xD998);
+    expect(parseEsliData(buf).playVolume).toBe(0xD998);
+  });
+
+  it('stamps the slot-derived index fields at 0x14 and 0x4e', () => {
+    const buf = buildEsliData({ slotNumber: 921 });
+    expect(buf.readUInt16LE(0x00)).toBe(921);
+    expect(buf.readUInt16LE(0x14)).toBe(921 + 50);
+    expect(buf.readUInt16LE(0x4e)).toBe(921 - 500);
+  });
+
+  it('never writes a negative user number for slots below the Hacktribe base', () => {
+    const buf = buildEsliData({ slotNumber: 430 }); // stock user area
+    expect(buf.readUInt16LE(0x14)).toBe(480);
+    expect(buf.readUInt16LE(0x4e)).toBe(0);
+  });
+
+  it('keeps a preserved 0x14/0x4e pair when the sample stays in its slot', () => {
+    // Stands in for a stock-layout file, where slot − 500 would be wrong.
+    const raw = buildEsliData({ slotNumber: 450 });
+    raw.writeUInt16LE(29, 0x4e);   // whatever the hardware really put there
+    raw.writeUInt16LE(479, 0x14);
+    const patched = buildEsliData({ _raw: raw, slotNumber: 450, name: 'EDIT' });
+    expect(patched.readUInt16LE(0x14)).toBe(479);
+    expect(patched.readUInt16LE(0x4e)).toBe(29);
+  });
+
+  it('re-derives 0x14/0x4e when the sample moves to another slot', () => {
+    const raw = buildEsliData({ slotNumber: 600 });
+    const moved = buildEsliData({ _raw: raw, slotNumber: 700 });
+    expect(moved.readUInt16LE(0x00)).toBe(700);
+    expect(moved.readUInt16LE(0x14)).toBe(750);
+    expect(moved.readUInt16LE(0x4e)).toBe(200);
+  });
+
+  it('repairs a bank saved before these fields were known (0x14 == 0)', () => {
+    // Exactly what the old writer produced: everything else preserved, but the
+    // six invariant fields left at 0. Re-saving such a file must fix all six,
+    // otherwise reloading the rejected bank and saving it again changes nothing.
+    const broken = Buffer.alloc(ESLI_DATA_SIZE, 0);
+    broken.writeUInt16LE(921, 0x00);
+    broken.writeUInt32LE(48000, 0x48);
+    const fixed = buildEsliData({ _raw: broken, slotNumber: 921, sampleRate: 48000 });
+    expect(fixed.readUInt16LE(0x12)).toBe(17);      // 'User' — 0 is a firmware slot
+    expect(fixed.readUInt16LE(0x14)).toBe(971);
+    expect(fixed.readUInt16LE(0x4e)).toBe(421);
+    expect(fixed.readUInt16LE(0x22)).toBe(15360);
+    expect(fixed.readUInt16LE(0x24)).toBe(0xFFFF);
+    expect(fixed.readUInt32LE(0x34)).toBe(1);
+  });
+
+  it('never writes category 0 or 1 — those are firmware oscillator slots', () => {
+    expect(buildEsliData({}).readUInt16LE(0x12)).toBe(17);
+    expect(buildEsliData({ category: 0 }).readUInt16LE(0x12)).toBe(17);
+    expect(buildEsliData({ category: 1 }).readUInt16LE(0x12)).toBe(17);
+    // Every category a user sample may legitimately carry passes through.
+    for (let c = 2; c <= 17; c++) {
+      expect(buildEsliData({ category: c }).readUInt16LE(0x12)).toBe(c);
+    }
+  });
+
+  it('leaves every byte from 0x50 on untouched (slice table stays zero)', () => {
+    const buf = buildEsliData({ slotNumber: 700, sampleRate: 48000, endPoint: 100 });
+    for (let o = 0x50; o < ESLI_DATA_SIZE; o++) expect(buf[o], `0x${o.toString(16)}`).toBe(0);
+  });
+});
+
+// Two real cards disagree on 0x4E: a stock-layout dump stores slot − 500, while
+// a Hacktribe card the hardware loads without complaint stores the slot itself.
+// Both are accepted, so a fresh sample must copy whichever convention the file
+// it is being added to already uses instead of a hardcoded constant.
+describe('E2S - index fields follow the conventions of the file being edited', () => {
+  const rawAt = (slot, { imp, user }) => {
+    const b = Buffer.alloc(ESLI_DATA_SIZE, 0);
+    b.writeUInt16LE(slot, 0x00);
+    b.writeUInt16LE(imp, 0x14);
+    b.writeUInt16LE(user, 0x4e);
+    return b;
+  };
+
+  it('defaults to the dump convention when nothing can be observed', () => {
+    expect(deriveEsliNumbering([])).toEqual({ importNumOffset: 50, userNumOffset: -500 });
+    expect(deriveEsliNumbering([{ slot: 600 }, null])).toEqual({
+      importNumOffset: 50, userNumOffset: -500,
+    });
+  });
+
+  it('reads the stock-dump offsets back off preserved blocks', () => {
+    const samples = [518, 519, 520].map(slot => ({
+      slot, _raw: rawAt(slot, { imp: slot + 50, user: slot - 500 }),
+    }));
+    expect(deriveEsliNumbering(samples)).toEqual({ importNumOffset: 50, userNumOffset: -500 });
+  });
+
+  it('reads the Hacktribe-card offset (0x4e == slot) off preserved blocks', () => {
+    const samples = [518, 919, 920].map(slot => ({
+      slot, _raw: rawAt(slot, { imp: slot + 50, user: slot }),
+    }));
+    expect(deriveEsliNumbering(samples)).toEqual({ importNumOffset: 50, userNumOffset: 0 });
+  });
+
+  it('ignores blocks whose index fields were never written', () => {
+    const samples = [
+      { slot: 921, _raw: rawAt(921, { imp: 0, user: 0 }) },   // old writer's output
+      { slot: 518, _raw: rawAt(518, { imp: 568, user: 518 }) },
+    ];
+    expect(deriveEsliNumbering(samples)).toEqual({ importNumOffset: 50, userNumOffset: 0 });
+  });
+
+  it('falls back to the default when the file is not self-consistent', () => {
+    const samples = [
+      { slot: 518, _raw: rawAt(518, { imp: 568, user: 18 }) },
+      { slot: 519, _raw: rawAt(519, { imp: 569, user: 519 }) },
+    ];
+    expect(deriveEsliNumbering(samples).userNumOffset).toBe(-500);
+  });
+
+  it('honours an explicit offset in buildEsliData', () => {
+    const buf = buildEsliData({ slotNumber: 921, userNumOffset: 0, importNumOffset: 50 });
+    expect(buf.readUInt16LE(0x14)).toBe(971);
+    expect(buf.readUInt16LE(0x4e)).toBe(921);
+  });
+
+  it('still clamps a negative user number to 0', () => {
+    expect(buildEsliData({ slotNumber: 100, userNumOffset: -500 }).readUInt16LE(0x4e)).toBe(0);
+  });
+
+  it('gives an appended sample the same 0x4e convention as its neighbours', () => {
+    const pcm = Buffer.alloc(64);
+    const samples = new Array(MAX_SLOTS).fill(null);
+    // Two preserved samples off a Hacktribe card, then a fresh import next to them.
+    for (const slot of [518, 519]) {
+      samples[slot] = {
+        slot, pcmData: pcm, sampleRate: NATIVE_RATE, name: `S${slot}`,
+        _raw: rawAt(slot, { imp: slot + 50, user: slot }),
+      };
+    }
+    samples[520] = { slot: 520, pcmData: pcm, sampleRate: NATIVE_RATE, name: 'FRESH' };
+
+    const built = buildE2sAllFile(samples);
+    const parsed = parseE2sAllFile(built);
+    const rawOf = slot => parsed.samples[slot].esli._raw;
+
+    expect(rawOf(518).readUInt16LE(0x4e)).toBe(518);   // preserved, unchanged
+    expect(rawOf(520).readUInt16LE(0x4e)).toBe(520);   // fresh, matches the file
+    expect(rawOf(520).readUInt16LE(0x14)).toBe(570);
   });
 });
 

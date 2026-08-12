@@ -39,8 +39,12 @@ const ESX_MAX_SAMPLE_BYTES = Math.min(esx.SIZE.MAX_SAMPLE_BYTES, esx.SAMPLE_MEM_
 const ESX_BLOCK_OVERHEAD = 16;                  // per-sample block header in buildEsxFile
 
 const E2S_LOOP_SENTINEL = 0xFFFFFFFF;           // "no loop" in ESLI / ESX headers
-const E2S_DEFAULT_PLAY_VOLUME = 0x4000;
+const E2S_DEFAULT_PLAY_VOLUME = e2s.PLAY_VOLUME_FULL;  // 0xFFFF — real samples are never 0
 const E2S_DEFAULT_LOUDNESS = 127;
+// E2S_CATS index of 'User'. Categories 0 ('Analog') and 1 ('Audio In') are
+// firmware oscillator slots and never appear on a user sample in a real dump —
+// buildEsliData enforces the same floor on write.
+const E2S_USER_CATEGORY = e2s.USER_CATEGORY;
 
 // ── Device helpers ─────────────────────────────────────────
 
@@ -373,8 +377,8 @@ function convertSample(sample, fromDevice, toDevice) {
       duration: numFrames / E2S_RATE,
       loopStart: rescaleFrame(sample.loopStart, fromRate, E2S_RATE, numFrames - 1),
       loopEnd: rescaleFrame(sample.loopEnd, fromRate, E2S_RATE, numFrames - 1),
-      category: 0, // "User" on cross-device import
-      tune: 0,
+      category: E2S_USER_CATEGORY, // "User" on cross-device import
+      tune: 0,                     // 0 => playLogPeriod derived from the rate
       boost: E2S_DEFAULT_LOUDNESS,
       _e2s: { loopType: loop ? 1 : 0, playVolume: E2S_DEFAULT_PLAY_VOLUME },
       ...hist,
@@ -570,6 +574,8 @@ module.exports = {
   E2S_MAX_SAMPLE_INDEX,
   E2S_STOCK_BASE,
   E2S_HACKTRIBE_BASE,
+  E2S_DEFAULT_PLAY_VOLUME,
+  E2S_USER_CATEGORY,
   e2sUserBase,
   detectHacktribe,
   allocateSlots,
