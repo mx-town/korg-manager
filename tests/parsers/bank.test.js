@@ -61,18 +61,22 @@ describe('device helpers', () => {
     expect(bank.E2S_RATE).toBe(48000);
     expect(bank.ESX_MONO_SLOTS).toBe(256);
     expect(bank.ESX_STEREO_SLOTS).toBe(128);
-    expect(bank.E2S_MAX_SLOTS).toBe(1000);          // file offset-table entries
-    expect(bank.E2S_USER_SLOTS).toBe(499);          // hardware-addressable user slots
-    // Budget is capped by the writable sample-data region of the fixed file
-    // (ESX_FILE_SIZE - SAMPLE_DATA), not the larger hardware-RAM constant —
-    // otherwise a save could silently truncate the last sample's PCM.
-    expect(bank.ESX_MAX_SAMPLE_BYTES).toBe(24117248);
+    expect(bank.E2S_MAX_SLOTS).toBe(1020);          // file offset-table entries (data starts @4096)
+    expect(bank.E2S_MAX_SAMPLE_INDEX).toBe(998);    // sample #999, last addressable
+    expect(bank.E2S_STOCK_BASE).toBe(421);          // stock user area starts at #422
+    expect(bank.E2S_HACKTRIBE_BASE).toBe(500);      // Hacktribe user area starts at #501
+    // Budget is the hardware sample-memory ceiling declared by the free-space block
+    // that every real .esx ends with. It used to be clamped to (ESX_FILE_SIZE -
+    // SAMPLE_DATA) = 24,117,248 to dodge silent truncation into a fixed-size buffer,
+    // but .esx files are variable-sized (0x250010 + currentOffset) and the writers now
+    // throw instead of truncating — so the real ~25 MB ceiling applies.
+    expect(bank.ESX_MAX_SAMPLE_BYTES).toBe(25165822);
     expect(bank.ESX_BLOCK_OVERHEAD).toBe(16);
   });
 
   it('maxSlots / deviceRate resolve per device', () => {
     expect(bank.maxSlots('esx')).toBe(256);
-    expect(bank.maxSlots('e2s')).toBe(499);         // user-addressable, not the 1000 table
+    expect(bank.maxSlots('e2s')).toBe(999);         // sample numbers 1–999, not the 1020-entry table
     expect(bank.deviceRate('esx')).toBe(44100);
     expect(bank.deviceRate('e2s')).toBe(48000);
   });
@@ -107,7 +111,7 @@ describe('detectDevice / createBankFromBuffer', () => {
 
     const b = bank.createBankFromBuffer(buf, '/tmp/e2sSample.all', 'e2sSample.all');
     expect(b.device).toBe('e2s');
-    expect(b.samples.length).toBe(1000);
+    expect(b.samples.length).toBe(1020);
     expect(b.originalBuffer).toBeNull();
     expect(b.samples[0]).toBeTruthy();
     expect(b.samples[0].name).toBe('SNARE');
@@ -207,11 +211,15 @@ describe('copySamples — all four directions', () => {
     expect(res.toRate).toBe(48000);
 
     expect(to.dirty).toBe(true);
-    expect(to.samples[0].sampleRate).toBe(48000);
-    expect(to.samples[0].name).toBe('CLAP');
+    // Empty target bank defaults to the Hacktribe base: first copy lands at
+    // index 500 (sample #501), never at 0 (ignored by Hacktribe firmware).
+    const dst = to.samples[500];
+    expect(dst).toBeTruthy();
+    expect(dst.sampleRate).toBe(48000);
+    expect(dst.name).toBe('CLAP');
     // E2S->E2S is lossless: metadata bag carried through.
-    expect(to.samples[0]._e2s).toBeDefined();
-    expect(to.samples[0].category).toBe(from.samples[0].category);
+    expect(dst._e2s).toBeDefined();
+    expect(dst.category).toBe(from.samples[0].category);
   });
 
   it('ESX -> E2S resamples to 48000 Hz, category "User", name preserved', () => {
@@ -225,7 +233,7 @@ describe('copySamples — all four directions', () => {
     expect(res.fromRate).toBe(44100);
     expect(res.toRate).toBe(48000);
 
-    const dst = to.samples[0];
+    const dst = to.samples[500];                 // empty bank → Hacktribe base
     expect(dst).toBeTruthy();
     expect(dst.sampleRate).toBe(48000);          // native E2S rate
     expect(dst.name).toBe('BASS');               // name preserved
@@ -236,8 +244,10 @@ describe('copySamples — all four directions', () => {
     expect(dst.numFrames).toBeGreaterThan(origFrames);
     expect(dst.pcmData.length).toBe(expFrames * 2);
 
-    // Cross-device import lands in category 0 = "User".
-    expect(dst.category).toBe(0);
+    // Cross-device import lands in the "User" category (E2S_CATS index 17).
+    // Index 0 is 'Analog' — a firmware-only category that never appears on a
+    // user sample in a real hardware dump.
+    expect(dst.category).toBe(bank.E2S_USER_CATEGORY);
     expect(dst.tune).toBe(0);
     expect(dst._e2s).toBeDefined();
     expect(to.dirty).toBe(true);
@@ -252,8 +262,8 @@ describe('copySamples — all four directions', () => {
     const to = bank.createE2sBank(generateEmptyE2S());
     const res = bank.copySamples(from, [0], to, null);
     expect(res.ok).toBe(true);
-    expect(to.samples[0]._e2s.loopType).toBe(0);     // not looping
-    expect(to.samples[0].loopStart).toBeNull();
+    expect(to.samples[500]._e2s.loopType).toBe(0);   // not looping (empty bank → base 500)
+    expect(to.samples[500].loopStart).toBeNull();
   });
 
   it('E2S -> ESX resamples to 44100 Hz', () => {
@@ -307,7 +317,7 @@ describe('copySamples — loop points carried', () => {
     const res = bank.copySamples(from, [0], to, null);
     expect(res.ok).toBe(true);
 
-    const dst = to.samples[0];
+    const dst = to.samples[500];                 // empty bank → Hacktribe base
     // Loop frames rescaled by 48000/44100; still non-null (KB1-silence guard).
     expect(dst.loopStart).not.toBeNull();
     expect(dst.loopEnd).not.toBeNull();
@@ -450,7 +460,123 @@ describe('convertSample', () => {
     const src = bank.createEsxBank(makeEsxBuffer([{ name: 'X', frames: 300 }])).samples[0];
     const out = bank.convertSample(src, 'esx', 'e2s');
     expect(out.sampleRate).toBe(48000);
-    expect(out.category).toBe(0);
+    expect(out.category).toBe(bank.E2S_USER_CATEGORY);
     expect(out.numFrames).toBe(expectedResampledFrames(300, 44100, 48000));
+  });
+});
+
+// ── E2S slot allocation policy ─────────────────────────────
+// New samples are APPENDED after the highest used slot (device patterns
+// reference sample numbers — existing slots are never renumbered) with the
+// firmware user base as floor: Hacktribe #501 (index 500), stock #422 (421).
+// Verified against a real Hacktribe dump: entries below index 500 are ignored
+// by the firmware — a sample placed there never appears on the device.
+
+describe('E2S slot allocation (append-after-highest, firmware base)', () => {
+  function e2sBankWithSlots(slots) {
+    const b = bank.createE2sBank(generateEmptyE2S());
+    for (const s of slots) {
+      b.samples[s] = bank.createE2sBank(generateE2SWithSample(0, 'S', 10)).samples[0];
+    }
+    b.hacktribe = bank.detectHacktribe(b.samples);
+    return b;
+  }
+
+  it('empty bank: first allocation lands at the Hacktribe base (index 500)', () => {
+    const b = e2sBankWithSlots([]);
+    expect(b.hacktribe).toBe(true);
+    expect(bank.allocateSlots(b, 3, null)).toEqual([500, 501, 502]);
+  });
+
+  it('appends after the highest used slot, skipping free holes below it', () => {
+    const b = e2sBankWithSlots([518, 519, 700]); // holes at 520–699 stay free
+    expect(bank.allocateSlots(b, 2, null)).toEqual([701, 702]);
+  });
+
+  it('stock bank (samples below 500) uses base 421', () => {
+    const b = e2sBankWithSlots([18, 19]); // factory-area slots → stock firmware
+    expect(b.hacktribe).toBe(false);
+    expect(bank.allocateSlots(b, 1, null)).toEqual([421]);
+  });
+
+  it('hacktribe=false override allocates from the stock base on an empty bank', () => {
+    const b = e2sBankWithSlots([]);
+    b.hacktribe = false;
+    expect(bank.allocateSlots(b, 1, null)).toEqual([421]);
+  });
+
+  it('falls back to holes at/above the base when the top range is full', () => {
+    const b = e2sBankWithSlots([]);
+    for (let i = 502; i <= bank.E2S_MAX_SAMPLE_INDEX; i++) {
+      b.samples[i] = b.samples[i] || bank.createE2sBank(generateE2SWithSample(0, 'F', 10)).samples[0];
+    }
+    // 500 and 501 are the only free user slots left.
+    expect(bank.allocateSlots(b, 2, null)).toEqual([500, 501]);
+    expect(bank.allocateSlots(b, 3, null)).toBeNull(); // over capacity
+  });
+
+  it('never allocates past sample #999 (index 998)', () => {
+    const b = e2sBankWithSlots([997]);
+    expect(bank.allocateSlots(b, 1, null)).toEqual([998]);
+    b.samples[998] = b.samples[997];
+    // top full → falls back to the free user-area holes below
+    expect(bank.allocateSlots(b, 1, null)).toEqual([500]);
+  });
+});
+
+// ── Cross-device import: hardware-conformant ESLI ──────────
+//
+// Regression for the "LOAD ALL SAMPLES → File Error" bug. Dragging an ESX
+// sample onto an E2S bank produces a sample with no preserved _raw ESLI block,
+// so every field has to be synthesized. Six of them used to stay 0 — most
+// damagingly the 0x34 one-shot flag, which left the saved sample claiming a
+// loop over an empty region. Ground truth: tests/parsers/e2s-realdump.test.js.
+
+describe('ESX → E2S import writes a hardware-conformant ESLI block', () => {
+  const e2s = require('../../src/e2s-format');
+
+  /** Import one ESX sample into an E2S bank, save, and re-read the new slot. */
+  function importAndReadBack({ loopStart = null } = {}) {
+    const esxBank = bank.createEsxBank(
+      makeEsxBuffer([{ name: 'ESXDRUM', frames: 8000, loopStart }]), null, 'a.esx');
+    const e2sBank = bank.createE2sBank(generateEmptyE2S(), null, 'e2sSample.all');
+    const res = bank.copySamples(esxBank, [0], e2sBank);
+    expect(res.ok).toBe(true);
+    const slot = res.assignments[0].to;
+    const parsed = e2s.parseE2sAllFile(bank.serializeBank(e2sBank));
+    return { slot, raw: parsed.samples[slot].esli._raw, esli: parsed.samples[slot].esli };
+  }
+
+  it('derives playLogPeriod from the 48 kHz target rate instead of writing 0', () => {
+    const { raw } = importAndReadBack();
+    expect(raw.readUInt16LE(0x22)).toBe(15360); // 0x3C00 == 48 kHz reference
+  });
+
+  it('writes a non-zero play volume', () => {
+    const { raw } = importAndReadBack();
+    expect(raw.readUInt16LE(0x24)).toBe(0xFFFF);
+  });
+
+  it('flags an unlooped import as ONE-SHOT (0x34 == 1), not as a loop', () => {
+    const { raw } = importAndReadBack();
+    expect(raw.readUInt32LE(0x34)).toBe(1);
+  });
+
+  it('keeps the loop flag clear (0x34 == 0) when the ESX sample is looped', () => {
+    const { raw, esli } = importAndReadBack({ loopStart: 1000 });
+    expect(raw.readUInt32LE(0x34)).toBe(0);
+    expect(esli.loopType).toBe(1);
+  });
+
+  it('stamps all three slot-derived index fields', () => {
+    const { slot, raw } = importAndReadBack();
+    expect(raw.readUInt16LE(0x00)).toBe(slot);
+    expect(raw.readUInt16LE(0x14)).toBe(slot + 50);
+    expect(raw.readUInt16LE(0x4e)).toBe(slot - 500);
+  });
+
+  it('assigns the "User" category, not firmware-only category 0 (Analog)', () => {
+    const { raw } = importAndReadBack();
+    expect(raw.readUInt16LE(0x12)).toBe(17); // E2S_CATS index of 'User'
   });
 });

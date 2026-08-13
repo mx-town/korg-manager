@@ -47,7 +47,7 @@ Global mutable state:
 
 | File | Device | Read | Write | Key Details |
 |------|--------|------|-------|-------------|
-| `esx-format.js` | ESX-1 | ✅ | ✅ | Fixed 26,542,080 bytes, 16-bit BE PCM, 256 mono/128 stereo. See `korg-esx-file-structur` |
+| `esx-format.js` | ESX-1 | ✅ | ✅ | **Variable size** (`0x250010 + curOff`), 26,542,080 is only the maximum. 16-bit BE PCM, 256 mono/128 stereo. See `ESX_FILE_STRUCTURE.md` |
 | `e2s-format.js` | E2S | ✅ | ✅ | RIFF WAV + Korg ESLI chunks, 499 user slots, 48kHz native |
 | `emx-format.js` | EMX-1 | ✅ | ❌ | Dual-mode: SysEx (1,728,000 bytes) or SmartCard (1,736,704 bytes). See `EMX_SMARTCARD_FORMAT.md` |
 | `e2pat-format.js` | E2/E2S | ✅ | ✅ | Single pattern (16,641 bytes) or all-patterns format |
@@ -55,7 +55,7 @@ Global mutable state:
 
 ### Format Documentation (in repo root)
 
-- **`korg-esx-file-structur`** — Complete ESX-1 binary spec (526 lines, every byte mapped)
+- **`ESX_FILE_STRUCTURE.md`** — Complete ESX-1 binary spec (592 lines, every byte mapped)
 - **`EMX_SMARTCARD_FORMAT.md`** — EMX-1 SmartCard format spec (reverse-engineered from hardware dumps)
 
 Read these files before modifying any parser code.
@@ -98,6 +98,10 @@ Fonts: Orbitron (headings), Share Tech Mono (LCD values), Rajdhani (labels).
 - Native sample rate is 48kHz (vs ESX's 44.1kHz) — conversion needed for cross-device
 - No checksums in the format — files can be freely written
 - ESLI metadata chunk is 1,172 bytes inside a `korg` RIFF chunk
+- **Offset table = 1020 entries × uint32LE START offset, data starts at 0x1000.** One start offset per entry, `0` = empty — NOT 510×8-byte `[start, end]` pairs; that reading was refuted (`E2S_FORMAT.md:10`) and corrected in `5636c89`. Derive a sample's length from its RIFF header, not from the table. Skip garbage entries; never throw.
+- **ESLI field map is NON-obvious**: name @0x02 (16B, not 24), category @0x12, sampleRate @0x48, points (start/loop/end/length) @0x28/0x2C/0x30/0x3C stored as **BYTES (frame×2)**. There is **no loop-type byte** — a loop is active iff `loopStart < endPoint`.
+- **Writer uses preserve-and-patch**: samples loaded from a real file keep `esli._raw` (the full 1172-byte block); `buildEsliData` patches only known fields so undocumented bytes stay hardware-identical. `main.js` must thread `esli._raw` through `e2sStoredSamples` for this to work in the app.
+- **Read `E2S_FORMAT.md` before touching `e2s-format.js`** — full spec, reverse-engineered from real hardware dumps.
 
 ## Pattern Viewer Architecture
 
@@ -130,6 +134,6 @@ The pattern viewer normalizes all device formats into a unified UI format:
 - **Large comprehensive prompts preferred** — not incremental small fixes
 - **All 240+ tests MUST pass** after every change — `npm test`
 - **Git tags** mark milestones
-- **Read format docs before touching parsers** — check `korg-esx-file-structur` and `EMX_SMARTCARD_FORMAT.md`
+- **Read format docs before touching parsers** — check `ESX_FILE_STRUCTURE.md` and `EMX_SMARTCARD_FORMAT.md`
 - **When adding IPC handlers**: update main.js handler + preload.js bridge + renderer call site
 - **When modifying pattern toUI converters**: spread full part objects, don't cherry-pick fields

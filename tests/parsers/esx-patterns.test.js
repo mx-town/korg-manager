@@ -75,8 +75,8 @@ describe('ESX Patterns - Header defaults', () => {
     pattern = parseEsxPatterns(generateMinimalESX())[0];
   });
 
-  it('should parse default pattern name as "A.001"', () => {
-    expect(pattern.name).toBe('A.001');
+  it('should parse the default pattern name as empty', () => {
+    expect(pattern.name).toBe('');
   });
 
   it('should parse default tempo as 120.0 BPM', () => {
@@ -105,7 +105,7 @@ describe('ESX Patterns - Header defaults', () => {
   });
 });
 
-// ── All patterns named "Init" ────────────────────────────
+// ── All patterns unnamed ─────────────────────────────────
 
 describe('ESX Patterns - All 256 defaults', () => {
   let patterns;
@@ -114,11 +114,9 @@ describe('ESX Patterns - All 256 defaults', () => {
     patterns = parseEsxPatterns(generateMinimalESX());
   });
 
-  it('should have all patterns with bank names A.001-D.064', () => {
-    patterns.forEach((p, i) => {
-      const bank = String.fromCharCode(65 + Math.floor(i / 64));
-      const num = String((i % 64) + 1).padStart(3, '0');
-      expect(p.name).toBe(`${bank}.${num}`);
+  it('should have no pattern names at all', () => {
+    patterns.forEach((p) => {
+      expect(p.name).toBe('');
     });
   });
 
@@ -454,23 +452,16 @@ describe('ESX Patterns - File with samples', () => {
     const patterns = parseEsxPatterns(buf);
 
     expect(patterns).toHaveLength(PATTERN_COUNT);
-    // Pattern 0 should have samples assigned to drums
     const drum1 = patterns[0].parts[0];
     expect(drum1.sampleNum).toBe(0);
   });
 
-  it('should detect active steps in pattern with samples', () => {
+  it('should leave patterns empty — loading samples programs no steps', () => {
     const buf = generateESXWithNSamples(1);
     const patterns = parseEsxPatterns(buf);
 
-    // buildEsxFile writes four-on-the-floor: steps 0,4,8,12 active
     const drum1 = patterns[0].parts[0];
-    const activeCount = drum1.steps.filter(s => s).length;
-    expect(activeCount).toBe(4);
-    expect(drum1.steps[0]).toBe(true);
-    expect(drum1.steps[4]).toBe(true);
-    expect(drum1.steps[8]).toBe(true);
-    expect(drum1.steps[12]).toBe(true);
+    expect(drum1.steps.filter(s => s)).toHaveLength(0);
   });
 });
 

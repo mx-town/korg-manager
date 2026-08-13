@@ -234,6 +234,30 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 .toast.fading{animation:tout 250ms ease forwards}
 @keyframes tout{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(16px)}}
 
+/* ═══ MIDI GLOBALS MODAL ═══ */
+.mg-modal{background:var(--dark);border:2px solid var(--blue-d);width:94%;max-width:860px;max-height:90%;display:grid;grid-template-rows:auto 1fr auto;clip-path:polygon(10px 0%,100% 0%,100% calc(100% - 10px),calc(100% - 10px) 100%,0% 100%,0% 10px);box-shadow:0 0 80px rgba(30,80,160,.06)}
+.mg-body{padding:18px 24px;overflow-y:auto}
+.mg-sec{font-family:var(--head);font-size:10px;font-weight:700;color:var(--blue-d);letter-spacing:3px;margin:18px 0 10px;display:flex;align-items:center;gap:10px}
+.mg-sec::after{content:'';flex:1;height:1px;background:var(--brd)}
+.mg-note{font-family:var(--ui);font-size:14px;color:var(--txt-d);line-height:1.5;margin-bottom:6px}
+.mg-note b{color:var(--led);font-weight:600}
+.mg-note-sm{font-size:13px;color:var(--txt-x);margin:-4px 0 10px}
+.mg-grid{display:grid;grid-template-columns:1fr auto;gap:8px 14px;align-items:center}
+.mg-grid-n{grid-template-columns:repeat(2,1fr auto)}
+.mg-lbl{font-family:var(--lcd);font-size:13px;color:var(--txt);letter-spacing:1px}
+.mg-lbl small{display:block;color:var(--txt-x);font-size:11px;letter-spacing:0}
+.mg-modal select,.mg-modal input{background:var(--cell);border:1px solid var(--brd-h);color:var(--led);font-family:var(--lcd);font-size:13px;padding:6px 10px;letter-spacing:1px;clip-path:polygon(4px 0%,100% 0%,calc(100% - 4px) 100%,0% 100%);min-width:120px}
+.mg-modal select:focus,.mg-modal input:focus{outline:none;border-color:var(--led-d);box-shadow:0 0 10px rgba(0,204,255,.12)}
+.mg-modal .chg{border-color:var(--hi);color:var(--hi)}
+.mg-warn{border:1px solid var(--warn);background:rgba(255,102,0,.08);padding:10px 14px;margin:12px 0;font-family:var(--ui);font-size:13px;color:var(--warn);line-height:1.5;clip-path:polygon(4px 0%,100% 0%,calc(100% - 4px) 100%,0% 100%)}
+.mg-warn b{color:#ffa050}
+.mg-warn ul{margin:6px 0 0 16px;padding:0}
+.mg-ro{font-family:var(--lcd);font-size:12px;color:var(--txt-x);line-height:1.8;letter-spacing:1px}
+.mg-ro span{color:var(--txt-d)}
+.mg-foot{display:flex;align-items:center;gap:10px;padding:14px 24px;border-top:2px solid var(--blue-d);background:linear-gradient(0deg,#0e1830,var(--dark))}
+.mg-status{flex:1;font-family:var(--lcd);font-size:12px;color:var(--txt-x);letter-spacing:1px}
+.mg-hint{margin-top:8px;font-family:var(--lcd);font-size:11px;color:var(--warn);letter-spacing:1px;line-height:1.4}
+
 /* ═══ MODIFY MODAL ═══ */
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(2,4,12,.9);z-index:10000;backdrop-filter:blur(8px)}
 .modal-bg.show{display:flex;align-items:center;justify-content:center;animation:mIn .2s ease}
@@ -1350,6 +1374,47 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
   margin-top:1px;
 }
 .pat-item.act .pat-active-dots{color:var(--led)}
+/* ═══ FILE TABS + SPLIT VIEW (unified sample manager) ═══ */
+.ftabs{display:flex;align-items:flex-end;gap:6px;padding:6px 14px 0;background:var(--dark);border-bottom:1px solid var(--brd);flex-shrink:0}
+.ftab{display:flex;align-items:center;gap:8px;padding:5px 10px 5px 12px;background:var(--panel);border:1px solid var(--brd);border-bottom:none;cursor:pointer;clip-path:polygon(4px 0%,100% 0%,calc(100% - 4px) 100%,0% 100%);font-family:var(--lcd);font-size:12px;color:var(--txt-d);user-select:none;max-width:280px;min-width:0}
+.ftab.act{background:var(--cell-a);border-color:var(--hi-d);color:var(--txt)}
+.ftab:hover:not(.act){background:var(--cell-h)}
+.ftab.drop-hot{border-color:var(--hi);background:var(--hi-g)}
+.ftab-dev{font-family:var(--head);font-size:8px;font-weight:700;letter-spacing:1px;padding:2px 5px;background:var(--hi-dk);color:var(--hi);border:1px solid var(--hi-d);flex-shrink:0}
+.ftab-ht{font-family:var(--head);font-size:8px;font-weight:700;letter-spacing:1px;padding:2px 5px;background:var(--panel);color:var(--txt-x);border:1px solid var(--brd);flex-shrink:0;cursor:pointer}
+.ftab-ht.on{background:#031a20;color:var(--led);border-color:var(--led-d)}
+.ftab-ht:hover{border-color:var(--brd-h);color:var(--txt)}
+.ftab-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:1px}
+.ftab-cnt{font-size:10px;color:var(--txt-x);flex-shrink:0}
+.ftab-dot{color:var(--yel);font-size:9px;flex-shrink:0}
+.ftab-x{color:var(--txt-x);font-size:11px;padding:0 2px;flex-shrink:0}
+.ftab-x:hover{color:var(--hi)}
+.ftab-add,.ftab-split{font-family:var(--head);font-size:9px;font-weight:700;letter-spacing:2px;padding:5px 12px;background:var(--panel);border:1px solid var(--brd);color:var(--txt-d);cursor:pointer;clip-path:polygon(4px 0%,100% 0%,calc(100% - 4px) 100%,0% 100%)}
+.ftab-add:hover:not([disabled]),.ftab-split:hover{border-color:var(--brd-h);color:var(--txt)}
+.ftab-add[disabled]{opacity:.35;cursor:default}
+.ftab-split{margin-left:auto}
+.ftab-split.act{color:var(--led);border-color:var(--led-d)}
+/* split mode: hide the single list (+ its header rows), show the two panes */
+.sl-w.split-on .sl{display:none!important}
+.sl-w.split-on .ch{display:none}
+.sl-w.split-on .sl-hdr{display:none}
+#splWrap{flex:1;display:flex;gap:8px;min-height:0;padding:8px}
+.spl-col{flex:1;display:flex;flex-direction:column;min-width:0;border:1px solid var(--brd);background:var(--cell)}
+.spl-col.act{border-color:var(--hi-d)}
+.spl-col.drop-hot{border-color:var(--hi);box-shadow:inset 0 0 14px var(--hi-g)}
+.spl-hdr{display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--dark);border-bottom:1px solid var(--brd);font-family:var(--lcd);font-size:12px;flex-shrink:0}
+.spl-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--led);letter-spacing:1px}
+.spl-cnt{color:var(--txt-x);font-size:10px}
+.spl-chip{font-family:var(--head);font-size:8px;font-weight:700;letter-spacing:1px;padding:2px 5px;background:var(--hi-dk);color:var(--hi);border:1px solid var(--hi-d);flex-shrink:0}
+.spl-ch{display:grid;grid-template-columns:38px 1fr 52px 64px;gap:6px;padding:4px 10px;font-family:var(--lcd);font-size:9px;letter-spacing:2px;color:var(--txt-x);border-bottom:1px solid var(--brd);background:var(--void);flex-shrink:0}
+.spl-list{flex:1;overflow-y:auto;overflow-x:hidden;min-height:0}
+.spl-row{display:grid;grid-template-columns:38px 1fr 52px 64px;gap:6px;padding:5px 10px;font-family:var(--lcd);font-size:12px;color:var(--txt-d);cursor:pointer;border-bottom:1px solid var(--brd);user-select:none}
+.spl-row:hover{background:var(--cell-h)}
+.spl-row.act{background:var(--cell-a);color:var(--txt)}
+.spl-row .spl-n{color:var(--led);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.spl-row.act .spl-n{text-shadow:0 0 6px var(--led)}
+.spl-row .spl-r,.spl-row .spl-d{text-align:right;font-size:11px}
+.spl-empty{padding:24px 12px;text-align:center;font-family:var(--lcd);font-size:11px;color:var(--txt-x)}
 </style>
 <script src="https://unpkg.com/tone@14/build/Tone.js"></script>
 <script src="https://unpkg.com/meyda/dist/web/meyda.min.js"></script>
@@ -1366,11 +1431,12 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
     <nav class="vsb" id="vSidebar">
       <div class="vsb-logo" title="Electribe Sample Manager">⬡</div>
       <div class="vsb-items">
-        <button class="vsb-item active" data-device="esx1" onclick="switchDevice('esx1')" title="ESX-1 Sampler">
+        <button class="vsb-item active" data-device="esx1" onclick="switchDevice('esx1')" title="Sample Manager (ESX-1 / E2S)">
           <span class="vsb-icon">◆</span>
-          <span class="vsb-label">ESX-1<small>SAMPLER</small></span>
+          <span class="vsb-label">SAMPLE<small>MANAGER</small></span>
         </button>
-        <button class="vsb-item" data-device="e2s" onclick="switchDevice('e2s')" title="E2S Sampler">
+        <!-- old E2S sampler view is superseded by the unified sample manager (kept in code, hidden) -->
+        <button class="vsb-item" data-device="e2s" onclick="switchDevice('e2s')" title="E2S Sampler" style="display:none">
           <span class="vsb-icon">◈</span>
           <span class="vsb-label">E2S<small>SAMPLER</small></span>
         </button>
@@ -1389,16 +1455,18 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
   <!-- ═══ ESX-1 VIEW (existing UI) ═══ -->
   <div id="esx1-view" class="device-view active">
   <div class="header">
-    <div class="logo"><span class="logo-badge">ESM</span><div><div class="logo-t">ELECTRIBE SAMPLE MANAGER</div><div class="logo-s">⚠ esx-1 sample manager ⚠</div></div></div>
+    <div class="logo"><span class="logo-badge">ESM</span><div><div class="logo-t">ELECTRIBE SAMPLE MANAGER</div><div class="logo-s">⚠ sample manager · esx-1 / e2s ⚠</div></div></div>
     <div class="ha">
-      <button class="btn" onclick="openEsx()">📂 OPEN</button>
-      <button class="btn" onclick="importSamples()">📥 IMPORT</button>
+      <button class="btn" onclick="openFileTab()">📂 OPEN</button>
+      <button class="btn" id="btnImport" onclick="importSamples()">📥 IMPORT</button>
       <div class="hsep"></div>
-      <button class="btn btn-hi" id="btnSave" onclick="saveEsxToFile()" style="display:none">💾 SAVE</button>
-      <button class="btn" onclick="exportNewEsx()">📤 EXPORT NEW</button>
+      <button class="btn btn-hi" id="btnSave" onclick="saveActiveFile()" style="display:none">💾 SAVE</button>
+      <button class="btn" id="btnExportNew" onclick="exportNewEsx()">📤 EXPORT NEW</button>
       <button class="btn" onclick="openGuide()">ℹ BETA INFO</button>
     </div>
   </div>
+  <!-- ═══ FILE TABS (unified sample manager — browser-style, max 2 files) ═══ -->
+  <div class="ftabs" id="fileTabs"></div>
   <div class="pbar"><span class="pbar-l">LOC&gt;</span><span class="pbar-v" id="pV"><span style="color:var(--txt-x)">// no file loaded</span></span><span class="pbar-st em" id="pS">EMPTY</span></div>
   <div class="export-progress" id="expProg"><div class="export-bar-wrap"><div class="export-bar" id="expBar" style="width:0%"></div></div><span class="export-text" id="expText">BUILDING...</span></div>
   <div class="main">
@@ -1406,6 +1474,19 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
       <div class="sl-hdr"><h2>▸ SAMPLES</h2><span class="sc" id="sC">0/256</span><button class="btn btn-sm" id="sortBtn" onclick="toggleSort()">⇅ SORT</button><div class="sel-actions"><button class="btn btn-sm" id="selAllBtn" onclick="toggleSelectAll()">☐ ALL</button><span class="sel-badge" id="selBadge" style="display:none">0</span></div></div>
       <div class="ch"><span></span><span>#</span><span>NAME</span><span>SRC</span><span style="text-align:right">RATE</span><span style="text-align:right">LEN</span><span style="text-align:right">SIZE</span></div>
       <div class="sl" id="sL"><div class="es"><div class="dz" id="dZ"><i>⚡</i><p><strong>DROP SAMPLES HERE</strong><br><br>WAV / AIF / ZIP → 16-bit mono 44.1kHz</p></div></div></div>
+      <!-- ═══ SPLIT VIEW (two compressed panes; detail panel right stays shared) ═══ -->
+      <div id="splWrap" style="display:none">
+        <div class="spl-col" data-file="0">
+          <div class="spl-hdr"><span class="spl-chip" id="splChip0">ESX-1</span><span class="spl-name" id="splName0">—</span><span class="spl-cnt" id="splCnt0">0</span></div>
+          <div class="spl-ch"><span>#</span><span>NAME</span><span style="text-align:right">RATE</span><span style="text-align:right">LEN</span></div>
+          <div class="spl-list" id="splL0"></div>
+        </div>
+        <div class="spl-col" data-file="1">
+          <div class="spl-hdr"><span class="spl-chip" id="splChip1">ESX-1</span><span class="spl-name" id="splName1">—</span><span class="spl-cnt" id="splCnt1">0</span></div>
+          <div class="spl-ch"><span>#</span><span>NAME</span><span style="text-align:right">RATE</span><span style="text-align:right">LEN</span></div>
+          <div class="spl-list" id="splL1"></div>
+        </div>
+      </div>
     </div>
     <div class="sb">
       <div class="sbs"><div class="sbt">WAVEFORM</div>
@@ -1434,6 +1515,11 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
           <button class="btn btn-sm" onclick="expWav()">💾 WAV</button>
           <button class="btn btn-sm btn-warn" onclick="checked.size>0?removeChecked():remCur()">✕ DEL</button>
         </div>
+      </div>
+      <div class="sbs" id="secMidi" style="display:none">
+        <div class="sbt">MIDI</div>
+        <button class="btn" style="width:100%" onclick="openMidiGlobals()">◈ MIDI GLOBALS</button>
+        <div class="mg-hint" id="mgWarn" style="display:none"></div>
       </div>
       <div class="ms" style="margin-top:auto">
         <div class="sbt">STORAGE</div>
@@ -1665,6 +1751,41 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 </div>
 </div>
 
+<!-- ═══ MIDI GLOBALS MODAL ═══ -->
+<div class="modal-bg" id="mgBg" onclick="if(event.target===this)closeMidiGlobals()">
+<div class="mg-modal">
+  <div class="modal-hdr">
+    <span class="modal-title">◈ MIDI GLOBALS</span>
+    <span class="modal-sample" id="mgFile"></span>
+    <button class="modal-close" onclick="closeMidiGlobals()">✕ ESC</button>
+  </div>
+  <div class="mg-body">
+    <div class="mg-note">The ESX-1 has only <b>three</b> MIDI channels for sixteen parts. The device's global
+      menu edits <b>Keyboard 1</b> only — Keyboard 2 and the whole drum section keep their own channels.
+      Loading an .esx <b>overwrites the device's global settings</b>, so set these here and the file will
+      carry them.</div>
+
+    <div id="mgCollide"></div>
+
+    <div class="mg-sec">MIDI CHANNELS</div>
+    <div class="mg-grid" id="mgChans"></div>
+
+    <div class="mg-sec">DRUM NOTE NUMBERS</div>
+    <div class="mg-note mg-note-sm">All parts below share the single Drum channel above — they are told apart
+      by note number alone. Two parts on the same note always fire together.</div>
+    <div class="mg-grid mg-grid-n" id="mgNotes"></div>
+
+    <div class="mg-sec">READ ONLY</div>
+    <div class="mg-ro" id="mgRo"></div>
+  </div>
+  <div class="mg-foot">
+    <span class="mg-status" id="mgStatus"></span>
+    <button class="btn" onclick="closeMidiGlobals()">CANCEL</button>
+    <button class="btn btn-hi" id="mgApply" onclick="applyMidiGlobals()">APPLY CHANGES</button>
+  </div>
+</div>
+</div>
+
 <!-- ═══ CONVERSION MODAL ═══ -->
 <div class="conv-bg" id="convBg">
 <div class="conv-modal">
@@ -1759,11 +1880,11 @@ async function applyFeatureFlags() {
     if (!activeTab || activeTab.style.display === 'none') visibleTabs[0].click();
   }
 }
-async function init(){updateState(await window.api.getState());applyFeatureFlags();try{if(!localStorage.getItem('betaDisclaimerAccepted')){setTimeout(()=>openGuide(),500)}}catch(e){}} init();
+async function init(){updateState(await window.api.getState());applyFeatureFlags();initFileTabs();try{if(!localStorage.getItem('betaDisclaimerAccepted')){setTimeout(()=>openGuide(),500)}}catch(e){}} init();
 function toast(m,t='info'){const c=document.getElementById('tW'),e=document.createElement('div');e.className=`toast ${t}`;e.textContent=m;c.appendChild(e);setTimeout(()=>{e.classList.add('fading');e.addEventListener('animationend',()=>e.remove(),{once:true})},2750)}
 function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
 function fmtTime(sec){if(sec<0)sec=0;const m=Math.floor(sec/60),s=sec-m*60;return `${m}:${s<10?'0':''}${s.toFixed(3)}`}
-function updateState(s){if(!s)return;S=s;renderList();updateMem();updatePath();if(sel>=0)updateUndo()}
+function updateState(s){if(!s)return;S=s;renderList();updateMem();updatePath();if(sel>=0)updateUndo();scheduleTabsRefresh()}
 
 // ═══ CATEGORY DETECTION ═══
 window._sampleTags={};  // manual category overrides via context menu
@@ -1873,8 +1994,15 @@ function getVisibleSampleIndices(){
   if(sm==='TYPE')samples=samples.filter(s=>!catCollapsed[detectCategory(s.name,s.index)]);
   return samples.map(s=>s.index);
 }
+function rowClick(ev,i){
+  // familiar list UX: Ctrl-click toggles, Shift-click range-selects — plain click selects
+  if(ev.shiftKey&&lastCheckedIndex>=0){handleCheck(ev,i);return}
+  if(ev.ctrlKey||ev.metaKey){handleCheck(ev,i);return}
+  selS(i);
+}
 function handleCheck(ev,sampleIndex){
   ev.stopPropagation();
+  if(_justPainted)return; // a paint-drag already applied this gesture
   if(ev.shiftKey&&lastCheckedIndex>=0){
     const vis=getVisibleSampleIndices(),lp=vis.indexOf(lastCheckedIndex),cp=vis.indexOf(sampleIndex);
     if(lp>=0&&cp>=0){const f=Math.min(lp,cp),t=Math.max(lp,cp);for(let i=f;i<=t;i++)checked.add(vis[i])}
@@ -1904,10 +2032,11 @@ function renderList(){
     const mt=window._sampleTags[s.index];
     const tagDot=mt?`<span class="tag-dot" style="background:${CTX_COLORS[mt]||'#444'}" title="${mt}"></span>`:'';
     const ckClass=ck?'ss-chk on':'ss-chk';
-    h+=`<div class="ss ${a?'act':''} ${ck?'checked':''}" onclick="selS(${s.index})" ondblclick="startRen(${s.index})" oncontextmenu="showCtxMenu(event,${s.index})"><div class="${ckClass}" onclick="handleCheck(event,${s.index})"></div><div class="si">${String(s.index+1).padStart(3,'0')}</div><div class="sn">${tagDot}${esc(s.name)}</div><div class="${fc}" title="${esc(f)}">${esc(f)}</div><div class="sr">${r}</div><div class="sd">${d}</div><div class="sz">${z}</div></div>`}
+    h+=`<div class="ss ${a?'act':''} ${ck?'checked':''}" draggable="true" data-idx="${s.index}" onclick="rowClick(event,${s.index})" ondblclick="startRen(${s.index})" oncontextmenu="showCtxMenu(event,${s.index})"><div class="${ckClass}" onclick="handleCheck(event,${s.index})"></div><div class="si">${String((s.slot!=null?s.slot:s.index)+1).padStart(3,'0')}</div><div class="sn">${tagDot}${esc(s.name)}</div><div class="${fc}" title="${esc(f)}">${esc(f)}</div><div class="sr">${r}</div><div class="sd">${d}</div><div class="sz">${z}</div></div>`}
   l.innerHTML=h}
 function updateMem(){const b=document.getElementById('mB'),t=document.getElementById('mT'),p=parseFloat(S.usedPercent||0);b.style.width=`${p}%`;t.textContent=`${p}%`;b.classList.remove('w','c');if(p>90)b.classList.add('c');else if(p>70)b.classList.add('w');document.getElementById('mU').textContent=`${((S.totalSizeBytes||0)/1048576).toFixed(1)} MB`;document.getElementById('mD').textContent=(S.totalDuration||0).toFixed(1)}
-function updatePath(){const v=document.getElementById('pV'),s=document.getElementById('pS');if(!fp&&!S.numSamples){v.innerHTML='<span style="color:var(--txt-x)">// no file loaded</span>';s.className='pbar-st em';s.textContent='EMPTY'}else if(!fp){v.innerHTML=`<span style="color:var(--yel)">UNSAVED</span> <span style="color:var(--txt-x)">(${S.numSamples})</span>`;s.className='pbar-st un';s.textContent='NEW'}else{const p=fp.replace(/\\/g,'/').split('/'),fn=p.pop(),fd=p.slice(-3).join('/');v.innerHTML=`<span class="fld">${esc(fd)}/</span><span class="fil">${esc(fn)}</span>`;const cs=sel>=0&&S.samples?S.samples.find(x=>x.index===sel):null;const mod=cs?cs.hasOriginal:false;s.className=mod?'pbar-st un':'pbar-st sv';s.textContent=mod?'MODIFIED':'SAVED'}}
+function updatePath(){const v=document.getElementById('pV'),s=document.getElementById('pS');if(!fp&&!S.numSamples){v.innerHTML='<span style="color:var(--txt-x)">// no file loaded</span>';s.className='pbar-st em';s.textContent='EMPTY'}else if(!fp){v.innerHTML=`<span style="color:var(--yel)">UNSAVED</span> <span style="color:var(--txt-x)">(${S.numSamples})</span>`;s.className='pbar-st un';s.textContent='NEW'}else{const p=fp.replace(/\\/g,'/').split('/'),fn=p.pop(),fd=p.slice(-3).join('/');v.innerHTML=`<span class="fld">${esc(fd)}/</span><span class="fil">${esc(fn)}</span>`;const cs=sel>=0&&S.samples?S.samples.find(x=>x.index===sel):null;const mod=cs?cs.hasOriginal:false;s.className=mod?'pbar-st un':'pbar-st sv';s.textContent=mod?'MODIFIED':'SAVED'}
+  if(typeof refreshMidiGlobalsHint==='function')refreshMidiGlobalsHint();}
 
 // ═══ ACTIONS ═══
 async function openEsx(){
@@ -1929,7 +2058,7 @@ async function openEsx(){
 }
 async function importWav(){const r=await window.api.importWavFiles();if(!r||!r.imported)return;r.imported.filter(x=>x.error).forEach(x=>toast(`${x.originalName}: ${x.error}`,'error'));const ok=r.imported.filter(x=>x.ok).length;if(ok>0){dirty=true;toast(`${ok} IMPORTED`,'success')}updateState(r.state)}
 async function importZip(){const r=await window.api.importZip();if(!r||!r.imported)return;let ok=0,er=0;r.imported.forEach(x=>{if(x.error){er++;if(er<=3)toast(x.error,'error')}else if(x.ok)ok++});if(ok>0){dirty=true;toast(`${ok} EXTRACTED FROM ${r.zipName||'ZIP'}`,'success')}updateState(r.state)}
-async function importSamples(){const r=await window.api.importSamples();if(!r||!r.imported)return;const ok=r.imported.filter(x=>x.ok).length;const fail=r.imported.filter(x=>x.error);if(fail.length>0)fail.slice(0,3).forEach(x=>toast(`${x.originalName}: ${x.error}`,'error'));if(ok>0){dirty=true;toast(`${ok} SAMPLE${ok>1?'S':''} IMPORTED`,'success')}updateState(r.state);
+async function importSamples(){if(activeTabDevice()!=='esx'){toast('IMPORT IST ESX-ONLY (E2S-Import kommt mit Projekt B)','error');return}const r=await window.api.importSamples();if(!r||!r.imported)return;const ok=r.imported.filter(x=>x.ok).length;const fail=r.imported.filter(x=>x.error);if(fail.length>0)fail.slice(0,3).forEach(x=>toast(`${x.originalName}: ${x.error}`,'error'));if(ok>0){dirty=true;toast(`${ok} SAMPLE${ok>1?'S':''} IMPORTED`,'success')}updateState(r.state);
 // Cascade glow on newly imported samples
 if(ok>0){
   setTimeout(()=>{
@@ -1947,7 +2076,7 @@ async function remS(i){const s=await window.api.removeSample(i);dirty=true;if(se
 async function remCur(){if(sel>=0){stopPlay();await remS(sel)}}
 async function removeChecked(){if(_fxBusy)return;if(checked.size===0)return;const count=checked.size;if(!confirm(`Delete ${count} sample${count>1?'s':''}?`))return;_fxBusy=true;try{stopPlay();const indices=[...checked].sort((a,b)=>b-a);for(const idx of indices){await window.api.removeSample(idx)}sel=-1;hideDet();checked.clear();updateSelBadge();dirty=true;updateState(await window.api.getState());toast(`${count} SAMPLES DELETED`,'success')}finally{_fxBusy=false}}
 async function selS(i){sel=i;renderList();const ae=document.querySelector('.ss.act');if(ae)ae.scrollIntoView({block:'nearest',behavior:'smooth'});showDet(i);updatePath();const wf=await window.api.getWaveform(i);if(wf)drawWf(wf);updateUndo()}
-function showDet(i){const s=S.samples.find(x=>x.index===i);if(!s)return;['secPlay','secMod','secDet'].forEach(id=>document.getElementById(id).style.display='block');document.getElementById('renIn').value=s.name;const d=s.duration<1?`${(s.duration*1000).toFixed(1)}ms`:`${s.duration.toFixed(3)}s`,z=s.sizeBytes>1048576?`${(s.sizeBytes/1048576).toFixed(2)}MB`:`${(s.sizeBytes/1024).toFixed(1)}KB`;
+function showDet(i){const s=S.samples.find(x=>x.index===i);if(!s)return;['secPlay','secMod','secDet'].forEach(id=>document.getElementById(id).style.display='block');const renIn=document.getElementById('renIn');renIn.maxLength=S.device==='e2s'?24:8;renIn.value=s.name;const d=s.duration<1?`${(s.duration*1000).toFixed(1)}ms`:`${s.duration.toFixed(3)}s`,z=s.sizeBytes>1048576?`${(s.sizeBytes/1048576).toFixed(2)}MB`:`${(s.sizeBytes/1024).toFixed(1)}KB`;
   document.getElementById('detI').innerHTML=`<div class="dr"><span class="dl">RATE</span><span class="dv">${s.sampleRate.toLocaleString()} Hz</span></div><div class="dr"><span class="dl">FRAMES</span><span class="dv">${s.numFrames.toLocaleString()}</span></div><div class="dr"><span class="dl">LENGTH</span><span class="dv">${d}</span></div><div class="dr"><span class="dl">SIZE</span><span class="dv">${z}</span></div>${s.folder?`<div class="dr"><span class="dl">SRC</span><span class="dv" style="color:var(--led)">${esc(s.folder)}</span></div>`:''}`}
 function hideDet(){['secPlay','secMod','secDet'].forEach(id=>document.getElementById(id).style.display='none');document.getElementById('wfC').style.display='none';document.getElementById('wfE').style.display='flex';document.getElementById('wfI').style.display='none'}
 async function renam(){if(sel<0)return;const s=await window.api.renameSample(sel,document.getElementById('renIn').value);dirty=true;updateState(s)}
@@ -1975,10 +2104,10 @@ async function saveEsxToFile(){
   const prog=document.getElementById('expProg');
   prog.style.display='flex';
   document.getElementById('expBar').style.width='0%';
-  document.getElementById('expText').textContent='WRITING 26,542,080 BYTES';
+  document.getElementById('expText').textContent='WRITING ESX FILE...';
   if(window.api.onExportProgress){window.api.onExportProgress(({phase,percent})=>{
     document.getElementById('expBar').style.width=percent+'%';
-    document.getElementById('expText').textContent=phase==='building'?'REBUILDING ESX...':phase==='writing'?'WRITING 26,542,080 BYTES':phase==='verifying'?'VERIFYING...':'DONE';
+    document.getElementById('expText').textContent=phase==='building'?'REBUILDING ESX...':phase==='writing'?'WRITING ESX FILE...':phase==='verifying'?'VERIFYING...':'DONE';
   })}
   const r=await window.api.saveEsxOverwrite(fp);
   if(!r){prog.style.display='none';return}
@@ -1994,12 +2123,15 @@ async function saveEsxToFile(){
     expText.classList.remove('complete');
     prog.style.display='none';
   },1500);
-  dirty=false;updatePath();toast(`SAVED → ${r.filePath.split(/[\\/]/).pop()} [${(r.size/1048576).toFixed(1)}MB]${r.validation&&r.validation.length?'':' · VERIFIED'}`,'success');reportValidation(r.validation)}
+  dirty=false;updatePath();scheduleTabsRefresh();toast(`SAVED → ${r.filePath.split(/[\\/]/).pop()} [${(r.size/1048576).toFixed(1)}MB]${r.validation&&r.validation.length?'':' · VERIFIED'}`,'success');reportValidation(r.validation)}
   finally{_fxBusy=false}}
 async function exportNewEsx(){
   if(_fxBusy)return;_fxBusy=true;
   try{
   if(!S.numSamples){toast('NO SAMPLES','error');return}
+  // EXPORT NEW builds from scratch: only the samples carry over. Everything the
+  // loaded file holds besides samples is dropped. SAVE keeps all of it.
+  if(fp&&!confirm('EXPORT NEW baut ein leeres File und übernimmt nur die Samples.\n\nVerworfen werden: alle 256 Patterns, alle 64 Songs und die MIDI-Globals des geladenen Files.\n\nWenn du die behalten willst: abbrechen und SAVE benutzen.\n\nTrotzdem exportieren?')){return}
   const prog=document.getElementById('expProg');
   prog.style.display='flex';
   document.getElementById('expBar').style.width='0%';
@@ -2010,7 +2142,7 @@ async function exportNewEsx(){
   })}
   const r=await window.api.saveEsxFile('new_samples.esx');
   prog.style.display='none';
-  if(!r)return;if(r.error){toast(r.error,'error');return}fp=r.filePath;dirty=false;updatePath();document.getElementById('btnSave').style.display='';toast(`EXPORTED → ${r.filePath.split(/[\\/]/).pop()} [${(r.size/1048576).toFixed(1)}MB]${r.validation&&r.validation.length?'':' · VERIFIED'}`,'success');reportValidation(r.validation)}
+  if(!r)return;if(r.error){toast(r.error,'error');return}fp=r.filePath;dirty=false;updatePath();scheduleTabsRefresh();document.getElementById('btnSave').style.display='';toast(`EXPORTED → ${r.filePath.split(/[\\/]/).pop()} [${(r.size/1048576).toFixed(1)}MB]${r.validation&&r.validation.length?'':' · VERIFIED'}`,'success');reportValidation(r.validation)}
   finally{_fxBusy=false}}
 async function expWav(){if(sel<0)return;const f=await window.api.exportWav(sel);if(f)toast(`EXPORTED → ${f.split(/[\\/]/).pop()}`,'success')}
 async function clearAll(){if(!S.numSamples)return;if(!confirm('Clear all samples?'))return;stopPlay();sel=-1;fp=null;dirty=false;window._sampleTags={};window._autoTags={};hideDet();document.getElementById('btnSave').style.display='none';updateState(await window.api.clearAll());toast('CLEARED','info')}
@@ -2476,6 +2608,118 @@ async function openModify(){
 function closeModalBg(id){const el=document.getElementById(id);if(!el||!el.classList.contains('show'))return;el.classList.add('hiding');el.addEventListener('animationend',()=>{el.classList.remove('show','hiding')},{once:true})}
 function closeModal(){closeModalBg('modalBg')}
 
+// ═══ MIDI GLOBALS ═══
+// The ESX carries its MIDI routing inside the .esx file, and loading a file overwrites
+// the device's own global settings. Nothing here is written unless the user changes a
+// control — MIDI wiring is their decision, not something to "repair" behind their back.
+const MG_NOTE_NAMES=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+function mgNoteName(n){return MG_NOTE_NAMES[n%12]+(Math.floor(n/12)-1)}
+let mgState=null;
+
+async function refreshMidiGlobalsHint(){
+  const sec=document.getElementById('secMidi'),warn=document.getElementById('mgWarn');
+  if(!sec)return;
+  if(S.device!=='esx'||!fp){sec.style.display='none';return}
+  sec.style.display='block';
+  const r=await window.api.esx.getGlobalParams();
+  if(!r||r.error){warn.style.display='none';return}
+  const c=r.emxCollisions||[];
+  if(!c.length){warn.style.display='none';return}
+  warn.style.display='block';
+  warn.textContent=`⚠ ${c.length} part${c.length>1?'s':''} on EMX channel${c.length>1?'s':''}`;
+}
+
+async function openMidiGlobals(){
+  const r=await window.api.esx.getGlobalParams();
+  if(!r||r.error){toast(r&&r.error?r.error:'NO ESX FILE LOADED','error');return}
+  mgState={params:r.params,labels:r.labels||{},noteParts:r.noteParts||[]};
+  document.getElementById('mgFile').textContent=fp?fp.replace(/\\/g,'/').split('/').pop():'';
+  mgRender(r);
+  document.getElementById('mgBg').classList.add('show');
+}
+function closeMidiGlobals(){closeModalBg('mgBg');mgState=null}
+
+function mgRender(r){
+  const p=r.params,labels=mgState.labels;
+  // Channels
+  const ch=document.getElementById('mgChans');
+  ch.innerHTML=Object.keys(p.channels).map(part=>{
+    const cur=p.channels[part].raw;
+    const opts=Array.from({length:16},(_,i)=>
+      `<option value="${i}"${i===cur?' selected':''}>Ch. ${i+1}</option>`).join('');
+    return `<div class="mg-lbl">${esc(labels[part]||part)}${part==='keyboard1'?'<small>= Global MIDI Channel</small>':''}${part==='drumStretchSliceAudioIn'?'<small>all 9 drums + stretch + slice + audio in</small>':''}</div>`+
+           `<select id="mgc_${part}" data-orig="${cur}" onchange="mgMark(this)">${opts}</select>`;
+  }).join('');
+
+  // Drum notes
+  const nt=document.getElementById('mgNotes');
+  nt.innerHTML=mgState.noteParts.map(part=>{
+    const v=p.drumNotes[part].note;
+    return `<div class="mg-lbl">${esc(part)}<small>${esc(p.drumNotes[part].name||'')}</small></div>`+
+           `<input type="number" min="0" max="127" value="${v}" id="mgn_${part}" data-orig="${v}" oninput="mgMark(this)">`;
+  }).join('');
+
+  // Read-only block
+  document.getElementById('mgRo').innerHTML=
+    `MIDI CLOCK <span>${['INT','EXT','AUTO'][p.midiClock]||'?('+p.midiClock+')'}</span> &nbsp;·&nbsp; `+
+    `PITCH BEND <span>${p.pitchBendRange>0?'+':''}${p.pitchBendRange}</span> &nbsp;·&nbsp; `+
+    `MEM PROTECT <span>${p.memoryProtect?'ON':'OFF'}</span><br>`+
+    `FILTERS &nbsp; NOTE <span>${p.filters.note?'ON':'OFF'}</span> &nbsp; SYSEX <span>${p.filters.sysEx?'ON':'OFF'}</span> `+
+    `&nbsp; CC <span>${p.filters.controlChange?'ON':'OFF'}</span> &nbsp; PGM <span>${p.filters.programChange?'ON':'OFF'}</span>`;
+
+  mgRenderWarnings(r);
+  mgUpdateStatus();
+}
+
+function mgRenderWarnings(r){
+  const box=document.getElementById('mgCollide');
+  const col=r.emxCollisions||[],prob=r.problems||[];
+  let html='';
+  if(col.length){
+    html+=`<div class="mg-warn"><b>⚠ EMX-1 CHANNEL COLLISION</b><br>`+
+      `These ESX parts sit on channels the EMX-1 uses by default — both machines will sound at once:`+
+      `<ul>${col.map(c=>`<li>${esc(c.label)} on <b>Ch.${c.channel}</b> → ${esc(c.collidesWith)}</li>`).join('')}</ul>`+
+      `EMX factory channels are 1–5 and 10. Free: <b>6–9, 11–16</b>.</div>`;
+  }
+  if(prob.length){
+    html+=`<div class="mg-warn"><b>⚠ INVALID VALUES</b><ul>${prob.map(p=>`<li>${esc(p.message)}</li>`).join('')}</ul></div>`;
+  }
+  box.innerHTML=html;
+}
+
+function mgMark(el){
+  el.classList.toggle('chg',String(el.value)!==String(el.dataset.orig));
+  mgUpdateStatus();
+}
+function mgCollect(){
+  const channels={},drumNotes={};
+  document.querySelectorAll('[id^="mgc_"]').forEach(el=>{
+    if(String(el.value)!==String(el.dataset.orig))channels[el.id.slice(4)]=+el.value;
+  });
+  document.querySelectorAll('[id^="mgn_"]').forEach(el=>{
+    if(String(el.value)!==String(el.dataset.orig))drumNotes[el.id.slice(4)]=+el.value;
+  });
+  return {channels,drumNotes};
+}
+function mgUpdateStatus(){
+  const c=mgCollect(),n=Object.keys(c.channels).length+Object.keys(c.drumNotes).length;
+  document.getElementById('mgStatus').textContent=n?`${n} CHANGE${n>1?'S':''} PENDING — NOT SAVED TO DISK YET`:'NO CHANGES';
+  document.getElementById('mgApply').disabled=!n;
+}
+
+async function applyMidiGlobals(){
+  const changes=mgCollect();
+  if(!Object.keys(changes.channels).length&&!Object.keys(changes.drumNotes).length){
+    toast('NO CHANGES','info');return;
+  }
+  const r=await window.api.esx.setGlobalParams(changes);
+  if(!r||r.error){toast(r&&r.error?r.error:'WRITE FAILED','error');return}
+  mgState.params=r.params;
+  mgRender(r);
+  await refreshMidiGlobalsHint();
+  toast('MIDI GLOBALS UPDATED — SAVE THE FILE TO KEEP THEM','success');
+}
+
 async function applyFxSingle(id,idx){
   let r;const gv=i=>+document.getElementById(i).value;
   switch(id){
@@ -2577,7 +2821,7 @@ const GUIDE_HTML = `
     <li><strong>Step 2:</strong> Insert it into a card reader on your PC</li>
     <li><strong>Step 3:</strong> Open Windows Explorer — the card appears as a drive (e.g. D: or E:)</li>
     <li><strong>Step 4:</strong> Copy ALL <strong>.esx files</strong> into a safe folder on your PC</li>
-    <li><strong>Step 5:</strong> Check: every .esx file must be exactly <strong>25.3 MB</strong> (26,542,080 bytes)</li>
+    <li><strong>Step 5:</strong> Check the size: .esx files are <strong>not</strong> a fixed size — anything from a few MB up to ~26.7 MB is normal. The file ends right after its sample data.</li>
   </ul>
   <div class="g-tip">Don't touch the backup folder. Work only with COPIES in the app.</div>
 </div>
@@ -2707,16 +2951,18 @@ const GUIDE_HTML = `
 
 // ═══ DRAG & DROP + KEYS ═══
 function setupDrop(){const d=document.getElementById('dZ');if(!d)return;d.addEventListener('dragover',e=>{e.preventDefault();d.classList.add('dg')});d.addEventListener('dragleave',()=>d.classList.remove('dg'));d.addEventListener('drop',e=>{e.preventDefault();d.classList.remove('dg');importSamples()})}
-setupDrop();document.addEventListener('dragover',e=>e.preventDefault());document.addEventListener('drop',e=>{e.preventDefault();if(e.dataTransfer?.files?.length)importSamples()});
+setupDrop();document.addEventListener('dragover',e=>e.preventDefault());document.addEventListener('drop',e=>{e.preventDefault();if(e.dataTransfer?.files?.length&&activeTabDevice()==='esx')importSamples()});
 document.addEventListener('keydown',e=>{
   if(e.target.tagName==='INPUT')return;
-  if(e.key==='Escape'){closeModal();tryCloseGuide();return}
+  if(e.key==='Escape'){closeModal();tryCloseGuide();closeMidiGlobals();return}
+  if(document.getElementById('mgBg')?.classList.contains('show'))return;
   if(document.getElementById('modalBg')?.classList.contains('show')||document.getElementById('guideBg')?.classList.contains('show')){if(e.key===' '&&sel>=0){e.preventDefault();togglePlay()}return}
   if(e.key==='Delete'){if(checked.size>0)removeChecked();else if(sel>=0)remCur()}
   if(e.key===' '&&sel>=0){e.preventDefault();togglePlay()}
   if(activeDevice==='esx1'&&e.key==='ArrowDown'&&sel<S.numSamples-1)selS(sel+1);
   if(activeDevice==='esx1'&&e.key==='ArrowUp'&&sel>0)selS(sel-1);
   if(e.key==='F2'&&sel>=0)startRen(sel);
+  if(e.ctrlKey&&e.key==='a'&&activeDevice==='esx1'){e.preventDefault();toggleSelectAll()}
   if(e.ctrlKey&&e.key==='z'){e.preventDefault();doUndo()}
   if(e.ctrlKey&&(e.key==='y'||e.key==='Z')){e.preventDefault();doRedo()}
   if(e.ctrlKey&&e.key==='b'){e.preventDefault();toggleSidebar()}
@@ -2756,7 +3002,8 @@ function updateStatusBar(){
   if(activeDevice==='esx1'){
     l.innerHTML=`electribe sample manager v${window.appVersion||''}`;
     const n=S.numSamples||0,pct=S.usedPercent||'0',dur=(S.totalDuration||0).toFixed(1);
-    r.innerHTML=`ESX-1 | <span class="bl">${n}/256</span> mono | <span class="bl">${pct}%</span> mem | <span class="bl">${dur}s</span> / 285s`;
+    const dev=S.device==='e2s'?'E2S':'ESX-1',cap=S.maxSamples||256,unit=S.device==='e2s'?'samples':'mono';
+    r.innerHTML=`${dev} | <span class="bl">${n}/${cap}</span> ${unit} | <span class="bl">${pct}%</span> mem | <span class="bl">${dur}s</span>${S.device==='e2s'?'':' / 285s'}`;
   } else if(activeDevice==='e2s'){
     const n=e2sSamples.filter(s=>s).length,sz=(e2sTotalSize/1048576).toFixed(1);
     l.innerHTML=`E2S — <span class="hl">e2sSample.all</span>`;
@@ -2768,6 +3015,326 @@ function updateStatusBar(){
     r.innerHTML=`${fmt} | <span class="bl">${p}</span> pattern${p!==1?'s':''} | Read-Only`;
   }
 }
+
+// ═══════════════════════════════════════════════════════════
+//  FILE TABS + SPLIT VIEW (unified sample manager)
+//  All listeners are wired EXACTLY ONCE at init via event delegation on the
+//  static containers (#fileTabs, #splWrap, #sL). Render functions only ever
+//  replace innerHTML — they never add listeners (the v1 stacking bug is
+//  impossible by construction). updateState() is the single refresh choke
+//  point, so tabs + split panes can never go stale after a mutation.
+// ═══════════════════════════════════════════════════════════
+var fileTabs=[],activeFileIndex=0,splitManual=null,tabUi={},_dragSample=null,_tabsRefreshT=null;
+
+function activeTabDevice(){const t=fileTabs[activeFileIndex];return t&&t.device?t.device:(S.device||'esx')}
+
+function stashTabUi(){tabUi[activeFileIndex]={sel,fp,dirty,sortMode,checked:new Set(checked),tags:window._sampleTags,autoTags:window._autoTags}}
+function restoreTabUi(i){
+  const u=tabUi[i]||{};
+  sel=u.sel!=null?u.sel:-1;
+  fp=u.fp!==undefined?u.fp:(fileTabs[i]&&fileTabs[i].filePath?fileTabs[i].filePath:null);
+  dirty=!!u.dirty;
+  sortMode=u.sortMode||0;
+  checked=u.checked?new Set(u.checked):new Set();
+  window._sampleTags=u.tags||{};window._autoTags=u.autoTags||{};
+  updateSelBadge();
+  const btn=document.getElementById('sortBtn');
+  if(btn){btn.classList.toggle('act',sortMode>0);btn.textContent=sortMode?`⇅ ${SORT_MODES[sortMode]}`:'⇅ SORT'}
+}
+
+function renderFileTabs(){
+  const bar=document.getElementById('fileTabs');if(!bar)return;
+  let h='';
+  fileTabs.forEach((t,i)=>{
+    const act=i===activeFileIndex;
+    const dev=t.device==='e2s'?'E2S':'ESX-1';
+    const isDirty=act?dirty:!!(tabUi[i]&&tabUi[i].dirty);
+    // E2S: firmware-mode chip — decides where NEW samples are numbered
+    // (Hacktribe: ab #501, Stock: ab #422). Existing slots are never moved.
+    const ht=t.device==='e2s'
+      ?`<span class="ftab-ht ${t.hacktribe!==false?'on':''}" data-ht="${i}" title="Firmware-Modus umschalten — neue Samples werden ${t.hacktribe!==false?'ab Nr. 501 (Hacktribe)':'ab Nr. 422 (Stock)'} einsortiert">${t.hacktribe!==false?'HACKTRIBE':'STOCK'}</span>`
+      :'';
+    h+=`<div class="ftab ${act?'act':''}" data-tab="${i}" title="${esc(t.filePath||'Neue Datei')}"><span class="ftab-dev">${dev}</span>${ht}<span class="ftab-name">${esc(t.name)}</span><span class="ftab-cnt">${t.count}</span>${isDirty?'<span class="ftab-dot">●</span>':''}<span class="ftab-x" data-close="${i}" title="Tab schließen">✕</span></div>`;
+  });
+  h+=`<button class="ftab-add" id="ftabAdd" ${fileTabs.length>=2?'disabled':''} title="Datei öffnen (.esx / e2sSample.all)">+ OPEN</button>`;
+  if(fileTabs.length===2)h+=`<button class="ftab-split ${splitOn()?'act':''}" id="ftabSplit" title="Split-Ansicht umschalten">${splitOn()?'▥ SPLIT':'▢ SINGLE'}</button>`;
+  bar.innerHTML=h;
+}
+
+function updateHeaderButtons(){
+  const isEsx=activeTabDevice()==='esx';
+  const bi=document.getElementById('btnImport'),be=document.getElementById('btnExportNew'),bs=document.getElementById('btnSave');
+  if(bi)bi.style.display=isEsx?'':'none';   // WAV import pipeline is ESX-only (Project B)
+  if(be)be.style.display=isEsx?'':'none';   // EXPORT NEW builds a fresh .esx
+  if(bs){bs.style.display=isEsx?(fp?'':'none'):'';bs.textContent=isEsx?'💾 SAVE':'💾 SAVE .ALL'}
+}
+
+// Adopt a file:* response (tabs + active index + fresh state) into the renderer.
+function adoptFileResponse(r){
+  if(r.tabs)fileTabs=r.tabs;
+  if(r.activeIndex!=null)activeFileIndex=r.activeIndex;
+  restoreTabUi(activeFileIndex);
+  stopPlay();
+  updateState(r.state);
+  if(sel>=0&&sel<S.numSamples){selS(sel)}else{sel=-1;hideDet()}
+  updateHeaderButtons();updatePath();updateStatusBar();
+  renderFileTabs();applySplit();
+}
+
+async function openFileTab(){
+  if(_fxBusy)return;_fxBusy=true; // double-click on OPEN must not stack dialogs
+  let r;
+  try{
+    stashTabUi();
+    r=await window.api.file.open();
+  }finally{_fxBusy=false}
+  if(!r)return;if(r.error){toast(r.error,'error');return}
+  if(r.warning)toast(r.warning.toUpperCase(),'error');
+  delete tabUi[r.activeIndex]; // fresh file — no stale per-tab UI
+  adoptFileResponse(r);
+  // load the tag sidecar for ESX files (same behavior as the old openEsx)
+  if(r.device==='esx'&&window.api.esx&&window.api.esx.loadTags){
+    try{
+      const saved=await window.api.esx.loadTags(r.filePath);
+      if(saved&&typeof saved==='object'){
+        for(const[k,v]of Object.entries(saved)){const idx=parseInt(k);if(!isNaN(idx)&&typeof v==='string')window._sampleTags[idx]=v}
+        renderList();
+      }
+    }catch(e){console.warn('Tag load failed:',e)}
+  }
+  toast(`LOADED: ${r.fileName}`,'success');
+}
+
+async function switchFile(i){
+  if(i===activeFileIndex)return true;
+  stashTabUi();
+  const r=await window.api.file.switch(i);
+  if(!r||r.error){if(r)toast(r.error,'error');return false}
+  adoptFileResponse(r);
+  return true;
+}
+
+async function closeFileTab(i){
+  const t=fileTabs[i];
+  const isDirty=i===activeFileIndex?dirty:!!(tabUi[i]&&tabUi[i].dirty);
+  if(isDirty&&!confirm(`"${t?t.name:'?'}" hat ungespeicherte Änderungen — trotzdem schließen?`))return;
+  stashTabUi();
+  const r=await window.api.file.close(i);
+  if(!r||r.error){if(r)toast(r.error,'error');return}
+  const nu={};for(const[k,v]of Object.entries(tabUi)){const ki=+k;if(ki===i)continue;nu[ki>i?ki-1:ki]=v}
+  tabUi=nu;
+  adoptFileResponse(r);
+}
+
+// Firmware-mode toggle per E2S file (Hacktribe vs. Stock) — only changes
+// where NEW samples get numbered; existing slots are never renumbered
+// (E2S patterns reference sample numbers).
+async function toggleHacktribe(i){
+  const t=fileTabs[i];if(!t||t.device!=='e2s')return;
+  const cur=t.hacktribe!==false;
+  const r=await window.api.file.setHacktribe(i,!cur);
+  if(!r||r.error){if(r)toast(r.error,'error');return}
+  if(r.tabs)fileTabs=r.tabs;
+  if(r.activeIndex!=null)activeFileIndex=r.activeIndex;
+  if(r.warning)toast(r.warning.toUpperCase(),'error');
+  toast(!cur?'HACKTRIBE-MODUS: NEUE SAMPLES AB NR. 501':'STOCK-MODUS: NEUE SAMPLES AB NR. 422','info');
+  updateState(r.state); // refreshes list, tabs (chip) + status bar capacity
+}
+
+async function saveActiveFile(){
+  if(activeTabDevice()!=='e2s'){saveEsxToFile();return}
+  if(_fxBusy)return;_fxBusy=true;
+  try{
+    const r=await window.api.file.save();
+    if(!r)return;if(r.error){toast(r.error,'error');return}
+    fp=r.filePath;dirty=false;
+    if(r.tabs)fileTabs=r.tabs;
+    renderFileTabs();updatePath();
+    toast(`SAVED → ${r.filePath.split(/[\\/]/).pop()} [${(r.size/1048576).toFixed(1)}MB]`,'success');
+  }finally{_fxBusy=false}
+}
+
+// ── Transfer (copy with auto-conversion) ──
+async function doTransfer(fromF,indices,toF){
+  if(_fxBusy)return;_fxBusy=true; // block double-drops while the IPC is in flight
+  try{
+    const r=await window.api.file.transfer(fromF,indices,toF);
+    if(!r||r.error){toast((r&&r.error)||'Transfer fehlgeschlagen','error');return}
+    if(toF===activeFileIndex){dirty=true}else{tabUi[toF]=tabUi[toF]||{};tabUi[toF].dirty=true}
+    if(r.tabs)fileTabs=r.tabs;
+    updateState(r.state); // re-renders list + tabs + split via the choke point
+    toast(r.message.toUpperCase(),'success');
+  }finally{_fxBusy=false}
+}
+
+// ── Split view ──
+function splitOn(){return fileTabs.length===2&&splitManual!==false}
+function toggleSplit(){splitManual=splitOn()?false:true;applySplit();renderFileTabs()}
+function applySplit(){
+  const on=splitOn();
+  const wrap=document.getElementById('splWrap');
+  const slw=document.querySelector('#esx1-view .sl-w');
+  if(!wrap||!slw)return;
+  const was=slw.classList.contains('split-on');
+  if(on&&!was&&checked.size){checked.clear();updateSelBadge()} // the checkbox column is invisible in split — an invisible selection must not drive DEL/MODIFY
+  slw.classList.toggle('split-on',on);
+  wrap.style.display=on?'flex':'none';
+  if(on)renderSplitLists();
+}
+async function renderSplitLists(){
+  if(!splitOn())return;
+  const [a,b]=await Promise.all([window.api.file.rows(0),window.api.file.rows(1)]);
+  [a,b].forEach((res,ci)=>{
+    if(!res||res.error)return;
+    const nameEl=document.getElementById('splName'+ci);if(nameEl)nameEl.textContent=res.fileName;
+    const chip=document.getElementById('splChip'+ci);if(chip)chip.textContent=res.device==='e2s'?'E2S':'ESX-1';
+    const cnt=document.getElementById('splCnt'+ci);if(cnt)cnt.textContent=res.count;
+    const col=document.querySelector(`#splWrap .spl-col[data-file="${ci}"]`);
+    if(col)col.classList.toggle('act',ci===activeFileIndex);
+    const selHere=ci===activeFileIndex?sel:(tabUi[ci]&&tabUi[ci].sel!=null?tabUi[ci].sel:-1);
+    let h='';
+    for(const row of res.rows){
+      const rate=row.sampleRate>=1000?`${(row.sampleRate/1000).toFixed(1)}k`:row.sampleRate;
+      const d=row.duration<1?`${(row.duration*1000).toFixed(0)}ms`:`${row.duration.toFixed(2)}s`;
+      const num=(row.slot!=null?row.slot:row.idx)+1;
+      h+=`<div class="spl-row ${row.idx===selHere?'act':''}" draggable="true" data-file="${ci}" data-idx="${row.idx}"><span class="spl-i">${String(num).padStart(3,'0')}</span><span class="spl-n">${esc(row.name)}</span><span class="spl-r">${rate}</span><span class="spl-d">${d}</span></div>`;
+    }
+    if(!res.rows.length)h=`<div class="spl-empty">// leer — Samples hierher ziehen</div>`;
+    const list=document.getElementById('splL'+ci);if(list)list.innerHTML=h;
+  });
+}
+async function splitRowClick(f,i){
+  if(f!==activeFileIndex&&!(await switchFile(f)))return; // a failed switch must not select in the wrong file
+  if(i>=0&&i<S.numSamples)await selS(i);
+  renderSplitLists();
+}
+
+// ── Central refresh (debounced; hooked into updateState) ──
+function scheduleTabsRefresh(){
+  if(!window.api.file||!window.api.file.list)return;
+  clearTimeout(_tabsRefreshT);
+  _tabsRefreshT=setTimeout(async()=>{
+    try{
+      const r=await window.api.file.list();
+      if(!r||r.error)return;
+      fileTabs=r.tabs;activeFileIndex=r.activeIndex;
+      renderFileTabs();updateHeaderButtons();applySplit();
+    }catch(e){}
+  },50);
+}
+async function initFileTabs(){
+  if(!window.api.file||!window.api.file.list)return;
+  try{
+    const r=await window.api.file.list();
+    if(r&&!r.error){fileTabs=r.tabs;activeFileIndex=r.activeIndex;renderFileTabs();updateHeaderButtons();applySplit()}
+  }catch(e){}
+}
+
+// ── One-time delegated wiring (NEVER inside a render function) ──
+// A sample drag is only honored when the drag data says so — an OS file drag
+// (types: Files) must never be mistaken for a stale _dragSample.
+function _isSampleDrag(e){return _dragSample&&e.dataTransfer&&Array.from(e.dataTransfer.types).includes('text/plain')}
+(function wireFileTabsBar(){
+  const bar=document.getElementById('fileTabs');if(!bar)return;
+  bar.addEventListener('click',e=>{
+    const x=e.target.closest('[data-close]');if(x){closeFileTab(+x.dataset.close);return}
+    const ht=e.target.closest('[data-ht]');if(ht){toggleHacktribe(+ht.dataset.ht);return}
+    if(e.target.closest('#ftabAdd')){openFileTab();return}
+    if(e.target.closest('#ftabSplit')){toggleSplit();return}
+    const t=e.target.closest('.ftab');if(t)switchFile(+t.dataset.tab);
+  });
+  bar.addEventListener('dragover',e=>{
+    if(!_isSampleDrag(e))return;
+    bar.querySelectorAll('.ftab').forEach(el=>el.classList.remove('drop-hot'));
+    const t=e.target.closest('.ftab');
+    if(t&&+t.dataset.tab!==_dragSample.file){e.preventDefault();t.classList.add('drop-hot')}
+  });
+  bar.addEventListener('dragleave',e=>{const t=e.target.closest('.ftab');if(t)t.classList.remove('drop-hot')});
+  bar.addEventListener('drop',e=>{
+    const t=e.target.closest('.ftab');if(!t||!_isSampleDrag(e))return;
+    e.preventDefault();e.stopPropagation();t.classList.remove('drop-hot');
+    const to=+t.dataset.tab;
+    if(to!==_dragSample.file)doTransfer(_dragSample.file,_dragSample.idxs,to);
+  });
+})();
+(function wireSplitPanes(){
+  const wrap=document.getElementById('splWrap');if(!wrap)return;
+  wrap.addEventListener('click',e=>{const r=e.target.closest('.spl-row');if(r)splitRowClick(+r.dataset.file,+r.dataset.idx)});
+  wrap.addEventListener('dblclick',async e=>{const r=e.target.closest('.spl-row');if(r){await splitRowClick(+r.dataset.file,+r.dataset.idx);openModify()}});
+  wrap.addEventListener('dragstart',e=>{
+    const r=e.target.closest('.spl-row');if(!r)return;
+    _dragSample={file:+r.dataset.file,idxs:[+r.dataset.idx]};
+    e.dataTransfer.effectAllowed='copy';e.dataTransfer.setData('text/plain','sample');
+  });
+  wrap.addEventListener('dragover',e=>{
+    if(!_isSampleDrag(e))return;
+    wrap.querySelectorAll('.spl-col').forEach(c=>c.classList.remove('drop-hot'));
+    const col=e.target.closest('.spl-col');
+    if(col&&+col.dataset.file!==_dragSample.file){e.preventDefault();col.classList.add('drop-hot')}
+  });
+  wrap.addEventListener('drop',e=>{
+    const col=e.target.closest('.spl-col');
+    wrap.querySelectorAll('.spl-col').forEach(c=>c.classList.remove('drop-hot'));
+    if(!col||!_isSampleDrag(e))return;
+    e.preventDefault();e.stopPropagation();
+    const to=+col.dataset.file;
+    if(to!==_dragSample.file)doTransfer(_dragSample.file,_dragSample.idxs,to);
+  });
+})();
+(function wireMainListDrag(){
+  const l=document.getElementById('sL');if(!l)return;
+  l.addEventListener('dragstart',e=>{
+    const r=e.target.closest('.ss');if(!r||r.dataset.idx===undefined)return;
+    if(e.target.closest('.ss-chk')||_paintArm||_paint){e.preventDefault();return} // checkbox column selects, it never starts a transfer drag
+    const idx=+r.dataset.idx;
+    // dragging a checked row carries the whole multi-selection (file-manager UX)
+    const idxs=checked.size>0&&checked.has(idx)?[...checked].sort((a,b)=>a-b):[idx];
+    _dragSample={file:activeFileIndex,idxs};
+    e.dataTransfer.effectAllowed='copy';e.dataTransfer.setData('text/plain','sample');
+  });
+})();
+// ── Paint-select: hold the left button on a checkbox and sweep over rows to
+// (de)select them in one stroke (Gmail/file-manager UX). A plain click still
+// goes through handleCheck; painting only engages once the pointer LEAVES the
+// starting row, so the two can't double-toggle.
+var _paintArm=null,_paint=null,_justPainted=false;
+function paintRow(row,idx,on){
+  if(on)checked.add(idx);else checked.delete(idx);
+  row.classList.toggle('checked',on);
+  const c=row.querySelector('.ss-chk');if(c)c.classList.toggle('on',on);
+  updateSelBadge();
+}
+(function wirePaintSelect(){
+  const l=document.getElementById('sL');if(!l)return;
+  l.addEventListener('mousedown',e=>{
+    if(e.button!==0||e.shiftKey)return; // shift-click keeps its range semantics
+    const chk=e.target.closest('.ss-chk');if(!chk)return;
+    const row=chk.closest('.ss');if(!row||row.dataset.idx===undefined)return;
+    e.preventDefault(); // no text selection / native drag ghost
+    _paintArm={idx:+row.dataset.idx,row,on:!checked.has(+row.dataset.idx)};
+  });
+  l.addEventListener('mouseover',e=>{
+    if(!_paintArm&&!_paint)return;
+    const row=e.target.closest('.ss');if(!row||row.dataset.idx===undefined)return;
+    const idx=+row.dataset.idx;
+    if(_paintArm){
+      if(idx===_paintArm.idx)return; // still on the start row — not painting yet
+      _paint={on:_paintArm.on};
+      paintRow(_paintArm.row,_paintArm.idx,_paint.on);
+      _paintArm=null;
+    }
+    paintRow(row,idx,_paint.on);
+  });
+  document.addEventListener('mouseup',()=>{
+    _paintArm=null;
+    if(_paint){
+      _paint=null;_justPainted=true;setTimeout(()=>{_justPainted=false},0);
+      lastCheckedIndex=-1;renderList();
+    }
+  });
+})();
+document.addEventListener('dragend',()=>{_dragSample=null;document.querySelectorAll('.drop-hot').forEach(c=>c.classList.remove('drop-hot'))});
+document.addEventListener('drop',()=>{_dragSample=null}); // dragend can be swallowed when the source node was re-rendered mid-drag
 
 // ═══════════════════════════════════════════════════════════
 //  E2S SAMPLE MANAGEMENT
@@ -3308,6 +3875,18 @@ async function patSplitAll(){
   else if(r&&r.error)toast(r.error,'error');
 }
 
+// Pattern position as the device itself addresses it. ESX-1 and EMX-1 hold 256
+// patterns in four banks of 64, so the bank slot needs two digits: A.01..D.64.
+// E2/E2S hold 250 patterns numbered flat, unpadded: 1..250.
+// Empty patterns are all named "Init" on the hardware, so the position — not the
+// name — is what identifies a slot.
+// patternToUI() in main.js still passes the raw E2 header byte (0=E2, 1=E2S)
+// instead of the documented string, and it is only ever called for E2/E2S files
+// — so a numeric deviceId means the E2 family too.
+function patPosLabel(deviceId,i){
+  if(deviceId==='e2'||deviceId==='e2s'||typeof deviceId==='number')return String(i+1);
+  return String.fromCharCode(65+Math.floor(i/64))+'.'+String((i%64)+1).padStart(2,'0');
+}
 let _patListItems=[];  // cached DOM elements
 function patBuildListDOM(){
   _patListItems=[];
@@ -3316,7 +3895,7 @@ function patBuildListDOM(){
     const el=document.createElement('div');
     el.className='pat-item';
     el.dataset.idx=i;
-    el.innerHTML=`<div class="pi">${i}</div><div class="pn"></div><span class="pat-active-dots"></span><div class="pb2"></div>`;
+    el.innerHTML=`<div class="pi"></div><div class="pn"></div><span class="pat-active-dots"></span><div class="pb2"></div>`;
     _patListItems.push(el);
     DOM.patList.appendChild(el);
   }
@@ -3330,6 +3909,7 @@ function patRenderList(){
     const p=patData[i];
     const name=p.name||'Pattern';
     const el=_patListItems[i];
+    el.children[0].textContent=patPosLabel(p.deviceId,i);
     el.style.display='';
     const a=i===patSel;
     el.classList.toggle('act',a);
@@ -3360,6 +3940,7 @@ function patUpdateInfoBar(){
   const fmtLabel=p.format||patFormat||'';
 
   DOM.patInfoBar.innerHTML=`
+    <span class="pat-badge">${esc(patPosLabel(p.deviceId,patSel))}</span>
     <span class="pat-badge pat-badge-name">${esc(p.name||'Pattern')}</span>
     <span class="pat-badge">${(p.bpm||120).toFixed(1)} <small>BPM</small></span>
     <span class="pat-badge">SW <b>${p.swing||50}%</b></span>

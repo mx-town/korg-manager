@@ -35,6 +35,21 @@ not the Electron UI).
 - **ESX pattern-mapping verification** — use `esx-pattern-diff.js` with hardware dumps to find
   and correct any wrong entries in `src/esx-format.js` + `ESX_FILE_STRUCTURE.md`, with a test
   per fixed knob↔byte relation.
+- **E · EMX-1 pattern management** — delete/copy/move/rename EMX-1 patterns on a SmartCard
+  image, modelled as a single Slot Mapping over 256 slots. Measured groundwork is done:
+  header byte 0x00C is not a checksum, pattern blocks carry no slot index, and the
+  hardware's own empty pattern is extractable from `BEST.EMX`. Song references are
+  deliberately not repointed in the first version — that needs the song block structure,
+  obtained via differential dumps on real hardware.
+  Spec: `docs/superpowers/specs/2026-08-12-emx-slot-mapping-design.md`
+
+## Done since this list was written
+
+- **E2S save fidelity** — largely resolved by `8c47d0b` and `5636c89`. `buildEsliData`
+  now patches a preserved raw 1,172-byte block (`src/e2s-format.js:210`) instead of
+  rebuilding from zeros, and `numChannels` is carried through for the stereo samples
+  found in real dumps (`src/e2s-format.js:352`). Still open: keeping raw WAV bytes for
+  slots the parser cannot read, rather than dropping them with a warning.
 
 ## Working agreement (lessons from the parked attempt)
 

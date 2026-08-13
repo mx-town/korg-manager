@@ -263,35 +263,22 @@ describe('Integration - BPS header & checksum', () => {
 // ── Pattern data integrity ───────────────────────────────
 
 describe('Integration - Pattern data after sample assignment', () => {
-  it('should assign first 9 samples to drum parts in pattern 0', () => {
-    const buf = generateESXWithNSamples(9);
+  it('assigns no samples to drum parts — building programs nothing', () => {
+    const buf = generateESXWithNSamples(18);
 
     // Each drum part is 34 bytes starting at pattern offset + 24
-    for (let i = 0; i < 9; i++) {
-      const drumPartOff = ADDR.PATTERN_DATA + 24 + i * 34;
-      const samplePtr = buf.readUInt16BE(drumPartOff);
-      expect(samplePtr).toBe(i); // sample index i
+    for (const patOff of [ADDR.PATTERN_DATA, ADDR.PATTERN_DATA + 4280]) {
+      for (let i = 0; i < 9; i++) {
+        expect(buf.readUInt16BE(patOff + 24 + i * 34)).toBe(0);
+      }
     }
   });
 
-  it('should assign samples 9-17 to drum parts in pattern 1', () => {
-    const buf = generateESXWithNSamples(18);
-    const pat1Off = ADDR.PATTERN_DATA + 4280; // pattern 1
-
-    for (let i = 0; i < 9; i++) {
-      const drumPartOff = pat1Off + 24 + i * 34;
-      const samplePtr = buf.readUInt16BE(drumPartOff);
-      expect(samplePtr).toBe(9 + i);
-    }
-  });
-
-  it('should keep unassigned patterns at default bank name state', () => {
+  it('should keep unassigned patterns unnamed', () => {
     const buf = generateESXWithNSamples(3);
 
-    // Pattern 1 (unassigned) should still be "A.002"
     const pat1Off = ADDR.PATTERN_DATA + 4280;
-    const name = buf.toString('ascii', pat1Off, pat1Off + 8).trim();
-    expect(name).toBe('A.002');
+    expect(buf.toString('ascii', pat1Off, pat1Off + 8)).toBe('        ');
   });
 });
 

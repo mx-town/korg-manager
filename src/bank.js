@@ -26,31 +26,58 @@ const E2S_RATE = e2s.NATIVE_RATE;               // 48000
 
 const ESX_MONO_SLOTS = esx.NUM.MONO_SAMPLES;    // 256 (mono-addressed slot count)
 const ESX_STEREO_SLOTS = esx.NUM.STEREO_SAMPLES;// 128 (max stereo samples)
-const E2S_MAX_SLOTS = e2s.MAX_SLOTS;            // 1000 (offset-table entries in the file)
-const E2S_USER_SLOTS = 499;                     // hardware-addressable user sample slots
+const E2S_MAX_SLOTS = e2s.MAX_SLOTS;            // 1020 (offset-table entries in the file)
+const E2S_MAX_SAMPLE_INDEX = e2s.MAX_SAMPLE_INDEX;   // 998 → sample #999, last addressable
+const E2S_STOCK_BASE = e2s.STOCK_USER_BASE;          // 421 → sample #422 (stock user area)
+const E2S_HACKTRIBE_BASE = e2s.HACKTRIBE_USER_BASE;  // 500 → sample #501 (Hacktribe user area)
 
 // The .esx sample-memory budget must be capped by whichever is smaller: the
-// hardware sample-RAM limit, OR the actual writable sample-data region of the
-// fixed-size file. buildEsxFile/rebuildEsxFile copy blocks into that region and
-// Buffer.copy silently truncates past its end — so an over-region total would
-// pass a RAM-only check yet corrupt the last sample on save.
-const ESX_SAMPLE_REGION = esx.ESX_FILE_SIZE - esx.ADDR.SAMPLE_DATA; // 24,117,248
-const ESX_MAX_SAMPLE_BYTES = Math.min(esx.SIZE.MAX_SAMPLE_BYTES, ESX_SAMPLE_REGION);
+// hardware sample-RAM limit. .esx files are variable-sized (0x250010 + currentOffset),
+// so the ceiling is the sample memory the free-space block declares, not a file size.
+// buildEsxFile/rebuildEsxFile now throw rather than truncate past it.
+const ESX_MAX_SAMPLE_BYTES = Math.min(esx.SIZE.MAX_SAMPLE_BYTES, esx.SAMPLE_MEM_END);
 const ESX_BLOCK_OVERHEAD = 16;                  // per-sample block header in buildEsxFile
 
 const E2S_LOOP_SENTINEL = 0xFFFFFFFF;           // "no loop" in ESLI / ESX headers
-const E2S_DEFAULT_PLAY_VOLUME = 0x4000;
+const E2S_DEFAULT_PLAY_VOLUME = e2s.PLAY_VOLUME_FULL;  // 0xFFFF — real samples are never 0
 const E2S_DEFAULT_LOUDNESS = 127;
+// E2S_CATS index of 'User'. Categories 0 ('Analog') and 1 ('Audio In') are
+// firmware oscillator slots and never appear on a user sample in a real dump —
+// buildEsliData enforces the same floor on write.
+const E2S_USER_CATEGORY = e2s.USER_CATEGORY;
 
 // ── Device helpers ─────────────────────────────────────────
 
 /**
  * Max addressable slots for a device — the copy/allocation ceiling.
- * E2S: user-addressable slots (499), NOT the 1000-entry file offset table —
- * copies must never land in slots the hardware can't load.
+ * E2S: sample numbers go up to #999 (index 998), NOT the full 1020-entry file
+ * offset table — copies must never land in slots the hardware can't address.
  */
 function maxSlots(device) {
-  return device === 'esx' ? ESX_MONO_SLOTS : E2S_USER_SLOTS;
+  return device === 'esx' ? ESX_MONO_SLOTS : E2S_MAX_SAMPLE_INDEX + 1;
+}
+
+/**
+ * First slot index new E2S samples may occupy. Hacktribe firmware keeps sample
+ * numbers 1–500 in flash and IGNORES table entries below index 500 — a sample
+ * written there simply never appears on the device. Stock firmware addresses
+ * user samples from #422 (index 421).
+ */
+function e2sUserBase(bank) {
+  return bank && bank.hacktribe === false ? E2S_STOCK_BASE : E2S_HACKTRIBE_BASE;
+}
+
+/**
+ * Detect the firmware layout from the used slots: any sample below index 500
+ * can only come from a stock-firmware file (Hacktribe never writes there).
+ * Empty banks default to Hacktribe's base — index 500 is inside the stock
+ * user area too, so that default is safe on both firmwares.
+ */
+function detectHacktribe(samples) {
+  for (let i = 0; i < E2S_HACKTRIBE_BASE && i < samples.length; i++) {
+    if (samples[i]) return false;
+  }
+  return true;
 }
 
 /** Native sample rate for a device. */
@@ -157,9 +184,17 @@ function createE2sBank(buffer, filePath, fileName) {
       tune: esli.playLogPeriod ?? 0,
       boost: esli.loudness ?? E2S_DEFAULT_LOUDNESS,
       // Lossless E2S->E2S round-trip bag for fields not surfaced above.
+      // startPoint/endPoint: hardware-trimmed playback region — must survive
+      // a save (buildE2sAllFile would otherwise reset to the full sample).
       _e2s: {
         loopType: esli.loopType ?? 0,
         playVolume: esli.playVolume ?? E2S_DEFAULT_PLAY_VOLUME,
+        startPoint: esli.startPoint ?? 0,
+        endPoint: esli.endPoint ?? null,
+        // Save-fidelity carriers: the raw 1172-byte ESLI block (preserve-and-
+        // patch) and the WAV channel count (real dumps contain stereo samples).
+        _raw: esli._raw ?? null,
+        channels: s.channels ?? 1,
       },
       ...newHistory(),
     };
@@ -171,6 +206,7 @@ function createE2sBank(buffer, filePath, fileName) {
     fileName: fileName || null,
     samples,
     originalBuffer: null, // E2S has no checksums — no rebuild anchor needed
+    hacktribe: detectHacktribe(samples),
     dirty: false,
   };
 }
@@ -225,6 +261,8 @@ function bankToUI(bank) {
     fileName: bank.fileName,
     dirty: !!bank.dirty,
     maxSlots: maxSlots(bank.device),
+    hacktribe: bank.device === 'e2s' ? bank.hacktribe !== false : undefined,
+    userBase: bank.device === 'e2s' ? e2sUserBase(bank) : undefined,
     count: samples.filter(Boolean).length,
     samples,
   };
@@ -270,6 +308,10 @@ function serializeBank(bank) {
       loudness: s.boost ?? E2S_DEFAULT_LOUDNESS,
       loopType: e.loopType ?? 0,
       loopStart: s.loopStart == null ? E2S_LOOP_SENTINEL : s.loopStart,
+      startPoint: e.startPoint,
+      endPoint: e.endPoint ?? undefined, // undefined => full sample (build clamps)
+      _raw: e._raw ?? null,              // preserve undocumented ESLI bytes
+      channels: e.channels ?? 1,         // keep stereo fmt chunks byte-identical
     };
   });
   return e2s.buildE2sAllFile(list);
@@ -317,9 +359,14 @@ function convertSample(sample, fromDevice, toDevice) {
 
   const stereo = !!sample.stereo;
 
-  // ESX (BE 44.1) -> E2S (LE 48)
+  // ESX (BE) -> E2S (LE 48). Resample from the sample's ACTUAL rate — ESX
+  // banks legitimately hold 22050/11025 Hz samples; assuming 44.1 would
+  // pitch-shift them (silent corruption of the copy).
   if (fromDevice === 'esx' && toDevice === 'e2s') {
-    const pcmData = e2s.esxToE2s(sample.pcmData);
+    const fromRate = sample.sampleRate || ESX_RATE;
+    const pcmData = fromRate === ESX_RATE
+      ? e2s.esxToE2s(sample.pcmData)
+      : e2s.floatToPcmLE(e2s.resampleLinear(e2s.pcmBEToFloat(sample.pcmData), fromRate, E2S_RATE));
     const numFrames = pcmData.length / 2 / (stereo ? 2 : 1);
     return {
       name: sample.name,
@@ -328,18 +375,21 @@ function convertSample(sample, fromDevice, toDevice) {
       stereo,
       numFrames,
       duration: numFrames / E2S_RATE,
-      loopStart: rescaleFrame(sample.loopStart, ESX_RATE, E2S_RATE, numFrames - 1),
-      loopEnd: rescaleFrame(sample.loopEnd, ESX_RATE, E2S_RATE, numFrames - 1),
-      category: 0, // "User" on cross-device import
-      tune: 0,
+      loopStart: rescaleFrame(sample.loopStart, fromRate, E2S_RATE, numFrames - 1),
+      loopEnd: rescaleFrame(sample.loopEnd, fromRate, E2S_RATE, numFrames - 1),
+      category: E2S_USER_CATEGORY, // "User" on cross-device import
+      tune: 0,                     // 0 => playLogPeriod derived from the rate
       boost: E2S_DEFAULT_LOUDNESS,
       _e2s: { loopType: loop ? 1 : 0, playVolume: E2S_DEFAULT_PLAY_VOLUME },
       ...hist,
     };
   }
 
-  // E2S (LE 48) -> ESX (BE 44.1)
-  const pcmData = e2s.e2sToEsx(sample.pcmData);
+  // E2S (LE) -> ESX (BE 44.1) — same actual-rate rule as above.
+  const fromRate = sample.sampleRate || E2S_RATE;
+  const pcmData = fromRate === E2S_RATE
+    ? e2s.e2sToEsx(sample.pcmData)
+    : e2s.floatToPcmBE(e2s.resampleLinear(e2s.pcmLEToFloat(sample.pcmData), fromRate, ESX_RATE));
   const numFrames = pcmData.length / 2 / (stereo ? 2 : 1);
   return {
     name: sample.name,
@@ -348,8 +398,8 @@ function convertSample(sample, fromDevice, toDevice) {
     stereo,
     numFrames,
     duration: numFrames / ESX_RATE,
-    loopStart: rescaleFrame(sample.loopStart, E2S_RATE, ESX_RATE, numFrames - 1),
-    loopEnd: rescaleFrame(sample.loopEnd, E2S_RATE, ESX_RATE, numFrames - 1),
+    loopStart: rescaleFrame(sample.loopStart, fromRate, ESX_RATE, numFrames - 1),
+    loopEnd: rescaleFrame(sample.loopEnd, fromRate, ESX_RATE, numFrames - 1),
     category: undefined,
     tune: undefined,
     boost: undefined,
@@ -362,7 +412,10 @@ function convertSample(sample, fromDevice, toDevice) {
  * Allocate destination slot indices.
  * - targetSlot given: consecutive slots from targetSlot (overwrite allowed);
  *   fails only if it would run past the device's slot range.
- * - targetSlot null: the next `count` FREE slots; fails if too few remain.
+ * - targetSlot null: free slots. ESX fills from 0 (dense numbering); E2S
+ *   APPENDS after the highest used slot (device patterns reference sample
+ *   numbers, so existing slots are never renumbered) and never allocates
+ *   below the firmware's user base (Hacktribe ignores entries under #501).
  * Returns number[] or null when allocation is impossible.
  */
 function allocateSlots(toBank, count, targetSlot) {
@@ -371,10 +424,27 @@ function allocateSlots(toBank, count, targetSlot) {
     if (targetSlot < 0 || targetSlot + count > max) return null;
     return Array.from({ length: count }, (_, i) => targetSlot + i);
   }
+  if (toBank.device !== 'e2s') {
+    const free = [];
+    for (let i = 0; i < max && free.length < count; i++) {
+      if (!toBank.samples[i]) free.push(i);
+    }
+    return free.length >= count ? free : null;
+  }
+  // E2S: continue after the highest occupied slot, floor at the user base.
+  const base = e2sUserBase(toBank);
+  let highest = -1;
+  for (let i = 0; i < toBank.samples.length; i++) if (toBank.samples[i]) highest = i;
+  const start = Math.max(base, highest + 1);
   const free = [];
-  for (let i = 0; i < max && free.length < count; i++) {
+  for (let i = start; i < max && free.length < count; i++) {
     if (!toBank.samples[i]) free.push(i);
   }
+  // Top of the range exhausted — fall back to free holes at/above the base.
+  for (let i = base; i < start && free.length < count; i++) {
+    if (!toBank.samples[i]) free.push(i);
+  }
+  free.sort((a, b) => a - b);
   return free.length >= count ? free : null;
 }
 
@@ -501,7 +571,14 @@ module.exports = {
   ESX_MONO_SLOTS,
   ESX_STEREO_SLOTS,
   E2S_MAX_SLOTS,
-  E2S_USER_SLOTS,
+  E2S_MAX_SAMPLE_INDEX,
+  E2S_STOCK_BASE,
+  E2S_HACKTRIBE_BASE,
+  E2S_DEFAULT_PLAY_VOLUME,
+  E2S_USER_CATEGORY,
+  e2sUserBase,
+  detectHacktribe,
+  allocateSlots,
   ESX_MAX_SAMPLE_BYTES,
   ESX_BLOCK_OVERHEAD,
 

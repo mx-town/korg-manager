@@ -6,6 +6,8 @@ const { exec } = require('child_process');
 const AdmZip = require('adm-zip');
 const esx = require('./src/esx-format');
 const { validateAndRepairEsx } = require('./src/esx-validate');
+const bankModel = require('./src/bank');
+const fileTabsModel = require('./src/file-tabs');
 
 const IS_DEV = process.argv.includes('--dev');
 
@@ -110,6 +112,34 @@ let esxPatternBuffer = null;  // Raw .esx buffer for pattern editing (write-back
 let esxPatternFilePath = null; // File path of the currently loaded pattern file
 const MAX_UNDO = 50;
 
+// ── Unified sample manager: open files (tabs) ──────────────
+// Each entry is a self-contained per-file store. The legacy globals
+// currentSamples / esxOriginalBuffer ALWAYS alias the ACTIVE entry, so every
+// existing esx: handler keeps working unchanged (swap-in/swap-out, not live
+// aliasing — legacy handlers reassign the globals, see stashActive()).
+// PCM in every store is view-native 16-bit BE; E2S files are byte-swapped on
+// load/save by src/file-tabs.js and carry their metadata in an _e2s bag.
+let openFiles = [{ device: 'esx', samples: currentSamples, esxOriginalBuffer: null, filePath: null, fileName: 'UNTITLED' }];
+let activeFileIdx = 0;
+
+/** Flush the (possibly reassigned) globals back into the active entry.
+ *  MUST run before any openFiles entry is read. */
+function stashActive() {
+  const e = openFiles[activeFileIdx];
+  e.samples = currentSamples;
+  e.esxOriginalBuffer = esxOriginalBuffer;
+}
+
+/** Point the legacy globals at entry `i` (stashing the old active first). */
+function activateFile(i) {
+  if (!openFiles[i]) return; // never poison activeFileIdx with a bad index
+  stashActive();
+  activeFileIdx = i;
+  const e = openFiles[i];
+  currentSamples = e.samples;
+  esxOriginalBuffer = e.esxOriginalBuffer;
+}
+
 function pushUndo(index) {
   const s = currentSamples[index];
   if (!s) return;
@@ -173,6 +203,11 @@ ipcMain.handle('reset-sample', async (ev, index) => {
 //  HELPER
 // ═══════════════════════════════════════════════════════════
 function importWavBuffer(buffer, displayName, originalPath) {
+  // The WAV import pipeline is ESX-only (44.1kHz, 8-char names) — Project B
+  // will bring device-aware import. The UI hides IMPORT on E2S tabs; this is
+  // the trust-boundary backstop.
+  if (openFiles[activeFileIdx].device !== 'esx')
+    return { error: 'Import is ESX-only (active file is E2S)', originalName: displayName };
   if (currentSamples.length >= esx.NUM.MONO_SAMPLES)
     return { error: 'Max 256 mono samples reached', originalName: displayName };
   try {
@@ -198,13 +233,19 @@ ipcMain.handle('open-esx-file', async () => {
   });
   if (result.canceled) return null;
   try {
+    // Parse into LOCALS first — the globals and the file-tab entry may only
+    // change after everything succeeded, else a corrupt file leaves
+    // esxOriginalBuffer poisoned and a later SAVE rebuilds against garbage.
     const buffer = await fsp.readFile(result.filePaths[0]);
-    esxOriginalBuffer = Buffer.from(buffer); // preserve for pattern-safe rebuild
     const parsed = esx.parseEsxFile(buffer);
-    currentSamples = [];
+    const samples = [];
     for (const s of parsed.monoSamples) {
-      if (s) currentSamples.push({ name: s.name, pcmData: s.pcmData, sampleRate: s.sampleRate, numFrames: s.numFrames, duration: s.duration, originalPath: null, folder: null, _undo: [], _redo: [], _original: null });
+      if (s) samples.push({ name: s.name, pcmData: s.pcmData, sampleRate: s.sampleRate, numFrames: s.numFrames, duration: s.duration, originalPath: null, folder: null, _undo: [], _redo: [], _original: null });
     }
+    esxOriginalBuffer = Buffer.from(buffer); // preserve for pattern-safe rebuild
+    currentSamples = samples;
+    // keep the active file-tab entry in sync (this handler reassigns the globals)
+    Object.assign(openFiles[activeFileIdx], { device: 'esx', samples: currentSamples, esxOriginalBuffer, filePath: result.filePaths[0], fileName: path.basename(result.filePaths[0]) });
     return { filePath: result.filePaths[0], samples: getSamplesInfo() };
   } catch (err) { return { error: err.message }; }
 });
@@ -313,6 +354,7 @@ ipcMain.handle('import-zip', async () => {
 
 // Save to EXISTING file (preserves patterns via rebuild)
 ipcMain.handle('save-esx-overwrite', async (ev, filePath) => {
+  if (openFiles[activeFileIdx].device !== 'esx') return { error: 'Active file is not an ESX bank' };
   if (!filePath) return { error: 'No file path' };
   if (currentSamples.length === 0) return { error: 'No samples' };
   if (!esxOriginalBuffer) return { error: 'No original file loaded — use Export instead' };
@@ -332,6 +374,7 @@ ipcMain.handle('save-esx-overwrite', async (ev, filePath) => {
 
     // Update the stored original buffer to reflect the new state
     esxOriginalBuffer = Buffer.from(safeBuf);
+    openFiles[activeFileIdx].esxOriginalBuffer = esxOriginalBuffer;
 
     const stat = await fsp.stat(filePath);
     mainWindow.webContents.send('export-progress', { phase: 'done', percent: 100 });
@@ -340,6 +383,7 @@ ipcMain.handle('save-esx-overwrite', async (ev, filePath) => {
 });
 
 ipcMain.handle('save-esx-file', async (ev, defaultName) => {
+  if (openFiles[activeFileIdx].device !== 'esx') return { error: 'Active file is not an ESX bank' };
   if (currentSamples.length === 0) return { error: 'No samples' };
   let totalSize = 0;
   for (const s of currentSamples) totalSize += 16 + s.pcmData.length;
@@ -356,6 +400,7 @@ ipcMain.handle('save-esx-file', async (ev, defaultName) => {
     mainWindow.webContents.send('export-progress', { phase: 'writing', percent: 80 });
     await fsp.writeFile(result.filePath, safeBuf);
     const stat = await fsp.stat(result.filePath);
+    Object.assign(openFiles[activeFileIdx], { filePath: result.filePath, fileName: path.basename(result.filePath) });
     mainWindow.webContents.send('export-progress', { phase: 'done', percent: 100 });
     return { filePath: result.filePath, size: stat.size, validation: issues };
   } catch (err) { return { error: err.message }; }
@@ -380,11 +425,19 @@ ipcMain.handle('remove-sample', async (ev, index) => {
   return getSamplesInfo();
 });
 ipcMain.handle('rename-sample', async (ev, { index, name }) => {
-  if (index >= 0 && index < currentSamples.length)
-    currentSamples[index].name = name.substring(0, 8).toUpperCase().replace(/[^A-Z0-9 _\-\.]/g, '');
+  if (index >= 0 && index < currentSamples.length) {
+    // E2S sample names may be up to 24 chars (ESX: 8)
+    const limit = openFiles[activeFileIdx].device === 'e2s' ? 24 : 8;
+    currentSamples[index].name = name.substring(0, limit).toUpperCase().replace(/[^A-Z0-9 _\-\.]/g, '');
+  }
   return getSamplesInfo();
 });
-ipcMain.handle('clear-all', async () => { currentSamples = []; esxOriginalBuffer = null; return getSamplesInfo(); });
+ipcMain.handle('clear-all', async () => {
+  currentSamples = []; esxOriginalBuffer = null;
+  // this handler reassigns the globals — re-sync the active file-tab entry
+  Object.assign(openFiles[activeFileIdx], { device: 'esx', samples: currentSamples, esxOriginalBuffer: null, filePath: null, fileName: 'UNTITLED' });
+  return getSamplesInfo();
+});
 ipcMain.handle('get-version', () => app.getVersion());
 ipcMain.handle('get-features', () => FEATURES);
 ipcMain.handle('get-state', async () => getSamplesInfo());
@@ -1074,13 +1127,16 @@ ipcMain.handle('fx-envelope', async (ev, { index, attackMs, decayMs, sustainLvl,
 // ── DUPLICATE SAMPLE ─────────────────────────────────────
 ipcMain.handle('duplicate-sample', async (ev, index) => {
   const s = currentSamples[index];
-  if (!s || currentSamples.length >= esx.NUM.MONO_SAMPLES) return null;
+  const cap = openFiles[activeFileIdx].device === 'e2s' ? e2sEntryCapacity(openFiles[activeFileIdx]) : esx.NUM.MONO_SAMPLES;
+  if (!s || currentSamples.length >= cap) return null;
   const dup = {
     name: s.name.length <= 6 ? s.name + '_D' : s.name.substring(0, 6) + '_D',
     pcmData: Buffer.from(s.pcmData), sampleRate: s.sampleRate,
     numFrames: s.numFrames, duration: s.duration,
     originalPath: s.originalPath, folder: s.folder, _undo: [], _redo: [],
     _original: s._original ? { pcmData: Buffer.from(s._original.pcmData), numFrames: s._original.numFrames, duration: s._original.duration, sampleRate: s._original.sampleRate } : null,
+    // E2S metadata rides along; slot null => save assigns the next free slot
+    _e2s: s._e2s ? { ...s._e2s, slot: null } : undefined,
   };
   currentSamples.splice(index + 1, 0, dup);
   return getSamplesInfo();
@@ -1098,18 +1154,24 @@ ipcMain.handle('move-sample', async (ev, { index, direction }) => {
 //  STATE
 // ═══════════════════════════════════════════════════════════
 function getSamplesInfo() {
+  // Device-aware limits: the active file-tab may hold an E2S bank.
+  const device = (openFiles[activeFileIdx] && openFiles[activeFileIdx].device) || 'esx';
+  const maxSamples = device === 'e2s' ? e2sEntryCapacity(openFiles[activeFileIdx]) : esx.NUM.MONO_SAMPLES;
+  const maxBytes = device === 'e2s' ? fileTabsModel.E2S_MAX_SAMPLE_BYTES : esx.SIZE.MAX_SAMPLE_BYTES;
   let totalSize = 0;
   for (const s of currentSamples) totalSize += 16 + s.pcmData.length;
   return {
+    device,
     numSamples: currentSamples.length,
-    maxSamples: esx.NUM.MONO_SAMPLES,
+    maxSamples,
     totalSizeBytes: totalSize,
-    maxSizeBytes: esx.SIZE.MAX_SAMPLE_BYTES,
-    usedPercent: ((totalSize / esx.SIZE.MAX_SAMPLE_BYTES) * 100).toFixed(1),
+    maxSizeBytes: maxBytes,
+    usedPercent: ((totalSize / maxBytes) * 100).toFixed(1),
     totalDuration: currentSamples.reduce((a, s) => a + s.duration, 0),
     samples: currentSamples.map((s, i) => ({
       index: i, name: s.name, sampleRate: s.sampleRate,
       numFrames: s.numFrames, duration: s.duration, sizeBytes: s.pcmData.length,
+      slot: s._e2s && s._e2s.slot != null ? s._e2s.slot : null,
       folder: s.folder || null, undoCount: (s._undo || []).length, redoCount: (s._redo || []).length, hasOriginal: !!s._original,
     })),
   };
@@ -1172,13 +1234,19 @@ ipcMain.handle('e2s:open-file', async () => {
       if (!s || s.error) continue;
       e2sStoredSamples[i] = {
         slot: i, name: s.esli ? s.esli.name : '', pcmData: s.pcmData,
+        channels: s.channels || 1,
         sampleRate: s.esli ? s.esli.sampleRate : e2sFormat.NATIVE_RATE,
         category: s.esli ? s.esli.category : 0,
         loopType: s.esli ? s.esli.loopType : 0,
-        loopStart: s.esli ? s.esli.loopStart : 0xFFFFFFFF,
+        loopStart: s.esli ? s.esli.loopStart : null,
+        startPoint: s.esli ? s.esli.startPoint : 0,
+        endPoint: s.esli ? s.esli.endPoint : undefined,
         loudness: s.esli ? s.esli.loudness : 127,
         playLogPeriod: s.esli ? s.esli.playLogPeriod : 0,
-        playVolume: s.esli ? s.esli.playVolume : 0x4000,
+        playVolume: s.esli ? s.esli.playVolume : e2sFormat.PLAY_VOLUME_FULL,
+        // Preserve the original ESLI block so a save patches only edited fields
+        // and leaves every undocumented per-sample byte hardware-identical.
+        _raw: s.esli ? s.esli._raw : null,
       };
     }
     return { filePath: result.filePaths[0], samples: e2sGetSamplesUI() };
@@ -1212,12 +1280,28 @@ ipcMain.handle('e2s:import-wav', async () => {
   for (const fp of result.filePaths) {
     const displayName = path.basename(fp, path.extname(fp));
     try {
-      // Find next free slot
+      // Append after the highest used slot — never renumber existing slots
+      // (patterns reference sample numbers) and never go below the firmware
+      // user base (Hacktribe ignores entries under #501; base 500 is inside
+      // the stock user area too, so it is safe for both firmwares).
+      let hasBelowBase = false, highest = -1;
+      for (let i = 0; i < e2sStoredSamples.length; i++) {
+        if (!e2sStoredSamples[i]) continue;
+        highest = i;
+        if (i < bankModel.E2S_HACKTRIBE_BASE) hasBelowBase = true;
+      }
+      const base = hasBelowBase ? bankModel.E2S_STOCK_BASE : bankModel.E2S_HACKTRIBE_BASE;
       let freeSlot = -1;
-      for (let i = 0; i < e2sFormat.MAX_SLOTS; i++) {
+      const start = Math.max(base, highest + 1);
+      for (let i = start; i <= bankModel.E2S_MAX_SAMPLE_INDEX; i++) {
         if (!e2sStoredSamples[i]) { freeSlot = i; break; }
       }
-      if (freeSlot < 0) { imported.push({ name: displayName, ok: false, error: 'All 1000 slots full' }); continue; }
+      if (freeSlot < 0) {
+        for (let i = base; i < start; i++) {
+          if (!e2sStoredSamples[i]) { freeSlot = i; break; }
+        }
+      }
+      if (freeSlot < 0) { imported.push({ name: displayName, ok: false, error: 'User sample area full' }); continue; }
 
       const wavBuf = await fsp.readFile(fp);
       const wavInfo = esx.parseWavFile(wavBuf);
@@ -1236,9 +1320,10 @@ ipcMain.handle('e2s:import-wav', async () => {
       const name = displayName.substring(0, 24).toUpperCase().replace(/[^A-Z0-9 _\-\.]/g, '');
       e2sStoredSamples[freeSlot] = {
         slot: freeSlot, name, pcmData: pcmLE,
-        sampleRate: e2sFormat.NATIVE_RATE, category: 0,
+        sampleRate: e2sFormat.NATIVE_RATE, category: bankModel.E2S_USER_CATEGORY,
         loopType: 0, loopStart: 0xFFFFFFFF, loudness: 127,
-        playLogPeriod: 0, playVolume: 0x4000,
+        // 0 => buildEsliData derives the period from the rate; volume goes full scale.
+        playLogPeriod: 0, playVolume: e2sFormat.PLAY_VOLUME_FULL,
       };
       imported.push({ name, ok: true, slot: freeSlot });
     } catch (err) { imported.push({ name: displayName, ok: false, error: err.message }); }
@@ -1332,6 +1417,235 @@ ipcMain.handle('e2s:get-wav-preview', async (ev, slot) => {
 });
 
 // ═══════════════════════════════════════════════════════════
+//  FILE TABS — unified sample manager (file:* namespace)
+// ═══════════════════════════════════════════════════════════
+const MAX_OPEN_FILES = 2; // the split view has exactly two panes
+
+function fileEntryMeta(e, i) {
+  return {
+    index: i,
+    name: e.fileName || 'UNTITLED',
+    device: e.device,
+    count: e.samples.length,
+    filePath: e.filePath,
+    active: i === activeFileIdx,
+    hacktribe: e.device === 'e2s' ? e.hacktribe !== false : undefined,
+  };
+}
+
+/** Sample-count capacity of an E2S file entry (user area base..#999). */
+function e2sEntryCapacity(e) {
+  const base = e && e.hacktribe === false ? bankModel.E2S_STOCK_BASE : bankModel.E2S_HACKTRIBE_BASE;
+  return bankModel.E2S_MAX_SAMPLE_INDEX + 1 - base;
+}
+
+/** Tab metadata for the renderer. Stashes first so counts are never stale. */
+function fileTabsPayload() {
+  stashActive();
+  return { tabs: openFiles.map(fileEntryMeta), activeIndex: activeFileIdx };
+}
+
+/** Dense store index -> bank slot (E2S stores carry their slot in _e2s). */
+function storeIndexToSlot(entry, i) {
+  const s = entry.samples[i];
+  if (!s) return null;
+  if (entry.device === 'e2s' && s._e2s && s._e2s.slot != null) return s._e2s.slot;
+  return i;
+}
+
+safeIpcHandle('file:list', async () => fileTabsPayload());
+
+safeIpcHandle('file:open', async () => {
+  stashActive();
+  const active = openFiles[activeFileIdx];
+  const reuseActive = !active.filePath && active.samples.length === 0;
+  if (!reuseActive && openFiles.length >= MAX_OPEN_FILES)
+    return { error: `Maximal ${MAX_OPEN_FILES} Dateien gleichzeitig — erst einen Tab schließen` };
+
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Open Sample Bank (.esx / e2sSample.all)',
+    filters: [
+      { name: 'Sample Banks', extensions: ['esx', 'ESX', 'all'] },
+      { name: 'ESX-1 Bank', extensions: ['esx', 'ESX'] },
+      { name: 'E2S Samples', extensions: ['all'] },
+      { name: 'All Files', extensions: ['*'] },
+    ],
+    properties: ['openFile'],
+  });
+  if (result.canceled) return null;
+
+  const filePath = result.filePaths[0];
+  const fileName = path.basename(filePath);
+  const buffer = await fsp.readFile(filePath);
+  const device = bankModel.detectDevice(buffer, fileName);
+  if (!device) return { error: 'Unsupported file — expected .esx or e2sSample.all' };
+  if (device === 'e2s' && FEATURES.E2S_SAMPLER === false)
+    return { error: 'E2S support is disabled in this build' };
+
+  let samples;
+  let originalBuffer = null;
+  let warning = null;
+  let hacktribe;
+  if (device === 'esx') {
+    originalBuffer = Buffer.from(buffer); // preserve for pattern-safe rebuild
+    const parsed = esx.parseEsxFile(buffer);
+    samples = [];
+    for (const s of parsed.monoSamples) {
+      if (s) samples.push({ name: s.name, pcmData: s.pcmData, sampleRate: s.sampleRate, numFrames: s.numFrames, duration: s.duration, originalPath: null, folder: null, _undo: [], _redo: [], _original: null });
+    }
+  } else {
+    const e2sBank = bankModel.createE2sBank(buffer, filePath, fileName);
+    samples = fileTabsModel.bankToStore(e2sBank);
+    hacktribe = e2sBank.hacktribe; // auto-detected; user can toggle per file
+    // Slots this parser can't read are dropped on a later save — the user
+    // must know BEFORE saving over the original file.
+    const rawParsed = e2sFormat.parseE2sAllFile(buffer);
+    const badSlots = rawParsed.samples.filter(s => s && s.error).length;
+    if (badSlots > 0)
+      warning = `${badSlots} Slot(s) konnten nicht gelesen werden und gehen beim Speichern verloren`;
+  }
+
+  // Re-validate AFTER the dialog: a second concurrent file:open may have
+  // filled the tab list while this one was awaiting the picker.
+  const activeNow = openFiles[activeFileIdx];
+  const stillReusable = !activeNow.filePath && activeNow.samples.length === 0;
+  if (!stillReusable && openFiles.length >= MAX_OPEN_FILES)
+    return { error: `Maximal ${MAX_OPEN_FILES} Dateien gleichzeitig — erst einen Tab schließen` };
+
+  const entry = { device, samples, esxOriginalBuffer: originalBuffer, filePath, fileName, hacktribe };
+  if (stillReusable) {
+    openFiles[activeFileIdx] = entry;
+  } else {
+    openFiles.push(entry);
+    activeFileIdx = openFiles.length - 1;
+  }
+  currentSamples = entry.samples;
+  esxOriginalBuffer = entry.esxOriginalBuffer;
+  return { ...fileTabsPayload(), filePath, fileName, device, warning, state: getSamplesInfo() };
+});
+
+safeIpcHandle('file:switch', async (ev, idx) => {
+  if (!Number.isInteger(idx) || idx < 0 || idx >= openFiles.length) return { error: 'Invalid tab index' };
+  activateFile(idx);
+  const e = openFiles[idx];
+  return { ...fileTabsPayload(), filePath: e.filePath, fileName: e.fileName, device: e.device, state: getSamplesInfo() };
+});
+
+safeIpcHandle('file:close', async (ev, idx) => {
+  if (!Number.isInteger(idx) || idx < 0 || idx >= openFiles.length) return { error: 'Invalid tab index' };
+  stashActive();
+  openFiles.splice(idx, 1);
+  if (openFiles.length === 0)
+    openFiles.push({ device: 'esx', samples: [], esxOriginalBuffer: null, filePath: null, fileName: 'UNTITLED' });
+  if (idx < activeFileIdx) activeFileIdx--;
+  else if (idx === activeFileIdx) activeFileIdx = Math.min(idx, openFiles.length - 1);
+  // re-alias the new active entry WITHOUT stashing (the old alias may belong
+  // to the entry we just removed)
+  const e = openFiles[activeFileIdx];
+  currentSamples = e.samples;
+  esxOriginalBuffer = e.esxOriginalBuffer;
+  return { ...fileTabsPayload(), filePath: e.filePath, fileName: e.fileName, device: e.device, state: getSamplesInfo() };
+});
+
+// Read-only compressed rows for the split panes — never switches the active file.
+safeIpcHandle('file:rows', async (ev, idx) => {
+  stashActive();
+  const e = openFiles[idx];
+  if (!e) return { error: 'Invalid tab index' };
+  return {
+    index: idx,
+    device: e.device,
+    fileName: e.fileName || 'UNTITLED',
+    count: e.samples.length,
+    rows: e.samples.map((s, i) => ({
+      idx: i, name: s.name, sampleRate: s.sampleRate,
+      duration: s.duration, sizeBytes: s.pcmData.length,
+      slot: s._e2s && s._e2s.slot != null ? s._e2s.slot : null,
+    })),
+  };
+});
+
+// Copy samples between open files with automatic ESX<->E2S conversion.
+// All-or-nothing (bank.copySamples preflight); target undo histories are
+// preserved because we APPEND the converted samples instead of rebuilding.
+safeIpcHandle('file:transfer', async (ev, { fromIdx, indices, toIdx }) => {
+  stashActive();
+  const from = openFiles[fromIdx];
+  const to = openFiles[toIdx];
+  if (!from || !to || fromIdx === toIdx) return { error: 'Invalid transfer' };
+  const list = (Array.isArray(indices) ? indices : [indices]).map(Number);
+
+  const fromBank = fileTabsModel.storeToBank(from.samples, from.device,
+    { filePath: from.filePath, fileName: from.fileName, originalBuffer: from.esxOriginalBuffer, hacktribe: from.hacktribe });
+  const toBank = fileTabsModel.storeToBank(to.samples, to.device,
+    { filePath: to.filePath, fileName: to.fileName, originalBuffer: to.esxOriginalBuffer, hacktribe: to.hacktribe });
+
+  const slots = list.map(i => storeIndexToSlot(from, i));
+  if (slots.some(s => s == null)) return { error: 'Invalid sample index' };
+
+  // E2S memory budget preflight (copySamples covers the ESX budget; keep the
+  // E2S direction symmetric — a bank the hardware can't hold must not be
+  // silently built).
+  if (to.device === 'e2s') {
+    // account for resampling growth (e.g. 44.1 -> 48 kHz ≈ +9%)
+    const incoming = list.reduce((n, i) => {
+      const s = from.samples[i];
+      const factor = from.device === 'e2s' ? 1 : bankModel.E2S_RATE / (s.sampleRate || bankModel.ESX_RATE);
+      return n + Math.ceil(s.pcmData.length * factor);
+    }, 0);
+    const existing = to.samples.reduce((n, s) => n + s.pcmData.length, 0);
+    if (existing + incoming > fileTabsModel.E2S_MAX_SAMPLE_BYTES)
+      return { error: `E2S sample memory exceeded (${((existing + incoming) / 1048576).toFixed(1)}MB > 24MB)`, reason: 'insufficient-memory' };
+  }
+
+  const res = bankModel.copySamples(fromBank, slots, toBank);
+  if (!res.ok) return { error: res.error, reason: res.reason };
+
+  const added = res.assignments.map(a => fileTabsModel.bankSampleToStore(toBank.samples[a.to], to.device, a.to));
+  to.samples.push(...added);
+  if (toIdx === activeFileIdx) currentSamples = to.samples;
+
+  return { ok: true, message: res.message, copied: res.copied, converted: res.converted, ...fileTabsPayload(), state: getSamplesInfo() };
+});
+
+// Toggle the firmware layout of an open E2S file. Only affects where NEW
+// samples are placed (Hacktribe: from #501, stock: from #422) — existing
+// slots are never renumbered (device patterns reference sample numbers).
+safeIpcHandle('file:set-hacktribe', async (ev, { idx, hacktribe }) => {
+  if (!Number.isInteger(idx) || idx < 0 || idx >= openFiles.length) return { error: 'Invalid tab index' };
+  const e = openFiles[idx];
+  if (e.device !== 'e2s') return { error: 'Not an E2S file' };
+  e.hacktribe = !!hacktribe;
+  let warning = null;
+  if (e.hacktribe) {
+    const below = e.samples.filter(s => s._e2s && s._e2s.slot != null && s._e2s.slot < bankModel.E2S_HACKTRIBE_BASE).length;
+    if (below > 0)
+      warning = `${below} Sample(s) liegen unter Nr. 501 — Hacktribe ignoriert diese Slots`;
+  }
+  return { ...fileTabsPayload(), warning, state: getSamplesInfo() };
+});
+
+// Native save for the active E2S file (ESX files keep their existing save path).
+safeIpcHandle('file:save', async () => {
+  stashActive();
+  const e = openFiles[activeFileIdx];
+  if (e.device !== 'e2s') return { error: 'Active file is not an E2S bank' };
+  if (e.samples.length === 0) return { error: 'No samples' };
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: 'Save E2S Sample File',
+    defaultPath: e.filePath || 'e2sSample.all',
+    filters: [{ name: 'E2S Sample File', extensions: ['all'] }],
+  });
+  if (result.canceled) return null;
+  const b = fileTabsModel.storeToBank(e.samples, 'e2s', { filePath: e.filePath, fileName: e.fileName, hacktribe: e.hacktribe });
+  const buf = bankModel.serializeBank(b);
+  await fsp.writeFile(result.filePath, buf);
+  e.filePath = result.filePath;
+  e.fileName = path.basename(result.filePath);
+  return { filePath: result.filePath, size: buf.length, ...fileTabsPayload(), state: getSamplesInfo() };
+});
+
+// ═══════════════════════════════════════════════════════════
 //  E2 PATTERN HANDLERS
 // ═══════════════════════════════════════════════════════════
 let patStoredRaw = null; // raw all-patterns buffer for split/save
@@ -1392,6 +1706,45 @@ function esxPatternToUI(esxPat) {
     parts,
   };
 }
+
+// Read the global parameter block of the currently loaded .esx.
+// Read-only on purpose: loading an .esx overwrites the device's global settings, so a
+// user needs to SEE what MIDI routing a file carries. Nothing is rewritten here —
+// forcing channel numbers would break every setup that wires MIDI deliberately.
+ipcMain.handle('esx:get-global-params', () => {
+  if (!esxOriginalBuffer) return { error: 'No .esx file loaded' };
+  try {
+    return {
+      params: esx.parseGlobalParams(esxOriginalBuffer),
+      problems: esx.validateGlobalParams(esxOriginalBuffer),
+      emxCollisions: esx.findEmxChannelCollisions(esxOriginalBuffer),
+      labels: esx.CHANNEL_LABELS,
+      noteParts: esx.DRUM_NOTE_PARTS,
+    };
+  } catch (err) {
+    return { error: err.message };
+  }
+});
+
+// Patch MIDI channels / drum notes into the loaded .esx. Writes ONLY the fields the
+// user actually changed — no defaults are applied and nothing else in the file moves.
+// The result lands in esxOriginalBuffer, so the next save carries it through.
+ipcMain.handle('esx:set-global-params', (ev, changes) => {
+  if (!esxOriginalBuffer) return { error: 'No .esx file loaded' };
+  try {
+    const patched = esx.writeGlobalParams(esxOriginalBuffer, changes || {});
+    esxOriginalBuffer = patched;
+    openFiles[activeFileIdx].esxOriginalBuffer = patched;
+    return {
+      ok: true,
+      params: esx.parseGlobalParams(patched),
+      problems: esx.validateGlobalParams(patched),
+      emxCollisions: esx.findEmxChannelCollisions(patched),
+    };
+  } catch (err) {
+    return { error: err.message };
+  }
+});
 
 ipcMain.handle('esx:open-patterns', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {

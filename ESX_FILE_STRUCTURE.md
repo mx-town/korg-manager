@@ -2,9 +2,36 @@
 
 ## File Overview
 
-**Total Size:** 26,542,080 bytes (exactly, hardware enforced)  
+**Total Size:** **variable** — `filesize = 0x250010 + currentOffset`  
 **Format:** Binary, big-endian (Motorola/network byte order)  
 **Magic:** "KORG" at offset 0x00
+
+> ⚠️ **The file size is NOT fixed at 26,542,080 bytes.** An earlier revision of this
+> document claimed a hardware-enforced fixed size. It is wrong. The file ends right
+> after the last byte of PCM data:
+>
+> ```
+> filesize = 0x250010 + currentOffset(uint32BE @ 0x001B0028)
+> ```
+>
+> Verified byte-exact against four real files — including one larger than the supposed
+> "fixed" size, which proves the constant is not a ceiling the hardware imposes:
+>
+> | File | Size | mono / stereo | currentOffset |
+> |------|------|---------------|---------------|
+> | ES1-Factory-Data.esx | 4,518,448 | 54 / 0 | 2,093,600 |
+> | Chronic-Interactive.esx | 8,537,724 | 100 / 40 | 6,112,876 |
+> | ESX-Factory-Data.esx | 20,721,848 | 200 / 0 | 18,297,000 |
+> | FANGEL2.ESX | **26,683,908** | 146 / 0 | 24,259,060 |
+>
+> Padding a smaller file out to 26,542,080 wastes up to ~6 MB of zeros; clamping a
+> larger one to it truncates real sample data.
+
+**PCM block layout:** sample blocks are 16-byte header + PCM, laid out with the next
+block starting at `(end + 4) & ~3` — advance to the next 4-byte boundary, and if the
+end is already aligned, advance a full 4 bytes. (Confirmed on 194/200 real offsets;
+the remainder are gaps left by samples deleted on hardware — the device does **not**
+keep sample data contiguous, so `currentOffset` is a high-water mark, not a sum.)
 
 ---
 
@@ -58,46 +85,49 @@ Offset  Size  Type     Description
 +0x06   1     uint8    Pitch bend range (0x0E = +2 semitones)
 ```
 
-### MIDI Channel Assignments (16 parts)
+### MIDI Channel Assignments — ONLY 3 BYTES (Korg TABLE26)
+
+> ⚠️ **This block is 3 bytes, not 16.** An earlier revision of this document listed
+> 16 per-part channel assignments at +0x07..+0x16. That table was wrong and overlapped
+> the note-number table below. Verified against Korg's official MIDI implementation
+> chart (`ESX1midiimp.txt`, TABLE13/TABLE26) and against the raw bytes of four real
+> `.esx` files.
+
 ```
-Offset  Part            Default Value   Description
-─────────────────────────────────────────────────────────────────
-+0x07   Keyboard 1      0x00            Channel 1 (0x00-0x0F = Ch1-16)
-+0x08   Keyboard 2      0x00            Channel 1
-+0x09   Drum 1          0x09            Channel 10 (GM drums)
-+0x0A   Drum 2          0x09            Channel 10
-+0x0B   Drum 3          0x09            Channel 10
-+0x0C   Drum 4          0x09            Channel 10
-+0x0D   Drum 5          0x09            Channel 10
-+0x0E   Drum 6          0x09            Channel 10
-+0x0F   Drum 7          0x09            Channel 10
-+0x10   Drum 8          0x09            Channel 10
-+0x11   Drum 9          0x09            Channel 10
-+0x12   Stretch 1       0x09            Channel 10
-+0x13   Stretch 2       0x09            Channel 10
-+0x14   Slice           0x09            Channel 10
-+0x15   Audio In        0x09            Channel 10
-+0x16   Accent          0x00            Channel 1
+Offset  Part                          Default Value   Description
+──────────────────────────────────────────────────────────────────────────
++0x07   Keyboard 1                    0x00            Channel 1 (0x00-0x0F = Ch1-16)
++0x08   Keyboard 2                    0x01            Channel 2
++0x09   Drum / Stretch / Slice / AudioIn  0x09        Channel 10 (GM drums)
 ```
 
-### MIDI Note Assignments (13 parts)
+**Consequence for MIDI setups:** the ESX-1 has only three MIDI channels for sixteen
+parts. All nine drum parts, both stretch parts, slice and audio-in share the *single*
+channel at +0x09 and are told apart only by note number (see below). Per Korg's chart,
+the **Global MIDI Channel is the Keyboard Part 1 channel** (+0x07) — that is the byte
+the device's global menu edits. Changing it does not move Keyboard 2 or the drum parts.
+
+### MIDI Note Assignments — 13 bytes (Korg TABLE27)
 ```
 Offset  Part            MIDI Note   Korg Note   Description
 ───────────────────────────────────────────────────────────────────
 +0x0A   Drum 1          36          C2          Kick/bass drum
 +0x0B   Drum 2          38          D2          Snare
-+0x0C   Drum 3          40          E2          
-+0x0D   Drum 4          41          F2          
-+0x0E   Drum 5          43          G2          
-+0x0F   Drum 6          42          F#2         
-+0x10   Drum 7          46          A#2         
-+0x11   Drum 8          49          C#3         
-+0x12   Drum 9          51          D#3         
-+0x13   Stretch 1       9           A-1         
-+0x14   Stretch 2       10          A#-1        
-+0x15   Slice           11          B-1         
-+0x16   Audio In        12          C0          
++0x0C   Drum 3          40          E2
++0x0D   Drum 4          41          F2
++0x0E   Drum 5          43          G2
++0x0F   Drum 6A         42          F#2
++0x10   Drum 6B         46          A#2
++0x11   Drum 7A         49          C#3
++0x12   Drum 7B         51          D#3
++0x13   Stretch 1       9           A-1
++0x14   Stretch 2       10          A#-1
++0x15   Slice           11          B-1
++0x16   Audio In        12          C0
 ```
+
+Note the parts are **Drum 6A/6B and 7A/7B**, not "Drum 6..9" — drum parts 6 and 7 each
+carry two independently triggerable note numbers. There is no Accent channel or note.
 
 ### MIDI CC Assignments (33 CCs)
 ```
@@ -138,7 +168,31 @@ Offset  CC#   Parameter
 +0x37   23    FX Chain
 ```
 
-**Remaining Global Params (+0x38 to +0xBF):** Pattern set params, reserved (zeros)
+### Remaining Global Params (Korg TABLE13)
+```
++0x38 .. +0x3F    8 bytes    Reserved
++0x40 .. +0xBF  128 bytes    Pattern Set Parameters (0-255 = pattern A01-D64)
+```
+
+A factory file populates the pattern-set table (slots 0x14..0x7F hold an ascending
+identity mapping 20..127, with 0xFF marking an empty slot). `createEmptyEsx` leaves it
+zeroed, which points every pattern-set slot at pattern 0.
+
+**Authoritative global-parameter layout (Korg TABLE13, 192 bytes):**
+```
+  0       Memory Protect          0/1
+  1       (reserve)
+  2       Arp Control             0/1 Normal/Reverse
+  3       Audio In Mode           0/1 L-Mono/Stereo
+  4       MIDI Clock              0-2 Int/Ext/Auto
+  5       bit flags               b0 Note, b1 SysEx, b2 CC, b3 ProgChange
+  6       Pitch Bend Range        0..12..24 = -12..0..+12
+  7-9     MIDI Channel            3 bytes   [TABLE26]
+ 10-22    Drum Note Number        13 bytes  [TABLE27]
+ 23-55    MIDI CC Assign          33 bytes  [TABLE28]
+ 56-63    (reserve)
+ 64-191   Pattern Set Parameters  128 bytes
+```
 
 ---
 
@@ -167,7 +221,7 @@ Offset  Size   Description
 ```
 Offset  Size  Type        Description
 ──────────────────────────────────────────────────────────────
-+0      8     ASCII       Name (space-padded, e.g., "Init    ")
++0      8     ASCII       Name (space-padded; empty pattern = 8 spaces, see below)
 +8      2     uint16BE    Tempo (BPM × 128, e.g., 0x3C00 = 120.0)
 +10     1     uint8       Swing (0x00 = 50%)
 +11     1     uint8       Flags
@@ -180,6 +234,19 @@ Offset  Size  Type        Description
 +20     2     uint16BE    Output bus status (bitfield)
 +22     2     uint16BE    Accent status (bitfield)
 ```
+
+**Pattern name conventions** (survey of 49 real files, grouped by author — a file the
+ESX-1 wrote has data in the device-internal regions at `0x10BA00` and `0x15F500`, a
+PC-written one has zeros there):
+
+| Author | Empty pattern name |
+|--------|--------------------|
+| Bank saved by the ESX-1 | **8 spaces** (BILITIS 253/256, PARANS 230/256, VINTAGE 242/256, CX500 247/256) |
+| Korg factory bank | `Init    ` (ESX1_Fact 105/256, ESXSD_Factory 33/256) |
+| Bank converted from an ES-1 | 8 spaces; used patterns get `ES1_A.01`-style names |
+
+The bank position (`A.01`..`D.64`) is **never** stored in the name field — the device
+derives it from the slot index. `createEmptyEsx` therefore writes 8 spaces.
 
 ### Drum Part (34 bytes, 9 parts)
 ```

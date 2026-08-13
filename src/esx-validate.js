@@ -12,7 +12,7 @@
 
 'use strict';
 
-const { ADDR, SIZE, NUM, ESX_FILE_SIZE } = require('./esx-format');
+const { ADDR, SIZE, NUM } = require('./esx-format');
 
 const CHECKSUM_ADDR = ADDR.BPS_HEADER + 0x0C;
 const BLOCK_HEADER_SIZE = 16; // per-sample data block header before PCM
@@ -31,9 +31,13 @@ function validateAndRepairEsx(input) {
     issues.push(issue);
   };
 
-  // Wrong size means every absolute offset below is unreliable — flag and stop.
-  if (input.length !== ESX_FILE_SIZE) {
-    flag('SIZE', `File size is ${input.length} bytes — hardware requires exactly ${ESX_FILE_SIZE}`);
+  // .esx files are variable-sized: filesize = 0x250010 + currentOffset. A file shorter
+  // than the fixed header region makes every absolute offset below unreliable, so flag
+  // and stop. Anything long enough to hold the headers is parsed; a size that disagrees
+  // with currentOffset is reported further down, once that field can be read safely.
+  if (input.length < SIZE.FILE_MIN) {
+    flag('SIZE', `File is ${input.length} bytes — too short to contain the ESX header region ` +
+                 `(minimum ${SIZE.FILE_MIN})`);
     return { buffer: input, issues };
   }
 
@@ -58,6 +62,15 @@ function validateAndRepairEsx(input) {
   }
 
   const currentOffset = buf.readUInt32BE(ADDR.CURRENT_OFFSET);
+
+  // Real files end right after the PCM data plus a 16-byte free-space block.
+  const expectedSize = SIZE.FILE_MIN + currentOffset;
+  if (input.length !== expectedSize) {
+    flag('SIZE', `File is ${input.length} bytes but currentOffset ${currentOffset} implies ` +
+                 `${expectedSize} (0x250010 + currentOffset)` +
+                 (input.length < expectedSize ? ' — sample data is truncated' : ''));
+  }
+
   let maxCh1End = 0;
 
   for (let i = 0; i < numMono; i++) {
@@ -144,7 +157,7 @@ function validateAndRepairEsx(input) {
 
   // BPS checksum: byte-sum of the used sample data region (after any block repairs)
   let checksum = 0;
-  const regionEnd = Math.min(ADDR.SAMPLE_DATA + effectiveOffset, ESX_FILE_SIZE);
+  const regionEnd = Math.min(ADDR.SAMPLE_DATA + effectiveOffset, buf.length);
   for (let p = ADDR.SAMPLE_DATA; p < regionEnd; p++) checksum = (checksum + buf[p]) >>> 0;
   if (buf.readUInt32BE(CHECKSUM_ADDR) !== checksum) {
     buf.writeUInt32BE(checksum, CHECKSUM_ADDR);
