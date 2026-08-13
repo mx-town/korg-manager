@@ -77,6 +77,12 @@ die einzige Aktion außerhalb davon — sie ändert acht Bytes und keine Positio
 sich um eine Position, nichts wird überschrieben. Tauschen fällt als Sonderfall der
 Zuordnung mit ab.
 
+Weil Umbenennen außerhalb der Zuordnung steht, zählt es trotzdem als offene Änderung:
+eine Sitzung, in der nur umbenannt wurde, muss speicherbar sein und muss sich
+zurücknehmen lassen. Die Zuordnung allein zu befragen genügt dafür nicht — sie ist in
+diesem Fall die Identität. Nachgetragen nach dem Code-Review, der genau diese Lücke
+in der Umsetzung gefunden hat.
+
 ## Entscheidungen
 
 | Frage | Entscheidung |
@@ -197,6 +203,12 @@ markiert, damit vor dem Speichern erkennbar ist, was sich ändert.
 **Bedienung.** Zeilen umsortieren per Ziehen, Mehrfachauswahl analog zum Sample-Manager
 (`60f3461`: Paint-Select, Strg-/Umschalt-Klick, Strg+A). Umbenennen in der Zeile.
 Löschen setzt den leeren Block ein.
+
+Nachtrag aus der Umsetzung: **Paint-Select entfällt.** Ziehen ist hier fürs Umsortieren
+belegt, und beides an dieselbe Geste zu hängen ginge nicht. Strg-/Umschalt-Klick und
+Strg+A bleiben. Ebenso bleiben `Entf` und `F2` unbelegt: beide hängen bereits global am
+Sample-Manager, eine Doppelbelegung würde im Pattern-Viewer Samples löschen. Die Leiste
+hat dafür Schaltflächen.
 
 **Sperre.** Die Bedienelemente erscheinen nur, wenn `patFormat === 'EMX-1'` **und** die
 geladene Datei SmartCard ist. Bei einem SysEx-Dump bleiben sie aus — `emxOriginalBuffer`

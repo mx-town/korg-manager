@@ -618,6 +618,10 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 }
 .emx-mgmt-hint.on{display:block}
 .emx-pending{color:var(--warn)}
+/* The rows become draggable only while slots are being managed, and nothing
+   else in the list says so — the cursor is the only affordance the gesture has. */
+.pat-list.emx-mgmt .pat-item{cursor:grab}
+.pat-list.emx-mgmt .pat-item.emx-dragging{cursor:grabbing}
 .pat-grid-panel{display:flex;flex-direction:column;overflow:hidden;background:var(--void);flex:1;min-height:0}
 .pat-info-bar{display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--dark);border-bottom:1px solid var(--brd);font-family:var(--lcd);font-size:12px;flex-wrap:wrap}
 .pat-info-bar span{color:var(--led)}
@@ -3010,15 +3014,18 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){closeModal();tryCloseGuide();closeMidiGlobals();return}
   if(document.getElementById('mgBg')?.classList.contains('show'))return;
   if(document.getElementById('modalBg')?.classList.contains('show')||document.getElementById('guideBg')?.classList.contains('show')){if(e.key===' '&&sel>=0){e.preventDefault();togglePlay()}return}
-  if(e.key==='Delete'){if(checked.size>0)removeChecked();else if(sel>=0)remCur()}
+  // Delete and F2 act on the ESX sample list, so they must not fire while
+  // another device's view is open — in the pattern viewer, Delete used to
+  // silently remove samples behind the user's back.
+  if(activeDevice==='esx1'&&e.key==='Delete'){if(checked.size>0)removeChecked();else if(sel>=0)remCur()}
   if(e.key===' '&&sel>=0){e.preventDefault();togglePlay()}
   if(activeDevice==='esx1'&&e.key==='ArrowDown'&&sel<S.numSamples-1)selS(sel+1);
   if(activeDevice==='esx1'&&e.key==='ArrowUp'&&sel>0)selS(sel-1);
-  if(e.key==='F2'&&sel>=0)startRen(sel);
+  if(activeDevice==='esx1'&&e.key==='F2'&&sel>=0)startRen(sel);
   if(e.ctrlKey&&e.key==='a'&&activeDevice==='esx1'){e.preventDefault();toggleSelectAll()}
-  // Delete and F2 are already bound to the sample manager above without a
-  // device check, so slot management takes neither — its bar has buttons.
-  if(e.ctrlKey&&e.key==='a'&&emxActive()){e.preventDefault();emxSelectAll()}
+  // Slot management binds neither Delete nor F2: its bar has buttons, and the
+  // two keys already mean something in the sample manager.
+  if(e.ctrlKey&&e.key==='a'&&activeDevice==='e2pat'&&emxActive()){e.preventDefault();emxSelectAll()}
   if(e.ctrlKey&&e.key==='z'){e.preventDefault();doUndo()}
   if(e.ctrlKey&&(e.key==='y'||e.key==='Z')){e.preventDefault();doRedo()}
   if(e.ctrlKey&&e.key==='b'){e.preventDefault();toggleSidebar()}
@@ -4002,11 +4009,13 @@ let emxMapping=null;        // destination → source slot, or null
 let emxEmptyUI=null;        // what an emptied slot looks like in the UI
 let emxPicked=new Set();    // selected destination slots
 let emxLastPicked=-1;       // anchor for shift-click ranges
+let emxRenamed=false;       // a rename has patched the card in main
 
 function emxBeginManagement(r){
   emxCanManage=!!(r&&r.canManage&&r.emptyPattern);
   emxPicked.clear();
   emxLastPicked=-1;
+  emxRenamed=false;
   if(!emxCanManage){emxSrcData=null;emxMapping=null;emxEmptyUI=null;emxSyncBar();return}
   emxSrcData=patData.slice();
   emxEmptyUI=r.emptyPattern;
@@ -4017,10 +4026,14 @@ function emxBeginManagement(r){
 /** True while a loaded card can actually be rearranged. */
 function emxActive(){return emxCanManage&&patFormat==='EMX-1'&&!!emxMapping}
 
-/** Pending changes exist when the mapping is no longer the identity. */
+/**
+ * Pending changes are a non-identity mapping OR a rename. Renames never touch
+ * the mapping, so asking the mapping alone would call a rename-only session
+ * unchanged and refuse to save it.
+ */
 function emxDirty(){
   if(!emxActive())return false;
-  return emxMapping.some((src,dst)=>src!==dst);
+  return emxRenamed||emxMapping.some((src,dst)=>src!==dst);
 }
 
 /** Rebuild patData from the mapping, then repaint. */
@@ -4045,8 +4058,9 @@ function emxSyncBar(){
   if(!cnt)return;
   if(!on){cnt.textContent='';return}
   const moved=emxMapping.filter((src,dst)=>src!==dst).length;
+  const pending=moved?`${moved} geändert`:(emxRenamed?'umbenannt':'');
   cnt.innerHTML=`${emxPicked.size} gewählt`+
-    (moved?` · <span class="emx-pending">${moved} geändert</span>`:'');
+    (pending?` · <span class="emx-pending">${pending}</span>`:'');
 }
 
 // ── Selection ────────────────────────────────────────────
@@ -4087,12 +4101,23 @@ function emxClearSelected(){
   toast(`${n} Slot${n>1?'s':''} geleert (noch nicht geschrieben)`,'info');
 }
 
-function emxResetMapping(){
+/**
+ * Discard everything pending. The mapping is reset here; the renames are not
+ * ours to undo — they have already patched the card in the main process, so
+ * that half is fetched back from the copy it kept of the file as loaded.
+ */
+async function emxResetMapping(){
   if(!emxActive())return;
   if(!emxDirty()){toast('Keine Änderungen','info');return}
+  if(emxRenamed){
+    const r=await window.api.emx.resetCard();
+    if(!r||r.error){toast((r&&r.error)||'Zurücksetzen fehlgeschlagen','error');return}
+    emxSrcData=r.patterns||emxSrcData;
+    emxRenamed=false;
+  }
   emxPicked.clear();emxLastPicked=-1;
   emxApplyMappingLocal(emxSrcData.map((_,i)=>i));
-  toast('Zuordnung zurückgesetzt','success');
+  toast('Zurückgesetzt','success');
 }
 
 /** Move one slot to another position, shifting everything in between. */
@@ -4138,6 +4163,7 @@ function emxStartRename(slot){
     const r=await window.api.emx.renamePattern(emxMapping[slot],name);
     if(!r||r.error){toast((r&&r.error)||'Umbenennen fehlgeschlagen','error');patRenderList();return}
     // main.js re-parsed the card: refresh the source list, keep the mapping.
+    emxRenamed=true;
     emxSrcData=r.patterns||emxSrcData;
     emxApplyMappingLocal(emxMapping);
     toast(`Slot ${patPosLabel('emx',slot)} → "${name.trim()||'(leer)'}"`,'success');
@@ -4170,8 +4196,9 @@ async function emxSaveAs(){
   if(!r||r.canceled)return;
   if(r.error){toast(r.error,'error');return}
 
-  // The written file is now the reference point: the pending changes are no
-  // longer pending. The card in memory is unchanged, so the mapping stays.
+  // The card in memory is deliberately left as it is — mapping and renames both
+  // stay pending, so the same arrangement can be written again under a second
+  // name. Nothing about the loaded card changed by writing a copy of it.
   toast(`Gespeichert: ${r.filePath.split(/[\\/]/).pop()}`,'success');
 }
 
@@ -4190,8 +4217,10 @@ async function patSplitAll(){
   else if(r&&r.error)toast(r.error,'error');
 }
 
-// Pattern position as the device itself addresses it. ESX-1 and EMX-1 hold 256
+// Pattern position as the device itself addresses it. The ESX-1 holds 256
 // patterns in four banks of 64, so the bank slot needs two digits: A.01..D.64.
+// The EMX-1 holds the same 256 in sixteen banks of 16 and writes them without a
+// separator: A01..P16 (CONTEXT.md, EMX_SMARTCARD_FORMAT.md:52).
 // E2/E2S hold 250 patterns numbered flat, unpadded: 1..250.
 // Empty patterns are all named "Init" on the hardware, so the position — not the
 // name — is what identifies a slot.
@@ -4200,6 +4229,7 @@ async function patSplitAll(){
 // — so a numeric deviceId means the E2 family too.
 function patPosLabel(deviceId,i){
   if(deviceId==='e2'||deviceId==='e2s'||typeof deviceId==='number')return String(i+1);
+  if(deviceId==='emx')return String.fromCharCode(65+(i>>4))+String((i%16)+1).padStart(2,'0');
   return String.fromCharCode(65+Math.floor(i/64))+'.'+String((i%64)+1).padStart(2,'0');
 }
 let _patListItems=[];  // cached DOM elements
@@ -4249,8 +4279,11 @@ function patRenderList(){
       if(src===null){el.children[1].textContent='—— leer ——';el.title='Wird beim Speichern geleert'}
       else if(src!==i)el.title=`Kommt aus Slot ${patPosLabel(p.deviceId,src)}`;
       else el.title='';
-    }else if(el.classList.contains('emx-picked')||el.classList.contains('emx-cleared')||el.classList.contains('emx-moved')){
+    }else if(el.classList.contains('emx-picked')||el.classList.contains('emx-cleared')||el.classList.contains('emx-moved')||el.title){
+      // An ESX bank has 256 rows too, so switching to one reuses these elements
+      // without rebuilding them. The slot tooltips have to go with the classes.
       el.classList.remove('emx-picked','emx-cleared','emx-moved');
+      el.title='';
     }
   }
   emxSyncBar();

@@ -99,6 +99,7 @@ contextBridge.exposeInMainWorld('api', {
     // Pattern management — SmartCard images only.
     applyMapping:  (mapping)    => ipcRenderer.invoke('emx:apply-mapping', mapping),
     renamePattern: (slot, name) => ipcRenderer.invoke('emx:rename-pattern', slot, name),
+    resetCard:     ()           => ipcRenderer.invoke('emx:reset-card'),
   },
 
   // ═══ Universal + file tabs (unified sample manager) ═══

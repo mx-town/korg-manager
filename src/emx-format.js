@@ -739,6 +739,14 @@ function verifySlotMapping(original, result, mapping) {
   if (!Buffer.isBuffer(result)) {
     return { ok: false, errors: ['result is not a Buffer'] };
   }
+  // A malformed mapping would otherwise be caught only by accident, through
+  // slotOffset(undefined) producing NaN offsets and every slice comparing
+  // unequal. This is the safety gate; it says no on purpose.
+  try {
+    assertMapping(mapping);
+  } catch (err) {
+    return { ok: false, errors: [err.message] };
+  }
   if (result.length !== original.length || result.length !== SMARTCARD.DUMP_SIZE) {
     errors.push(
       `length changed: ${original.length} → ${result.length} ` +
@@ -758,7 +766,7 @@ function verifySlotMapping(original, result, mapping) {
     errors.push(`song/global area changed: bytes outside the pattern area must stay identical (0x${areaEnd.toString(16)}…end)`);
   }
 
-  // 3. Read-back: does each slot hold what the mapping promised?
+  // 2. Read-back: does each slot hold what the mapping promised?
   const empty = emptyPatternBlock();
   for (let dst = 0; dst < SMARTCARD.NUM_PATTERNS; dst++) {
     const src = mapping[dst];
@@ -773,6 +781,50 @@ function verifySlotMapping(original, result, mapping) {
           : `slot ${dst} should hold the pattern from slot ${src} but does not`
       );
     }
+  }
+
+  return { ok: errors.length === 0, errors };
+}
+
+/**
+ * The same limit for the one edit that is not a mapping.
+ *
+ * A rename is allowed to change exactly eight bytes — the name field of one
+ * slot — and nothing else. This exists because the renamed buffer becomes the
+ * anchor that verifySlotMapping later measures against: if a rename were ever
+ * to write outside its field, that check would compare a corrupted buffer with
+ * itself and report success. Verifying each rename as it happens keeps the
+ * chain back to the file as loaded intact.
+ *
+ * @returns {{ok: boolean, errors: string[]}}
+ */
+function verifyRename(original, result, slot) {
+  const errors = [];
+
+  if (!Buffer.isBuffer(result)) {
+    return { ok: false, errors: ['result is not a Buffer'] };
+  }
+  try {
+    assertSlot(slot);
+  } catch (err) {
+    return { ok: false, errors: [err.message] };
+  }
+  if (result.length !== original.length || result.length !== SMARTCARD.DUMP_SIZE) {
+    return {
+      ok: false,
+      errors: [
+        `length changed: ${original.length} → ${result.length} ` +
+        `(must stay ${SMARTCARD.DUMP_SIZE})`
+      ]
+    };
+  }
+
+  const at = slotOffset(slot);
+  if (!result.slice(0, at).equals(original.slice(0, at))) {
+    errors.push(`rename changed bytes before slot ${slot}'s name field`);
+  }
+  if (!result.slice(at + NAME_LEN).equals(original.slice(at + NAME_LEN))) {
+    errors.push(`rename changed bytes after slot ${slot}'s name field`);
   }
 
   return { ok: errors.length === 0, errors };
@@ -837,6 +889,7 @@ module.exports = {
   mappingSwap,
   mappingClear,
   verifySlotMapping,
+  verifyRename,
 };
 
 // ── Self-test ─────────────────────────────────────────────

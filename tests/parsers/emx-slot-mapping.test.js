@@ -25,8 +25,8 @@ const {
   mappingSwap,
   mappingClear,
   verifySlotMapping,
+  verifyRename,
   parseSmartCardDump,
-  SMARTCARD,
 } = require('../../src/emx-format');
 const { generateMinimalEMX } = require('../fixtures/generators/minimal-emx');
 
@@ -172,6 +172,70 @@ describe('EMX slot mapping - mapping helpers', () => {
     mappingMove(original, 1, 2);
     mappingClear(original, [1]);
     expect(original).toEqual(mappingIdentity());
+  });
+});
+
+// ── The renderer's own copy of the move ──────────────────
+//
+// src/index.html cannot require() this module — it is one inline script with no
+// loader — so emxMoveSlot repeats the splice, and the drag handler works out
+// the destination index itself. Both are pinned here against mappingMove,
+// because the code the user actually drives must not drift away from the code
+// that is tested. If these fail, index.html changed and this file did not.
+
+/** Verbatim from emxMoveSlot() in src/index.html. */
+function rendererMove(mapping, from, to) {
+  const next = mapping.slice();
+  const [moved] = next.splice(from, 1);
+  next.splice(to, 0, moved);
+  return next;
+}
+
+/** Verbatim from the drop handler in src/index.html. */
+function rendererDropIndex(dragFrom, over, above) {
+  let to = above ? over : over + 1;
+  if (dragFrom < to) to--;
+  return to;
+}
+
+describe('EMX slot mapping - the renderer repeats the move correctly', () => {
+  it('the inline splice agrees with mappingMove everywhere', () => {
+    for (const [from, to] of [[5, 2], [2, 5], [0, 255], [255, 0], [128, 129], [7, 7]]) {
+      expect(rendererMove(mappingIdentity(), from, to))
+        .toEqual(mappingMove(mappingIdentity(), from, to));
+    }
+  });
+
+  it('dropping above a row lands on that row', () => {
+    // Dragging slot 9 onto the upper half of row 3 puts it at 3.
+    expect(rendererDropIndex(9, 3, true)).toBe(3);
+    expect(rendererMove(mappingIdentity(), 9, 3).slice(2, 6)).toEqual([2, 9, 3, 4]);
+  });
+
+  it('dropping below a row lands after it, index shift included', () => {
+    // Dragging slot 3 onto the lower half of row 9 must land after 9. Splicing
+    // 3 out first shifts everything past it down, so the raw 10 becomes 9.
+    expect(rendererDropIndex(3, 9, false)).toBe(9);
+    const m = rendererMove(mappingIdentity(), 3, 9);
+    expect(m[9]).toBe(3);
+    expect(m[8]).toBe(9);
+  });
+
+  it('dropping a row onto itself is a no-op in both halves', () => {
+    expect(rendererDropIndex(4, 4, true)).toBe(4);
+    expect(rendererDropIndex(4, 4, false)).toBe(4);
+  });
+
+  it('never produces an index outside 0…255', () => {
+    for (let from = 0; from < COUNT; from++) {
+      for (const over of [0, 1, 127, 254, 255]) {
+        for (const above of [true, false]) {
+          const to = rendererDropIndex(from, over, above);
+          expect(to).toBeGreaterThanOrEqual(0);
+          expect(to).toBeLessThan(COUNT);
+        }
+      }
+    }
   });
 });
 
@@ -384,5 +448,83 @@ describe('EMX slot mapping - verifySlotMapping', () => {
     const card = cards['BEST.EMX'];
     const m = mappingClear(mappingIdentity(), [8]);
     expect(verifySlotMapping(card, card, m).ok).toBe(false);
+  });
+
+  it('rejects a malformed mapping outright instead of failing by accident', () => {
+    const card = cards['BEST.EMX'];
+    const res = verifySlotMapping(card, Buffer.from(card), [0, 1, 2]);
+    expect(res.ok).toBe(false);
+    expect(res.errors.join(' ')).toMatch(/256 entries/);
+    // One clear reason, not 256 slot mismatches produced by NaN offsets.
+    expect(res.errors).toHaveLength(1);
+  });
+});
+
+// ── The rename's own limit ───────────────────────────────
+//
+// A rename replaces the buffer that verifySlotMapping later measures against.
+// If it ever wrote outside its eight bytes, that check would compare a damaged
+// buffer with itself and see nothing. verifyRename is what keeps the chain back
+// to the file as loaded unbroken.
+
+describe('EMX slot mapping - verifyRename', () => {
+  it.each(CARDS)('passes a real rename on %s', (cardName) => {
+    const card = cards[cardName];
+    const renamed = renamePattern(card, 42, 'LIVE SET');
+    expect(verifyRename(card, renamed, 42)).toEqual({ ok: true, errors: [] });
+  });
+
+  it('passes when the name is unchanged', () => {
+    const card = cards['BEST.EMX'];
+    const before = card.slice(BASE + 7 * SIZE, BASE + 7 * SIZE + 8).toString('latin1');
+    expect(verifyRename(card, renamePattern(card, 7, before), 7).ok).toBe(true);
+  });
+
+  it('catches a byte changed past the name field, in the same slot', () => {
+    const card = cards['BEST.EMX'];
+    const tampered = renamePattern(card, 42, 'LIVE SET');
+    tampered[BASE + 42 * SIZE + 8] ^= 0xFF;   // first byte after the name
+
+    const res = verifyRename(card, tampered, 42);
+    expect(res.ok).toBe(false);
+    expect(res.errors.join(' ')).toMatch(/after/i);
+  });
+
+  it('catches a byte changed in the song area', () => {
+    const card = cards['BEST.EMX'];
+    const tampered = renamePattern(card, 42, 'LIVE SET');
+    tampered[AREA_END + 100] ^= 0xFF;
+    expect(verifyRename(card, tampered, 42).ok).toBe(false);
+  });
+
+  it('catches a byte changed in the header', () => {
+    const card = cards['BEST.EMX'];
+    const tampered = renamePattern(card, 42, 'LIVE SET');
+    tampered[0x40] ^= 0xFF;
+
+    const res = verifyRename(card, tampered, 42);
+    expect(res.ok).toBe(false);
+    expect(res.errors.join(' ')).toMatch(/before/i);
+  });
+
+  it('catches a rename attributed to the wrong slot', () => {
+    const card = cards['BEST.EMX'];
+    const renamed = renamePattern(card, 42, 'LIVE SET');
+    expect(verifyRename(card, renamed, 43).ok).toBe(false);
+  });
+
+  it('catches a wrong length', () => {
+    const card = cards['BEST.EMX'];
+    const short = renamePattern(card, 42, 'LIVE SET').slice(0, CARD_SIZE - 1);
+
+    const res = verifyRename(card, short, 42);
+    expect(res.ok).toBe(false);
+    expect(res.errors.join(' ')).toMatch(/length/i);
+  });
+
+  it('rejects a slot outside 0…255 rather than reading past the card', () => {
+    const card = cards['BEST.EMX'];
+    expect(verifyRename(card, Buffer.from(card), 256).ok).toBe(false);
+    expect(verifyRename(card, Buffer.from(card), -1).ok).toBe(false);
   });
 });

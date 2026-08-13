@@ -2036,6 +2036,9 @@ function emxPatternToUI(emxPat, index) {
 // memory, and it is what a mapping is applied to and verified against. The
 // area outside 0x200…0x12C7FF is never written, whatever happens here.
 let emxOriginalBuffer = null;
+// The card exactly as it came off disk, never patched. It is what ZURÜCK
+// restores, and it means a mistyped name is recoverable without reloading.
+let emxLoadedBuffer = null;
 let emxFilePath = null;
 
 /** The empty pattern in the renderer's own shape, for pending clears. */
@@ -2047,10 +2050,12 @@ function emxEmptyPatternUI() {
 function rememberEmxCard(buffer, filePath) {
   if (emxFormat.detectEmxFormat(buffer) === 'smartcard') {
     emxOriginalBuffer = Buffer.from(buffer);
+    emxLoadedBuffer = Buffer.from(buffer);
     emxFilePath = filePath;
     return true;
   }
   emxOriginalBuffer = null;
+  emxLoadedBuffer = null;
   emxFilePath = null;
   return false;
 }
@@ -2101,9 +2106,33 @@ ipcMain.handle('emx:open-patterns', async () => {
 ipcMain.handle('emx:rename-pattern', async (_evt, slot, name) => {
   if (!emxOriginalBuffer) return { error: 'No EMX SmartCard loaded' };
   try {
-    emxOriginalBuffer = emxFormat.renamePattern(emxOriginalBuffer, slot, name);
+    const renamed = emxFormat.renamePattern(emxOriginalBuffer, slot, name);
+
+    // Check before committing, not after. Once emxOriginalBuffer is replaced it
+    // is the only anchor left for the mapping check, so a rename that reached
+    // outside its eight bytes would from then on be measured against itself.
+    const check = emxFormat.verifyRename(emxOriginalBuffer, renamed, slot);
+    if (!check.ok) {
+      return { error: 'Refusing the rename — it touched more than the name field:\n' + check.errors.join('\n') };
+    }
+
+    emxOriginalBuffer = renamed;
     const data = emxFormat.parseSmartCardDump(emxOriginalBuffer);
     return { ok: true, slot, patterns: data.patterns.map((p, i) => emxPatternToUI(p, i)) };
+  } catch (err) { return { error: err.message }; }
+});
+
+/**
+ * Throw away every pending rename and hand the card back as it was loaded.
+ * The mapping lives in the renderer and is reset there; this is the half that
+ * cannot be undone locally, because renames have already patched the buffer.
+ */
+ipcMain.handle('emx:reset-card', async () => {
+  if (!emxLoadedBuffer) return { error: 'No EMX SmartCard loaded' };
+  try {
+    emxOriginalBuffer = Buffer.from(emxLoadedBuffer);
+    const data = emxFormat.parseSmartCardDump(emxOriginalBuffer);
+    return { ok: true, patterns: data.patterns.map((p, i) => emxPatternToUI(p, i)) };
   } catch (err) { return { error: err.message }; }
 });
 
