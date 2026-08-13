@@ -537,6 +537,247 @@ function parseSmartCardDump(buf) {
   };
 }
 
+// ── SmartCard writing: slot mapping ───────────────────────
+//
+// Rearranging a card is modelled as exactly one slot mapping: an array of 256
+// entries where `mapping[destination]` names the source slot (0…255) whose
+// pattern ends up there, or null for "leave this slot empty". Swapping,
+// moving and deleting are not separate file operations — they are different
+// mappings. Renaming is the one edit that is not a mapping, because it
+// changes eight bytes and no position.
+//
+// Only the pattern area (0x200 … 0x12C7FF) is ever written. The 512-byte
+// header and the 505,856 bytes of song and global data after it are not
+// understood and are copied through untouched — see verifySlotMapping.
+//
+// Spec: docs/superpowers/specs/2026-08-12-emx-slot-mapping-design.md
+
+const { EMX_EMPTY_PATTERN_B64 } = require('./emx-empty-pattern.js');
+
+const NAME_MIN_CHAR = 0x20;
+const NAME_MAX_CHAR = 0x7E;
+
+/**
+ * The hardware's own empty pattern — the factory Init block with a blank
+ * name, recovered from BEST.EMX. A fresh buffer each call, so a caller
+ * cannot corrupt the shared copy.
+ *
+ * @returns {Buffer} 4806 bytes
+ */
+function emptyPatternBlock() {
+  return Buffer.from(EMX_EMPTY_PATTERN_B64, 'base64');
+}
+
+/** Byte offset of a slot's pattern block. */
+function slotOffset(slot) {
+  return SMARTCARD.PATTERN_DATA + slot * SMARTCARD.PATTERN_SIZE;
+}
+
+/** First byte after the pattern area. */
+function patternAreaEnd() {
+  return SMARTCARD.PATTERN_DATA + SMARTCARD.NUM_PATTERNS * SMARTCARD.PATTERN_SIZE;
+}
+
+function assertSmartCard(buf) {
+  if (!Buffer.isBuffer(buf) || detectEmxFormat(buf) !== 'smartcard') {
+    throw new Error(
+      `EMX pattern management needs a SmartCard image of ${SMARTCARD.DUMP_SIZE} bytes; ` +
+      'SysEx dumps use a different layout and are not supported.'
+    );
+  }
+}
+
+function assertSlot(slot) {
+  if (!Number.isInteger(slot) || slot < 0 || slot >= SMARTCARD.NUM_PATTERNS) {
+    throw new Error(`slot must be an integer 0…${SMARTCARD.NUM_PATTERNS - 1}, got ${slot}`);
+  }
+}
+
+function assertMapping(mapping) {
+  if (!Array.isArray(mapping) || mapping.length !== SMARTCARD.NUM_PATTERNS) {
+    throw new Error(
+      `mapping must be an array of ${SMARTCARD.NUM_PATTERNS} entries, ` +
+      `got ${Array.isArray(mapping) ? mapping.length : typeof mapping}`
+    );
+  }
+  for (let dst = 0; dst < mapping.length; dst++) {
+    const src = mapping[dst];
+    if (src === null) continue;
+    if (!Number.isInteger(src) || src < 0 || src >= SMARTCARD.NUM_PATTERNS) {
+      throw new Error(
+        `mapping[${dst}] must be a source slot 0…${SMARTCARD.NUM_PATTERNS - 1} or null, got ${src}`
+      );
+    }
+  }
+}
+
+/**
+ * Rewrite a card's pattern area according to a slot mapping.
+ * Every byte outside 0x200 … 0x12C7FF is copied through unchanged.
+ *
+ * @param {Buffer} buffer   – the original card, never modified
+ * @param {Array<number|null>} mapping – 256 entries, destination → source slot
+ * @returns {Buffer} a new card of the same length
+ */
+function applySlotMapping(buffer, mapping) {
+  assertSmartCard(buffer);
+  assertMapping(mapping);
+
+  const out = Buffer.from(buffer);
+  const empty = emptyPatternBlock();
+
+  for (let dst = 0; dst < SMARTCARD.NUM_PATTERNS; dst++) {
+    const src = mapping[dst];
+    const at = slotOffset(dst);
+    if (src === null) {
+      empty.copy(out, at);
+    } else {
+      // Read from the ORIGINAL, never from `out` — a mapping that reuses a
+      // slot as both source and destination would otherwise read bytes it
+      // has already overwritten.
+      buffer.copy(out, at, slotOffset(src), slotOffset(src) + SMARTCARD.PATTERN_SIZE);
+    }
+  }
+
+  return out;
+}
+
+/**
+ * Change a pattern's name. Eight bytes, space-padded, nothing else moves.
+ * Characters outside 0x20…0x7E are rejected rather than substituted — a
+ * silently mangled name on a hardware card is worse than a refusal.
+ *
+ * @param {Buffer} buffer – the original card, never modified
+ * @param {number} slot   – 0…255
+ * @param {string} name   – up to 8 printable ASCII characters
+ * @returns {Buffer} a new card of the same length
+ */
+function renamePattern(buffer, slot, name) {
+  assertSmartCard(buffer);
+  assertSlot(slot);
+
+  if (typeof name !== 'string') {
+    throw new Error(`name must be a string, got ${typeof name}`);
+  }
+  if (name.length > NAME_LEN) {
+    throw new Error(`pattern names hold at most eight characters, got ${name.length}`);
+  }
+  for (let i = 0; i < name.length; i++) {
+    const code = name.charCodeAt(i);
+    if (code < NAME_MIN_CHAR || code > NAME_MAX_CHAR) {
+      throw new Error(
+        `name position ${i} is not printable ASCII (0x20…0x7E): ` +
+        `U+${code.toString(16).toUpperCase().padStart(4, '0')}`
+      );
+    }
+  }
+
+  const field = Buffer.alloc(NAME_LEN, NAME_MIN_CHAR);
+  field.write(name, 0, 'latin1');
+
+  const out = Buffer.from(buffer);
+  field.copy(out, slotOffset(slot));
+  return out;
+}
+
+// ── Mapping helpers (pure array maths, no card involved) ──
+
+/** The do-nothing mapping: every slot keeps its own pattern. */
+function mappingIdentity() {
+  return Array.from({ length: SMARTCARD.NUM_PATTERNS }, (_, i) => i);
+}
+
+/**
+ * Move one slot's pattern to another position, shifting everything in
+ * between by one. Nothing is overwritten — contrast mappingSwap.
+ */
+function mappingMove(mapping, from, to) {
+  assertSlot(from);
+  assertSlot(to);
+  const out = mapping.slice();
+  const [moved] = out.splice(from, 1);
+  out.splice(to, 0, moved);
+  return out;
+}
+
+/** Exchange two slots, leaving the other 254 alone. */
+function mappingSwap(mapping, a, b) {
+  assertSlot(a);
+  assertSlot(b);
+  const out = mapping.slice();
+  [out[a], out[b]] = [out[b], out[a]];
+  return out;
+}
+
+/** Mark slots empty. They keep existing; they stop holding a pattern. */
+function mappingClear(mapping, slots) {
+  const out = mapping.slice();
+  for (const slot of slots) {
+    assertSlot(slot);
+    out[slot] = null;
+  }
+  return out;
+}
+
+// ── The invariant ─────────────────────────────────────────
+
+/**
+ * The hard limit, checked before anything is written to disk:
+ *
+ *   1. every byte outside the pattern area is identical to the original
+ *   2. the length is unchanged
+ *   3. reading the result back yields the patterns the mapping described
+ *
+ * Its value is that it runs without hardware, so the 506 KB of song and
+ * global data are protected long before a card goes into a device.
+ *
+ * @returns {{ok: boolean, errors: string[]}}
+ */
+function verifySlotMapping(original, result, mapping) {
+  const errors = [];
+
+  if (!Buffer.isBuffer(result)) {
+    return { ok: false, errors: ['result is not a Buffer'] };
+  }
+  if (result.length !== original.length || result.length !== SMARTCARD.DUMP_SIZE) {
+    errors.push(
+      `length changed: ${original.length} → ${result.length} ` +
+      `(must stay ${SMARTCARD.DUMP_SIZE})`
+    );
+    // Offsets past the end would compare garbage; stop here.
+    return { ok: false, errors };
+  }
+
+  // 1. Outside the pattern area — header first, then song and global data.
+  const areaStart = SMARTCARD.PATTERN_DATA;
+  const areaEnd = patternAreaEnd();
+  if (!result.slice(0, areaStart).equals(original.slice(0, areaStart))) {
+    errors.push(`header changed: bytes outside the pattern area must stay identical (0x0…0x${(areaStart - 1).toString(16)})`);
+  }
+  if (!result.slice(areaEnd).equals(original.slice(areaEnd))) {
+    errors.push(`song/global area changed: bytes outside the pattern area must stay identical (0x${areaEnd.toString(16)}…end)`);
+  }
+
+  // 3. Read-back: does each slot hold what the mapping promised?
+  const empty = emptyPatternBlock();
+  for (let dst = 0; dst < SMARTCARD.NUM_PATTERNS; dst++) {
+    const src = mapping[dst];
+    const got = result.slice(slotOffset(dst), slotOffset(dst) + SMARTCARD.PATTERN_SIZE);
+    const want = src === null
+      ? empty
+      : original.slice(slotOffset(src), slotOffset(src) + SMARTCARD.PATTERN_SIZE);
+    if (!got.equals(want)) {
+      errors.push(
+        src === null
+          ? `slot ${dst} should be empty but does not hold the empty pattern`
+          : `slot ${dst} should hold the pattern from slot ${src} but does not`
+      );
+    }
+  }
+
+  return { ok: errors.length === 0, errors };
+}
+
 /**
  * List non-empty patterns from a dump (patterns with a non-empty name).
  */
@@ -583,8 +824,19 @@ module.exports = {
   parsePattern,
   parseSmartCardPart,
   parseSmartCardPattern,
+  parseSmartCardDump,
   parseEmxDump,
   listPatterns,
+
+  // SmartCard writing (slot mapping)
+  emptyPatternBlock,
+  applySlotMapping,
+  renamePattern,
+  mappingIdentity,
+  mappingMove,
+  mappingSwap,
+  mappingClear,
+  verifySlotMapping,
 };
 
 // ── Self-test ─────────────────────────────────────────────

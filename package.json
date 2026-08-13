@@ -41,6 +41,7 @@
       "node_modules/**/*",
       "package.json",
       "!analyze-esx.js",
+      "!extract-emx-empty-pattern.js",
       "!compare-fixes.js",
       "!test-esx-fix.js",
       "!test-data/**/*",
