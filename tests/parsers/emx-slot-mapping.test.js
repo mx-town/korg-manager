@@ -198,6 +198,13 @@ function rendererDropIndex(dragFrom, over, above) {
   return to;
 }
 
+/** Verbatim from emxSwapSelected() in src/index.html. */
+function rendererSwap(mapping, a, b) {
+  const next = mapping.slice();
+  [next[a], next[b]] = [next[b], next[a]];
+  return next;
+}
+
 describe('EMX slot mapping - the renderer repeats the move correctly', () => {
   it('the inline splice agrees with mappingMove everywhere', () => {
     for (const [from, to] of [[5, 2], [2, 5], [0, 255], [255, 0], [128, 129], [7, 7]]) {
@@ -224,6 +231,26 @@ describe('EMX slot mapping - the renderer repeats the move correctly', () => {
   it('dropping a row onto itself is a no-op in both halves', () => {
     expect(rendererDropIndex(4, 4, true)).toBe(4);
     expect(rendererDropIndex(4, 4, false)).toBe(4);
+  });
+
+  it('the inline swap agrees with mappingSwap', () => {
+    for (const [a, b] of [[0, 255], [3, 200], [128, 129], [7, 7]]) {
+      expect(rendererSwap(mappingIdentity(), a, b))
+        .toEqual(mappingSwap(mappingIdentity(), a, b));
+    }
+  });
+
+  it('swapping stays a permutation, and swapping twice is a no-op', () => {
+    const once = rendererSwap(mappingIdentity(), 12, 200);
+    expect(new Set(once).size).toBe(COUNT);
+    expect(rendererSwap(once, 12, 200)).toEqual(mappingIdentity());
+  });
+
+  it('swap moves exactly two slots, unlike a move which shifts a run', () => {
+    const swapped = rendererSwap(mappingIdentity(), 5, 9);
+    const moved = mappingMove(mappingIdentity(), 5, 9);
+    expect(swapped.filter((src, dst) => src !== dst)).toHaveLength(2);
+    expect(moved.filter((src, dst) => src !== dst).length).toBeGreaterThan(2);
   });
 
   it('never produces an index outside 0…255', () => {

@@ -1672,6 +1672,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
         <!-- EMX-1 slot management: hidden unless a SmartCard image is loaded -->
         <div class="emx-mgmt-bar" id="emxMgmtBar">
           <span class="emx-mgmt-lbl">SLOTS</span>
+          <button class="btn btn-sm" onclick="emxSwapSelected()" title="Exchange the two selected slots">⇄ TAUSCHEN</button>
           <button class="btn btn-sm" onclick="emxClearSelected()" title="Selected slots become empty">✕ LEEREN</button>
           <button class="btn btn-sm" onclick="emxRenameSelected()" title="Rename the selected slot">✎ NAME</button>
           <button class="btn btn-sm" onclick="emxResetMapping()" title="Discard all pending changes">↺ ZURÜCK</button>
@@ -1679,7 +1680,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
           <span class="emx-mgmt-count" id="emxMgmtCount"></span>
         </div>
         <div class="emx-mgmt-hint" id="emxMgmtHint">
-          Ziehen ordnet um · Klick wählt · Strg/Umschalt mehrfach · Doppelklick benennt um
+          Ziehen ordnet um (nachrücken) · zwei Slots wählen und ⇄ tauscht sie · Klick wählt · Strg/Umschalt mehrfach · Doppelklick benennt um
         </div>
         <div class="pat-list" id="patList">
           <div class="es"><div class="dz" onclick="patOpenESX()"><i>⚡</i><p><strong>PATTERN LADEN</strong><br><br>.esx / .e2pat / .e2allpat / .emx</p></div></div>
@@ -4090,6 +4091,21 @@ function emxSelectAll(){
 }
 
 // ── Actions ──────────────────────────────────────────────
+
+/**
+ * Exchange two slots. Not a gesture but a button, because dragging already
+ * means nachrücken and one gesture cannot mean both. Two slots exactly — a
+ * swap of three has no meaning.
+ */
+function emxSwapSelected(){
+  if(!emxActive())return;
+  if(emxPicked.size!==2){toast('Genau zwei Slots wählen','info');return}
+  const [a,b]=[...emxPicked];
+  const next=emxMapping.slice();
+  [next[a],next[b]]=[next[b],next[a]];
+  emxApplyMappingLocal(next);
+  toast(`${patPosLabel('emx',a)} ⇄ ${patPosLabel('emx',b)} (noch nicht geschrieben)`,'info');
+}
 
 function emxClearSelected(){
   if(!emxActive())return;

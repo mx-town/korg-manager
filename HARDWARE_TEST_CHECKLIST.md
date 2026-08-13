@@ -76,8 +76,10 @@ Vorbereitung: eine Karte mit **möglichst wenigen** Songs verwenden, idealerweis
 
 ☐ 1. Karte in der App laden, **nichts** ändern, als neue Datei speichern
 ☐ 2. Diese Datei auf die Karte, in die EMX laden → lädt sie fehlerfrei? ☐ ja ☐ nein
-☐ 3. Zwei Patterns tauschen, speichern, laden → sitzen sie am neuen Platz? ☐ ja ☐ nein
-☐ 4. Ein Pattern über zehn Plätze verschieben (nachrücken) → Reihenfolge korrekt? ☐ ja ☐ nein
+☐ 3. Zwei Patterns wählen, **⇄ TAUSCHEN**, speichern, laden → sitzen beide am
+     Platz des jeweils anderen, und **kein dritter Slot** hat sich bewegt? ☐ ja ☐ nein
+☐ 4. Ein Pattern über zehn Plätze **ziehen** (nachrücken — die zehn dazwischen
+     rutschen um eins, nichts wird überschrieben) → Reihenfolge korrekt? ☐ ja ☐ nein
 ☐ 5. Ein Pattern umbenennen → Name im Display korrekt? ☐ ja ☐ nein
 ☐ 6. Ein Pattern löschen → wie zeigt die EMX den leeren Slot?
 
