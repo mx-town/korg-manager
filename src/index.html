@@ -577,6 +577,47 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 .pat-item .pi{color:var(--txt-x);text-align:center} .pat-item.act .pi{color:var(--hi)}
 .pat-item .pn{color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .pat-item.act .pn{color:var(--led)}
 .pat-item .pb2{color:var(--txt-d);text-align:right}
+
+/* ── EMX-1 slot management (SmartCard only) ── */
+/* Rows carry a pending state: nothing is written until SAVE AS. */
+/* The grid stays exactly as it is: widening the position column to fit an
+   origin label ate the pattern names, which are the point of the list. A
+   moved row is marked by its border and names its origin in the tooltip. */
+.pat-item.emx-picked{
+  background:linear-gradient(180deg,rgba(0,60,80,.5),rgba(0,40,60,.35));
+  border-left-color:var(--led);
+}
+.pat-item.emx-picked .pn{color:var(--led)}
+.pat-item.emx-moved{border-left-color:var(--warn)}
+.pat-item.emx-moved .pi{color:var(--warn)}
+.pat-item.emx-cleared .pn{color:var(--txt-x);font-style:italic}
+.pat-item.emx-cleared .pi{color:var(--txt-x)}
+.pat-item.emx-drop-above{box-shadow:inset 0 3px 0 var(--led)}
+.pat-item.emx-drop-below{box-shadow:inset 0 -3px 0 var(--led)}
+.pat-item.emx-dragging{opacity:.4}
+.pat-item .pn-edit{
+  width:100%;background:var(--void);border:1px solid var(--led);color:var(--led);
+  font-family:var(--lcd);font-size:12px;letter-spacing:1px;padding:1px 4px;outline:none;
+}
+.emx-mgmt-bar{
+  display:none;align-items:center;gap:8px;flex-wrap:wrap;
+  padding:8px 12px;background:var(--dark);border-bottom:1px solid var(--brd);
+}
+.emx-mgmt-bar.on{display:flex}
+.emx-mgmt-lbl{
+  font-family:var(--head);font-weight:700;font-size:10px;letter-spacing:3px;
+  color:var(--blue-d);
+}
+.emx-mgmt-count{
+  font-family:var(--lcd);font-size:11px;color:var(--led);letter-spacing:1px;margin-left:auto;
+}
+.emx-mgmt-hint{
+  font-family:var(--ui);font-size:12px;color:var(--txt-x);
+  padding:0 12px 8px;background:var(--dark);border-bottom:1px solid var(--brd);
+  display:none;
+}
+.emx-mgmt-hint.on{display:block}
+.emx-pending{color:var(--warn)}
 .pat-grid-panel{display:flex;flex-direction:column;overflow:hidden;background:var(--void);flex:1;min-height:0}
 .pat-info-bar{display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--dark);border-bottom:1px solid var(--brd);font-family:var(--lcd);font-size:12px;flex-wrap:wrap}
 .pat-info-bar span{color:var(--led)}
@@ -1624,6 +1665,18 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
     <div class="pat-main">
       <div class="pat-list-panel">
         <div class="sl-hdr"><h2>▸ PATTERNS</h2><span class="sc" id="patPC">0</span></div>
+        <!-- EMX-1 slot management: hidden unless a SmartCard image is loaded -->
+        <div class="emx-mgmt-bar" id="emxMgmtBar">
+          <span class="emx-mgmt-lbl">SLOTS</span>
+          <button class="btn btn-sm" onclick="emxClearSelected()" title="Selected slots become empty">✕ LEEREN</button>
+          <button class="btn btn-sm" onclick="emxRenameSelected()" title="Rename the selected slot">✎ NAME</button>
+          <button class="btn btn-sm" onclick="emxResetMapping()" title="Discard all pending changes">↺ ZURÜCK</button>
+          <button class="btn btn-sm btn-hi" onclick="emxSaveAs()" title="Write a new card file">▼ SPEICHERN</button>
+          <span class="emx-mgmt-count" id="emxMgmtCount"></span>
+        </div>
+        <div class="emx-mgmt-hint" id="emxMgmtHint">
+          Ziehen ordnet um · Klick wählt · Strg/Umschalt mehrfach · Doppelklick benennt um
+        </div>
         <div class="pat-list" id="patList">
           <div class="es"><div class="dz" onclick="patOpenESX()"><i>⚡</i><p><strong>PATTERN LADEN</strong><br><br>.esx / .e2pat / .e2allpat / .emx</p></div></div>
         </div>
@@ -2963,6 +3016,9 @@ document.addEventListener('keydown',e=>{
   if(activeDevice==='esx1'&&e.key==='ArrowUp'&&sel>0)selS(sel-1);
   if(e.key==='F2'&&sel>=0)startRen(sel);
   if(e.ctrlKey&&e.key==='a'&&activeDevice==='esx1'){e.preventDefault();toggleSelectAll()}
+  // Delete and F2 are already bound to the sample manager above without a
+  // device check, so slot management takes neither — its bar has buttons.
+  if(e.ctrlKey&&e.key==='a'&&emxActive()){e.preventDefault();emxSelectAll()}
   if(e.ctrlKey&&e.key==='z'){e.preventDefault();doUndo()}
   if(e.ctrlKey&&(e.key==='y'||e.key==='Z')){e.preventDefault();doRedo()}
   if(e.ctrlKey&&e.key==='b'){e.preventDefault();toggleSidebar()}
@@ -3012,7 +3068,9 @@ function updateStatusBar(){
     const fmt=patFormat||'—';
     l.innerHTML=`Patterns — <span class="hl">${fmt}</span>`;
     const p=patData.length;
-    r.innerHTML=`${fmt} | <span class="bl">${p}</span> pattern${p!==1?'s':''} | Read-Only`;
+    // An EMX SmartCard is no longer read-only — its slots can be rearranged.
+    const mode=emxActive()?(emxDirty()?'<span class="emx-pending">Slots geändert</span>':'Slots bearbeitbar'):'Read-Only';
+    r.innerHTML=`${fmt} | <span class="bl">${p}</span> pattern${p!==1?'s':''} | ${mode}`;
   }
 }
 
@@ -3734,8 +3792,71 @@ setTimeout(function setupDelegation(){
   if(pl)pl.addEventListener('click',e=>{
     const item=e.target.closest('.pat-item[data-idx]');
     if(!item)return;
-    patSelectPat(parseInt(item.dataset.idx));
+    const idx=parseInt(item.dataset.idx);
+    // EMX slot management claims Ctrl/Shift clicks for multi-select; a plain
+    // click still selects the pattern for the detail view.
+    if(emxHandleRowClick(e,idx))return;
+    patSelectPat(idx);
   });
+
+  // ── EMX slot management: rename on double-click, reorder by dragging ──
+  if(pl){
+    pl.addEventListener('dblclick',e=>{
+      if(!emxActive())return;
+      const item=e.target.closest('.pat-item[data-idx]');
+      if(!item)return;
+      e.preventDefault();
+      emxStartRename(parseInt(item.dataset.idx));
+    });
+
+    let dragFrom=-1;
+    const clearMarks=()=>pl.querySelectorAll('.emx-drop-above,.emx-drop-below')
+      .forEach(n=>n.classList.remove('emx-drop-above','emx-drop-below'));
+
+    pl.addEventListener('dragstart',e=>{
+      if(!emxActive()){e.preventDefault();return}
+      const item=e.target.closest('.pat-item[data-idx]');
+      if(!item){e.preventDefault();return}
+      dragFrom=parseInt(item.dataset.idx);
+      item.classList.add('emx-dragging');
+      e.dataTransfer.effectAllowed='move';
+      e.dataTransfer.setData('text/plain',String(dragFrom)); // Firefox needs a payload
+    });
+
+    pl.addEventListener('dragover',e=>{
+      if(dragFrom<0)return;
+      const item=e.target.closest('.pat-item[data-idx]');
+      if(!item)return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect='move';
+      const r=item.getBoundingClientRect();
+      const above=e.clientY<r.top+r.height/2;
+      clearMarks();
+      item.classList.add(above?'emx-drop-above':'emx-drop-below');
+    });
+
+    pl.addEventListener('drop',e=>{
+      if(dragFrom<0)return;
+      const item=e.target.closest('.pat-item[data-idx]');
+      if(!item)return;
+      e.preventDefault();
+      const over=parseInt(item.dataset.idx);
+      const r=item.getBoundingClientRect();
+      const above=e.clientY<r.top+r.height/2;
+      // Dropping below a row means landing after it — but once the dragged row
+      // is spliced out, every index past it shifts down by one.
+      let to=above?over:over+1;
+      if(dragFrom<to)to--;
+      clearMarks();
+      const from=dragFrom;dragFrom=-1;
+      if(to!==from)emxMoveSlot(from,to);
+    });
+
+    pl.addEventListener('dragend',()=>{
+      dragFrom=-1;clearMarks();
+      pl.querySelectorAll('.emx-dragging').forEach(n=>n.classList.remove('emx-dragging'));
+    });
+  }
 },0);
 
 function patSetMode(mode, partIndex){
@@ -3848,9 +3969,10 @@ async function patOpenEMX(){
   const r=await window.api.emx.openPatterns();
   if(!r||r.canceled)return;
   if(r.error){toast(r.error,'error');return}
-  patFilePath=null;
+  patFilePath=r.filePath||null;
   patFormat='EMX-1';
   patData=r.patterns||[];
+  emxBeginManagement(r);
   Object.keys(patSampleCache).forEach(k=>delete patSampleCache[k]);
   patSel=patData.length?0:-1;
   document.getElementById('patFormatBadge').textContent=`EMX-1 :: ${r.filename}`;
@@ -3858,6 +3980,199 @@ async function patOpenEMX(){
   if(patSel>=0)patSelectPat(0);
   updateStatusBar();
   toast(`EMX PATTERNS: ${patData.length} loaded from ${r.filename}`,'success');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  EMX-1 SLOT MANAGEMENT (SmartCard only)
+// ═══════════════════════════════════════════════════════════
+//
+// Every rearrangement is one slot mapping over all 256 slots:
+// emxMapping[destination] is the source slot, or null for "empty".
+// Moving, swapping and deleting are different mappings, not different
+// operations. The mapping floats in the renderer and nothing reaches the
+// file until SAVE — then main.js re-checks it and refuses to write if the
+// bytes outside the pattern area moved. See CONTEXT.md for the vocabulary.
+//
+// patData is kept permuted to match the mapping, so every existing reader
+// of patData[i] keeps meaning "what sits in slot i" without changes.
+
+let emxCanManage=false;     // false for SysEx dumps — they have another layout
+let emxSrcData=null;        // patterns as they were loaded, never reordered
+let emxMapping=null;        // destination → source slot, or null
+let emxEmptyUI=null;        // what an emptied slot looks like in the UI
+let emxPicked=new Set();    // selected destination slots
+let emxLastPicked=-1;       // anchor for shift-click ranges
+
+function emxBeginManagement(r){
+  emxCanManage=!!(r&&r.canManage&&r.emptyPattern);
+  emxPicked.clear();
+  emxLastPicked=-1;
+  if(!emxCanManage){emxSrcData=null;emxMapping=null;emxEmptyUI=null;emxSyncBar();return}
+  emxSrcData=patData.slice();
+  emxEmptyUI=r.emptyPattern;
+  emxMapping=emxSrcData.map((_,i)=>i);
+  emxSyncBar();
+}
+
+/** True while a loaded card can actually be rearranged. */
+function emxActive(){return emxCanManage&&patFormat==='EMX-1'&&!!emxMapping}
+
+/** Pending changes exist when the mapping is no longer the identity. */
+function emxDirty(){
+  if(!emxActive())return false;
+  return emxMapping.some((src,dst)=>src!==dst);
+}
+
+/** Rebuild patData from the mapping, then repaint. */
+function emxApplyMappingLocal(next){
+  emxMapping=next;
+  // A shallow copy per cleared slot, so the shared empty template cannot be
+  // mutated through one slot and change all the others.
+  patData=emxMapping.map(src=>src===null?{...emxEmptyUI}:emxSrcData[src]);
+  patRenderList();
+  emxSyncBar();
+  updateStatusBar();
+  if(patSel>=0&&patData[patSel])patRenderCurrentView(patData[patSel]);
+}
+
+function emxSyncBar(){
+  const bar=document.getElementById('emxMgmtBar');
+  const hint=document.getElementById('emxMgmtHint');
+  const cnt=document.getElementById('emxMgmtCount');
+  const on=emxActive();
+  if(bar)bar.classList.toggle('on',on);
+  if(hint)hint.classList.toggle('on',on);
+  if(!cnt)return;
+  if(!on){cnt.textContent='';return}
+  const moved=emxMapping.filter((src,dst)=>src!==dst).length;
+  cnt.innerHTML=`${emxPicked.size} gewählt`+
+    (moved?` · <span class="emx-pending">${moved} geändert</span>`:'');
+}
+
+// ── Selection ────────────────────────────────────────────
+
+function emxHandleRowClick(ev,slot){
+  if(!emxActive())return false;
+  if(ev.shiftKey&&emxLastPicked>=0){
+    const f=Math.min(emxLastPicked,slot),t=Math.max(emxLastPicked,slot);
+    for(let i=f;i<=t;i++)emxPicked.add(i);
+  }else if(ev.ctrlKey||ev.metaKey){
+    if(emxPicked.has(slot))emxPicked.delete(slot);else emxPicked.add(slot);
+    emxLastPicked=slot;
+  }else{
+    emxPicked.clear();emxPicked.add(slot);emxLastPicked=slot;
+    return false; // plain click still selects the pattern for the detail view
+  }
+  patRenderList();
+  emxSyncBar();
+  return true;    // handled as a selection gesture, do not change patSel
+}
+
+function emxSelectAll(){
+  if(!emxActive())return;
+  if(emxPicked.size===patData.length)emxPicked.clear();
+  else for(let i=0;i<patData.length;i++)emxPicked.add(i);
+  patRenderList();emxSyncBar();
+}
+
+// ── Actions ──────────────────────────────────────────────
+
+function emxClearSelected(){
+  if(!emxActive())return;
+  if(!emxPicked.size){toast('Keine Slots gewählt','info');return}
+  const next=emxMapping.slice();
+  for(const slot of emxPicked)next[slot]=null;
+  const n=emxPicked.size;
+  emxApplyMappingLocal(next);
+  toast(`${n} Slot${n>1?'s':''} geleert (noch nicht geschrieben)`,'info');
+}
+
+function emxResetMapping(){
+  if(!emxActive())return;
+  if(!emxDirty()){toast('Keine Änderungen','info');return}
+  emxPicked.clear();emxLastPicked=-1;
+  emxApplyMappingLocal(emxSrcData.map((_,i)=>i));
+  toast('Zuordnung zurückgesetzt','success');
+}
+
+/** Move one slot to another position, shifting everything in between. */
+function emxMoveSlot(from,to){
+  if(!emxActive()||from===to)return;
+  const next=emxMapping.slice();
+  const [moved]=next.splice(from,1);
+  next.splice(to,0,moved);
+  emxPicked.clear();emxPicked.add(to);emxLastPicked=to;
+  emxApplyMappingLocal(next);
+}
+
+// ── Rename ───────────────────────────────────────────────
+
+function emxRenameSelected(){
+  if(!emxActive())return;
+  if(emxPicked.size!==1){toast('Genau einen Slot wählen','info');return}
+  emxStartRename([...emxPicked][0]);
+}
+
+/** Edit the name in the row itself. Enter commits, Escape cancels. */
+function emxStartRename(slot){
+  if(!emxActive())return;
+  if(emxMapping[slot]===null){toast('Leerer Slot hat keinen Namen','info');return}
+  const el=_patListItems[slot];if(!el)return;
+  const cell=el.children[1];
+  if(cell.querySelector('.pn-edit'))return;
+  const before=(patData[slot]&&patData[slot].name)||'';
+
+  const input=document.createElement('input');
+  input.className='pn-edit';
+  input.maxLength=8;
+  input.value=before.slice(0,8);
+  cell.textContent='';
+  cell.appendChild(input);
+  input.focus();input.select();
+
+  let done=false;
+  const finish=async(commit)=>{
+    if(done)return;done=true;
+    const name=input.value;
+    if(!commit||name===before){patRenderList();return}
+    const r=await window.api.emx.renamePattern(emxMapping[slot],name);
+    if(!r||r.error){toast((r&&r.error)||'Umbenennen fehlgeschlagen','error');patRenderList();return}
+    // main.js re-parsed the card: refresh the source list, keep the mapping.
+    emxSrcData=r.patterns||emxSrcData;
+    emxApplyMappingLocal(emxMapping);
+    toast(`Slot ${patPosLabel('emx',slot)} → "${name.trim()||'(leer)'}"`,'success');
+  };
+  input.addEventListener('keydown',e=>{
+    e.stopPropagation();  // the pattern viewer's arrow-key navigation must not fire
+    if(e.key==='Enter')finish(true);
+    else if(e.key==='Escape')finish(false);
+  });
+  input.addEventListener('blur',()=>finish(true));
+}
+
+// ── Save ─────────────────────────────────────────────────
+
+async function emxSaveAs(){
+  if(!emxActive())return;
+  if(!emxDirty()){toast('Keine Änderungen zu speichern','info');return}
+
+  // Not suppressible: with the song area's structure unknown, there is no way
+  // to tell whether a card holds songs at all, so the warning is unconditional.
+  const ok=confirm(
+    'Songs verweisen auf Slotnummern, nicht auf Patterns.\n\n'+
+    'Nach dem Umsortieren spielen vorhandene Songs möglicherweise andere '+
+    'Patterns. Die Songdaten selbst bleiben unverändert erhalten.\n\n'+
+    'Karte jetzt als neue Datei speichern?'
+  );
+  if(!ok)return;
+
+  const r=await window.api.emx.applyMapping(emxMapping);
+  if(!r||r.canceled)return;
+  if(r.error){toast(r.error,'error');return}
+
+  // The written file is now the reference point: the pending changes are no
+  // longer pending. The card in memory is unchanged, so the mapping stays.
+  toast(`Gespeichert: ${r.filePath.split(/[\\/]/).pop()}`,'success');
 }
 
 async function patSave(){
@@ -3902,9 +4217,11 @@ function patBuildListDOM(){
 }
 function patRenderList(){
   DOM.patPC.textContent=patData.length;
-  if(!patData.length){DOM.patList.innerHTML=`<div class="es"><div class="dz" onclick="patOpenESX()"><i>⚡</i><p><strong>PATTERN LADEN</strong><br><br>.esx / .e2pat / .e2allpat / .emx</p></div></div>`;_patListItems=[];return}
+  if(!patData.length){DOM.patList.innerHTML=`<div class="es"><div class="dz" onclick="patOpenESX()"><i>⚡</i><p><strong>PATTERN LADEN</strong><br><br>.esx / .e2pat / .e2allpat / .emx</p></div></div>`;_patListItems=[];emxSyncBar();return}
   // Rebuild cached DOM if count changed
   if(_patListItems.length!==patData.length)patBuildListDOM();
+  const emxMgmt=emxActive();
+  DOM.patList.classList.toggle('emx-mgmt',emxMgmt);
   for(let i=0;i<patData.length;i++){
     const p=patData[i];
     const name=p.name||'Pattern';
@@ -3921,7 +4238,22 @@ function patRenderList(){
     }}
     el.children[2].textContent=activeCount>0?'●'.repeat(Math.min(activeCount,8))+(activeCount>8?'+':''):'';
     el.children[3].textContent=(p.bpm||120).toFixed(0);
+    el.draggable=emxMgmt;
+    if(emxMgmt){
+      // A slot is empty because the mapping says so, never because its name is
+      // blank — real cards hold plenty of blank-named slots full of material.
+      const src=emxMapping[i];
+      el.classList.toggle('emx-picked',emxPicked.has(i));
+      el.classList.toggle('emx-cleared',src===null);
+      el.classList.toggle('emx-moved',src!==null&&src!==i);
+      if(src===null){el.children[1].textContent='—— leer ——';el.title='Wird beim Speichern geleert'}
+      else if(src!==i)el.title=`Kommt aus Slot ${patPosLabel(p.deviceId,src)}`;
+      else el.title='';
+    }else if(el.classList.contains('emx-picked')||el.classList.contains('emx-cleared')||el.classList.contains('emx-moved')){
+      el.classList.remove('emx-picked','emx-cleared','emx-moved');
+    }
   }
+  emxSyncBar();
 }
 
 function patSetBarCount(n){

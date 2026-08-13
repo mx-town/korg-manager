@@ -2026,6 +2026,35 @@ function emxPatternToUI(emxPat, index) {
   };
 }
 
+// ── EMX pattern management state ───────────────────────────
+//
+// The loaded card's bytes, kept so pattern management can preserve-and-patch.
+// Only ever set for SmartCard images — a SysEx dump uses a different layout,
+// so it stays null and the management handlers refuse to run.
+//
+// Renames patch into this buffer: it is the current state of the card in
+// memory, and it is what a mapping is applied to and verified against. The
+// area outside 0x200…0x12C7FF is never written, whatever happens here.
+let emxOriginalBuffer = null;
+let emxFilePath = null;
+
+/** The empty pattern in the renderer's own shape, for pending clears. */
+function emxEmptyPatternUI() {
+  return emxPatternToUI(emxFormat.parseSmartCardPattern(emxFormat.emptyPatternBlock(), 0), 0);
+}
+
+/** Remember a freshly loaded card, but only if it is a SmartCard image. */
+function rememberEmxCard(buffer, filePath) {
+  if (emxFormat.detectEmxFormat(buffer) === 'smartcard') {
+    emxOriginalBuffer = Buffer.from(buffer);
+    emxFilePath = filePath;
+    return true;
+  }
+  emxOriginalBuffer = null;
+  emxFilePath = null;
+  return false;
+}
+
 ipcMain.handle('emx:open-file', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     title: 'Open EMX-1 File',
@@ -2037,7 +2066,8 @@ ipcMain.handle('emx:open-file', async () => {
     const buffer = await fsp.readFile(result.filePaths[0]);
     const data = emxFormat.parseEmxDump(buffer);
     const patterns = data.patterns.map((p, i) => emxPatternToUI(p, i));
-    return { filePath: result.filePaths[0], patterns };
+    const canManage = rememberEmxCard(buffer, result.filePaths[0]);
+    return { filePath: result.filePaths[0], patterns, canManage };
   } catch (err) { return { error: err.message }; }
 });
 
@@ -2053,7 +2083,73 @@ ipcMain.handle('emx:open-patterns', async () => {
     const data = emxFormat.parseEmxDump(buffer);
     const patterns = data.patterns.map((p, i) => emxPatternToUI(p, i));
     const filename = path.basename(result.filePaths[0]);
-    return { canceled: false, filename, format: 'EMX-1', patterns };
+    const canManage = rememberEmxCard(buffer, result.filePaths[0]);
+    return {
+      canceled: false, filename, format: 'EMX-1', patterns,
+      filePath: result.filePaths[0], canManage,
+      // What an emptied slot looks like, so the renderer can show a pending
+      // clear without writing anything.
+      emptyPattern: canManage ? emxEmptyPatternUI() : null,
+    };
+  } catch (err) { return { error: err.message }; }
+});
+
+/**
+ * Rename one pattern in memory. No file is written — the change becomes
+ * permanent only when the card is saved through emx:apply-mapping.
+ */
+ipcMain.handle('emx:rename-pattern', async (_evt, slot, name) => {
+  if (!emxOriginalBuffer) return { error: 'No EMX SmartCard loaded' };
+  try {
+    emxOriginalBuffer = emxFormat.renamePattern(emxOriginalBuffer, slot, name);
+    const data = emxFormat.parseSmartCardDump(emxOriginalBuffer);
+    return { ok: true, slot, patterns: data.patterns.map((p, i) => emxPatternToUI(p, i)) };
+  } catch (err) { return { error: err.message }; }
+});
+
+/**
+ * Write the card out under a new slot mapping.
+ *
+ * The invariant is checked before the save dialog opens, not after: if the
+ * rebuilt card fails it, nothing is written and nothing is asked of the user.
+ * Overwriting the source file is not offered — there are no backups yet.
+ */
+ipcMain.handle('emx:apply-mapping', async (_evt, mapping) => {
+  if (!emxOriginalBuffer) return { error: 'No EMX SmartCard loaded' };
+
+  let rebuilt;
+  try {
+    rebuilt = emxFormat.applySlotMapping(emxOriginalBuffer, mapping);
+  } catch (err) { return { error: err.message }; }
+
+  const check = emxFormat.verifySlotMapping(emxOriginalBuffer, rebuilt, mapping);
+  if (!check.ok) {
+    return {
+      error: 'Refusing to write — the rebuilt card failed its own check:\n' +
+             check.errors.slice(0, 5).join('\n') +
+             (check.errors.length > 5 ? `\n…and ${check.errors.length - 5} more` : ''),
+    };
+  }
+
+  const suggested = emxFilePath
+    ? path.join(path.dirname(emxFilePath),
+        path.basename(emxFilePath, path.extname(emxFilePath)) + '-NEW' + (path.extname(emxFilePath) || '.EMX'))
+    : 'PATTERNS-NEW.EMX';
+
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: 'Save EMX-1 Card As',
+    defaultPath: suggested,
+    filters: [{ name: 'EMX-1 Files', extensions: ['emx'] }, { name: 'All Files', extensions: ['*'] }],
+  });
+  if (result.canceled) return { canceled: true };
+
+  if (emxFilePath && path.resolve(result.filePath) === path.resolve(emxFilePath)) {
+    return { error: 'Overwriting the card this file came from is not supported yet. Choose a different name.' };
+  }
+
+  try {
+    await fsp.writeFile(result.filePath, rebuilt);
+    return { ok: true, filePath: result.filePath };
   } catch (err) { return { error: err.message }; }
 });
 
