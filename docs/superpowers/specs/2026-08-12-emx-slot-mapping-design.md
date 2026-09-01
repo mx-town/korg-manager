@@ -1,6 +1,13 @@
 # EMX-1: Pattern-Verwaltung über Slot-Zuordnung
 
 **Datum:** 2026-08-12
+**Stand (2026-08-18):** **Gebaut, geprüft, in `main`** (`44d9536`, `87aaf45`, `9bbbbcb`,
+`e6d49ff`, `ef8ba94`), 73 Tests gegen die drei echten Karten. **Nie auf Hardware
+gelaufen.** Seither erledigt: die README-Rüge unter „Problem" durch `25a132a`; „Offen:
+Der Branch" ist beantwortet. Überholt: der Absatz „Backups und Versionierung" (:299)
+nennt git als Kandidaten — gemessen widerlegt in
+`docs/adr/0001-keine-versionsverwaltung-fuer-backups.md`, ausgeführt in
+`2026-08-13-backups-und-versionierung-design.md`. Kein Plan vorhanden.
 **Branch:** offen — `feat/unified-sample-manager` ist 16 Commits vor `origin/main`
 und nicht gemergt; laut `ROADMAP.md:53` soll pro Aufgabe von `main` aus gearbeitet werden
 **Betroffen:** `src/emx-format.js`, `main.js`, `preload.js`, `src/index.html`

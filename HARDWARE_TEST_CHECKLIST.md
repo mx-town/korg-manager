@@ -49,6 +49,20 @@ neun von zehn umzuschreiben zerstört einen Song unbemerkt.
 
 Vorbereitung: eine Karte mit **möglichst wenigen** Songs verwenden, idealerweise gar keinen.
 
+> **Vorher, kostenlos: die Slot-Notation ablesen.** Ob die EMX-1 ihre 256 Slots als
+> sechzehn Bänke zu sechzehn (`A01`…`P16`) oder als vier zu vierundsechzig
+> (`A.01`…`D.64`) adressiert, ist in diesem Projekt **unbelegt** — `CONTEXT.md` und
+> `EMX_SMARTCARD_FORMAT.md:52` behaupten das erste, `ESX_FILE_STRUCTURE.md:174`
+> das zweite für die ESX. Aus keiner Datei ist das zu holen, weil ein Pattern seine
+> Position nicht trägt. Das Gerätedisplay zeigt es sofort.
+>
+> ☐ Was zeigt das Display beim höchsten erreichbaren Pattern? `______` (`P16` ⇒ 16×16,
+> `D.64` ⇒ 4×64)
+>
+> Bis das eingetragen ist, ist **Messung 4 zweideutig**: `B01` ist Slot 16 in der einen
+> Lesart und Slot 64 in der anderen. Der Sprung von Messung 3 auf 4 verrät die Bankgröße
+> ohnehin mit — beide Zeilen also erst auswerten, wenn oben etwas steht.
+
 | ☐ | # | Am Gerät einstellen | Datei | Ergebnis eintragen |
 |---|---|---|---|---|
 | ☐ | 1 | Ein Song, **ein** Schritt, zeigt auf `A01` | `SONG_A01.EMX` | Song beginnt bei Offset: ______________ |

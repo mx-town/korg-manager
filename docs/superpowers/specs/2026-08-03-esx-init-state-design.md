@@ -1,6 +1,14 @@
 # ESX-1: hardware-korrekter Leerzustand für neu gebaute Files
 
 **Datum:** 2026-08-03
+**Stand (2026-08-18):** **Gebaut und in `main`** (`4564061`, `f17f088`, `e5f4ae2`,
+`0abaf63`, `9656951`, `fed10ac`, `6661c77`, `9dac6e2`). Plan:
+`docs/superpowers/plans/2026-08-03-esx-init-state.md`. **§5 ist überholt:** die
+Ziffernzahl fiel mit `a3946b2` (`A.001` → `A.01`, „no hardware backing"), und die
+EMX-Notation lautet seit `2026-08-12-emx-slot-mapping-design.md` `A01`…`P16` statt
+`A.001`…`D.064` — sie ist allerdings selbst unbelegt, siehe `CONTEXT.md`, Abschnitt
+Slot. Ebenfalls überholt: `e5f4ae2` vergab „Init" als Namen leerer Patterns, `9dac6e2`
+korrigierte das auf leere Namen.
 **Branch:** `feat/unified-sample-manager`
 **Betroffen:** `src/esx-format.js`, `src/index.html` (Pattern Viewer), `main.js`
 

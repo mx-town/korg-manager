@@ -1,6 +1,13 @@
 # Unified Sample Manager (Dual-Bank) — Design
 
 **Date:** 2026-07-17
+**Stand (2026-08-18):** **Überholt — nur noch als Vorgeschichte lesen.** Project S wurde
+gebaut, driftete in einen App-weiten Umbau und ist geparkt (`ROADMAP.md:8`); Code nur auf
+`feat/project-s-dual-bank`. Ersetzt durch
+`2026-07-23-unified-sample-manager-v2-design.md`, gebaut und in `main`. Der hier
+entworfene IPC-Namensraum `bank:*` existiert nicht und kommt nicht —
+`docs/adr/0002-dateien-als-tabs-statt-zweier-baenke.md`. Aus diesem Spec überlebt hat
+`src/bank.js` als reine Bibliothek. Kein Plan vorhanden.
 **Status:** Approved (brainstorming session with visual mockups; user picked
 dual-pane layout "A" with pop-up editor)
 **Motivation:** The app has two separate sampler tabs (ESX-1 SAMPLER, E2S

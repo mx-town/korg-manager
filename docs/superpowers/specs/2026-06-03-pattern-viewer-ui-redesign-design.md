@@ -1,6 +1,10 @@
 # Pattern Viewer UI Redesign — Design Spec
 
 **Date:** 2026-06-03
+**Stand (2026-08-18):** **Umgesetzt.** `repeat(5,1fr)` ist vorhanden; `max-height:35vh`
+und `.emx-bot-row` sind aus `src/index.html` verschwunden, `drawRotaryKnob` blieb
+unangetastet. Plan: `docs/superpowers/plans/2026-06-03-pattern-viewer-ui-redesign.md`.
+Veraltet im Text: „240+ tests" — es sind 454.
 **Component:** Pattern Viewer (PARTS view) for ESX-1 and EMX-1
 **File touched:** `src/index.html` (CSS + render functions only)
 

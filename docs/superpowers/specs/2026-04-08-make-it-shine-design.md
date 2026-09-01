@@ -1,6 +1,11 @@
 # Make It Shine — Design Spec
 
 **Date:** 2026-04-08
+**Stand (2026-08-18):** **Umgesetzt.** `hw-panel`, `hw-recess`, `glow-pulse`,
+`led-flicker`, `warm-up`, Boot-Overlay, `skipBoot` und `prefers-reduced-motion` stehen
+in `src/index.html`. Plan: `docs/superpowers/plans/2026-04-09-make-it-shine.md`.
+Veraltet im Text: „240+ tests" (es sind 454) und „WRITING 26,542,080 BYTES" (§2.4) —
+die ESX-Dateigröße ist variabel (`0x250010 + currentOffset`).
 **Approach:** Layered Build (Phase 1: Polish Foundation → Phase 2: Theatrical Moments)
 **Scope:** Visual polish + wow-factor UX across the entire Electribe Sample Werkstatt app
 **Files affected:** `src/index.html` (CSS + JS inline), `main.js` (IPC for boot data)

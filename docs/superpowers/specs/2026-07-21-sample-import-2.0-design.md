@@ -1,6 +1,13 @@
 # Sample Import 2.0 (Project B) — Design
 
 **Date:** 2026-07-21
+**Stand (2026-08-18):** **Grundlage entfallen, Ziele gültig.** Die unten genannte
+Voraussetzung — Project S mit dem `bank:*`-Layer — existiert nicht und kommt nicht
+(`docs/adr/0002-dateien-als-tabs-statt-zweier-baenke.md`). Fachlich weiterhin gewollt
+(`ROADMAP.md:29`): MP3/FLAC/OGG, echtes AIFF, Stereo-Import, besseres Resampling,
+`smpl`-Loop-Punkte. **Der Architekturteil ist gegenstandslos** und gegen `file:*` plus
+den vorhandenen Import-Pfad (`import-samples`, `import-wav-files`, `import-zip`,
+`e2s:import-wav`) neu zu schreiben. Kein Plan vorhanden.
 **Status:** Draft (derived from roadmap in the Unified Sample Manager spec,
 2026-07-17). Depends on Project S (Unified Sample Manager) being in place —
 imports land into a bank via the `bank:*` layer.

@@ -1,6 +1,12 @@
 # Unified Sample Manager v2 — Design
 
 **Date:** 2026-07-23
+**Stand (2026-08-18):** **Gebaut und in `main`** (`7683401`, `2717349`, `bfdf080`,
+`60f3461`). Zwei Abweichungen: `main.js` hat zwei `file:*`-Handler mehr als hier
+spezifiziert (`file:open-any`, `file:set-hacktribe`), und `#e2s-view` liegt wie
+angekündigt noch im Code — **der Cleanup-Commit steht aus.** Dieser Spec ist die
+Grundlage von `docs/adr/0002-dateien-als-tabs-statt-zweier-baenke.md` und ersetzt
+`2026-07-17-unified-sample-manager-design.md`. Kein Plan vorhanden.
 **Status:** Approved (goal-directive; refines the parked Project S per the
 2026-07-17 spec + the lessons recorded after it was parked)
 **Branch:** `feat/unified-sample-manager` (built from clean `main` @ 2fc1288)

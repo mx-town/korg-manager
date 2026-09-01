@@ -1,6 +1,10 @@
 # Pattern Viewer: LCD Param Display + Label Contrast — Design Spec
 
 **Date:** 2026-07-07
+**Stand (2026-08-18):** **Umgesetzt.** LCD als `pkLcd` (`src/index.html:1719`) und
+`emxLcd` (`:4626`), Label-Ton `#a8b6c8` gesetzt. Plan:
+`docs/superpowers/plans/2026-07-07-pattern-viewer-lcd-and-label-contrast.md`.
+Veraltet im Text: „243 tests" — es sind 454.
 **Component:** Pattern Viewer (PARTS view) for ESX-1 and EMX-1
 **File touched:** `src/index.html` only (CSS + pattern viewer render/event code)
 

@@ -1,6 +1,13 @@
 # ESX Export Validation — Design
 
 **Date:** 2026-07-15
+**Stand (2026-08-18):** **Umgesetzt, mit einer bewussten Abweichung.** `src/esx-validate.js`
+ist in beiden Export-Handlern verdrahtet (`main.js:371`, `:399`), 17 Tests.
+**Der `SIZE`-Check unten ist widerlegt:** .esx-Dateien sind variabel groß
+(`0x250010 + currentOffset`), nicht fix 26.542.080 — `src/esx-validate.js:34-70` prüft
+richtig, der Spec-Text nicht. Ebenso `CHANNEL`: der Code verlangt
+`ch1End > ch1Start + 16`. Herkunft der Fehlannahme: `CODE_REVIEW_BETA.md`, CRITICAL #1
+(27.03.), korrigiert durch `09bc6bf`. Kein Plan vorhanden.
 **Status:** Approved (AskUserQuestion: "Auto-fix + report", scope "Samples + file integrity")
 **Motivation:** The KB1-silence bug shipped because `rebuildEsxFile()` wrote
 `loopStart = 0xFFFFFFFF` into sample headers — the file looked fine but keyboard

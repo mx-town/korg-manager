@@ -1,6 +1,12 @@
 # Import Comfort (Project C) — Design
 
 **Date:** 2026-07-21
+**Stand (2026-08-18):** **Grundlage entfallen, Ziele gültig.** Die unten genannte
+Voraussetzung — Project S mit dem `bank:*`-Layer — existiert nicht und kommt nicht
+(`docs/adr/0002-dateien-als-tabs-statt-zweier-baenke.md`); `bank:importFiles` und
+`bank:inspectImport` sind nie gebaut worden. Fachlich weiterhin gewollt
+(`ROADMAP.md:32`): OS-Drag&Drop, Vorschau-Dialog, Ordner-Import. **Der Architekturteil
+ist gegenstandslos** und gegen `file:*` neu zu schreiben. Kein Plan vorhanden.
 **Status:** Draft (derived from roadmap in the Unified Sample Manager spec,
 2026-07-17). Depends on Project S (bank model + import path) and benefits from
 Project B (decode/resample) but can ship independently of B for WAV-only.

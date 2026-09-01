@@ -15,10 +15,18 @@ musical material and are not interchangeable byte-for-byte.
 
 ## Slot
 
-One of the 256 numbered positions on a Card, named `A01` through `P16`.
+One of the 256 numbered positions on a Card.
 
 A Slot always exists. It is never absent, only empty. Deleting a Pattern
 therefore does not remove a Slot — it changes what the Slot holds.
+
+How a Slot is *addressed* is device wording, and for the EMX-1 it is
+**unverified**. This project writes `A01`…`P16` for the EMX-1 (sixteen banks of
+sixteen) but `A.01`…`D.64` for the ESX-1 (four banks of sixty-four), though both
+devices hold exactly 256. No file can settle it: a Pattern is
+position-independent, so the position is never stored in one. Only the device's
+own display or manual can — see `HARDWARE_TEST_CHECKLIST.md`, Teil 2. Until
+then, an EMX Slot label is a claim, not a fact.
 
 ## Pattern
 
@@ -72,3 +80,36 @@ A stored arrangement that plays Patterns in sequence by referring to Slots
 A Song therefore follows the position, not the Pattern: if a Pattern moves to
 a different Slot, every Song that referenced it now plays whatever took its
 place.
+
+## State
+
+A complete copy of one file as it stood at one moment. German UI wording:
+*Stand*.
+
+States of a file form a **chain, not a tree** — there is no branching and no
+merging. The chain has no gaps without storing anything extra: the copy taken
+before save *N* is the result of save *N−1*, and the newest state is the live
+file itself.
+
+A State is **content-blind**. It is bytes and a checksum; it knows nothing of
+Cards, Slots or Patterns, and the same mechanism covers all three devices
+without asking which one it is looking at.
+
+## Original State
+
+The one protected State per file: the last state provably not produced by this
+tool. German UI wording: *Urzustand*.
+
+Exactly one per file, and movable — confirming that a State is the one running
+on the hardware promotes it and releases the previous one. Protection that
+could only ever accumulate would eventually fill the Backup Store with
+entries nothing may evict.
+
+## Backup Store
+
+The single directory holding every State, plus the index that says which file
+and which moment each one belongs to.
+
+It is bounded by **size, not by count**, because a State is a full copy and
+device sizes differ by two orders of magnitude. Reaching the bound evicts the
+oldest unprotected State.
