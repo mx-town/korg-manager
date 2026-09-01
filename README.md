@@ -1,7 +1,7 @@
 # 🎹 Korg Manager — Electribe Sample & Pattern Manager
 
 [![Electron](https://img.shields.io/badge/Electron-Desktop-47848F?logo=electron&logoColor=white)](https://electronjs.org)
-[![Tests](https://img.shields.io/badge/Tests-451%20passed-brightgreen)](https://vitest.dev)
+[![Tests](https://img.shields.io/badge/Tests-455%20passed-brightgreen)](https://vitest.dev)
 [![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?logo=javascript&logoColor=black)](https://developer.mozilla.org/en-US/docs/Web/JavaScript)
 
 Desktop application for managing Korg Electribe hardware. Supports the **ESX-1**, **E2S**, and **EMX-1** — read and organize samples and patterns across multiple devices from a single interface. What each device actually allows differs; see [Supported Devices](#supported-devices).
@@ -27,7 +27,7 @@ Desktop application for managing Korg Electribe hardware. Supports the **ESX-1**
 - The only tool that supports all three Electribe models in one application
 
 ### Quality
-- **451 automated tests** covering file parsing, DSP processing, and UI logic
+- **455 automated tests** covering file parsing, DSP processing, and UI logic
 - Parsers are tested against real hardware dumps, not synthetic buffers
 - Test suite built with Vitest
 
@@ -40,7 +40,7 @@ Desktop application for managing Korg Electribe hardware. Supports the **ESX-1**
 | Electron | Cross-platform desktop app |
 | JavaScript | Application logic |
 | Web Audio API | Sample playback & DSP effects |
-| Vitest | Test framework (451 tests) |
+| Vitest | Test framework (455 tests) |
 
 ---
 

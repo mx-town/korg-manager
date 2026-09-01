@@ -520,36 +520,13 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 @keyframes viewIn{from{opacity:0;transform:translateX(-4px)}to{opacity:1;transform:translateX(0)}}
 .device-view .main{flex:1;min-height:0}
 
-/* ═══ E2S VIEW ═══ */
-.e2s-main{display:grid;grid-template-columns:1fr 340px;overflow:hidden;flex:1}
+/* ═══ TOOLBAR (shared: pattern viewer; named after the removed E2S view) ═══ */
 .e2s-toolbar{
   display:flex;align-items:center;gap:5px;padding:6px 18px;
   background:linear-gradient(180deg,#0e1428,var(--dark));
   border-bottom:1px solid var(--brd);flex-wrap:wrap;
   box-shadow:0 2px 8px rgba(0,0,0,.3);
 }
-.e2s-cat{display:inline-block;padding:1px 6px;font-family:var(--lcd);font-size:10px;border-radius:2px;letter-spacing:1px}
-.e2s-slot-empty{opacity:.4}
-.e2s-controls{padding:14px 16px}
-.e2s-controls label{font-family:var(--lcd);font-size:11px;color:var(--txt-x);letter-spacing:1px;display:block;margin-bottom:4px;text-shadow:0 0 4px rgba(0,204,255,.1)}
-.e2s-controls select,.e2s-controls input[type=text]{
-  background:linear-gradient(180deg,rgba(4,6,12,.95),rgba(8,12,22,.9));
-  border:1px solid var(--blue-d);color:var(--led);font-family:var(--lcd);font-size:13px;
-  padding:6px 10px;width:100%;outline:none;margin-bottom:8px;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.03),inset 0 -1px 0 rgba(0,0,0,.3);
-  transition:border-color .15s,box-shadow .15s;
-}
-.e2s-controls select:focus,.e2s-controls input[type=text]:focus{
-  border-color:var(--led);
-  box-shadow:0 0 10px var(--led-g),inset 0 1px 0 rgba(255,255,255,.03);
-  text-shadow:0 0 6px rgba(0,204,255,.3);
-}
-.e2s-radio{display:flex;gap:8px;margin-bottom:8px}
-.e2s-radio label{display:flex;align-items:center;gap:4px;cursor:pointer;color:var(--txt-d);font-family:var(--lcd);font-size:12px}
-.e2s-radio input[type=radio]{accent-color:var(--hi)}
-.e2s-check{display:flex;align-items:center;gap:6px;margin-bottom:8px}
-.e2s-check label{cursor:pointer;color:var(--txt-d);font-family:var(--lcd);font-size:12px;margin-bottom:0}
-.e2s-check input[type=checkbox]{accent-color:var(--blue)}
 
 /* ═══ PATTERN VIEW ═══ */
 .pat-main{display:grid;grid-template-columns:clamp(180px,15vw,260px) 1fr;overflow:hidden;flex:1}
@@ -1480,11 +1457,6 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
           <span class="vsb-icon">◆</span>
           <span class="vsb-label">SAMPLE<small>MANAGER</small></span>
         </button>
-        <!-- old E2S sampler view is superseded by the unified sample manager (kept in code, hidden) -->
-        <button class="vsb-item" data-device="e2s" onclick="switchDevice('e2s')" title="E2S Sampler" style="display:none">
-          <span class="vsb-icon">◈</span>
-          <span class="vsb-label">E2S<small>SAMPLER</small></span>
-        </button>
         <button class="vsb-item" data-device="e2pat" onclick="switchDevice('e2pat')" title="Pattern Viewer">
           <span class="vsb-icon">▦</span>
           <span class="vsb-label">PATTERNS<small>VIEWER</small></span>
@@ -1574,75 +1546,6 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
     </div>
   </div>
   </div><!-- /esx1-view -->
-
-  <!-- ═══ E2S VIEW ═══ -->
-  <div id="e2s-view" class="device-view">
-    <div class="e2s-toolbar">
-      <button class="btn" onclick="e2sOpen()">📂 OPEN .ALL</button>
-      <button class="btn btn-hi" onclick="e2sSave()">💾 SAVE .ALL</button>
-      <div class="hsep"></div>
-      <button class="btn" onclick="e2sImportWav()">📥 WAV</button>
-      <button class="btn" onclick="e2sExportWav()">💾 WAV</button>
-      <div class="hsep"></div>
-      <button class="btn" onclick="openConversion()">🔄 ESX↔E2S</button>
-      <div class="hsep"></div>
-      <button class="btn" onclick="e2sBatchNorm()">📊 NORM ALL</button>
-      <button class="btn" onclick="e2sBatchTrim()">✂ TRIM ALL</button>
-    </div>
-    <div class="e2s-main">
-      <div class="sl-w">
-        <div class="sl-hdr"><h2>▸ e2sSample.all</h2><span class="sc" id="e2sSC">0/499</span></div>
-        <div class="ch"><span>#</span><span>NAME</span><span>CAT</span><span style="text-align:right">RATE</span><span style="text-align:right">LEN</span><span style="text-align:right">SIZE</span><span></span></div>
-        <div class="sl" id="e2sSL">
-          <div class="es"><div class="dz" id="e2sDZ" onclick="e2sImportWav()"><i>⚡</i><p><strong>E2S SAMPLES</strong><br><br>wav → 16bit mono 48kHz<br>.all → load e2sSample.all</p></div></div>
-        </div>
-      </div>
-      <div class="sb">
-        <div class="sbs"><div class="sbt">WAVEFORM</div>
-          <div class="wf-w" id="e2sWfW"><div class="wf-e" id="e2sWfE">// select a sample</div><canvas id="e2sWfC" style="display:none"></canvas></div>
-          <div class="wf-i" id="e2sWfI" style="display:none">
-            <div class="wf-ii">hz: <span id="e2sIR">-</span></div><div class="wf-ii">frm: <span id="e2sIF">-</span></div>
-            <div class="wf-ii">t: <span id="e2sID">-</span></div><div class="wf-ii pk">peak: <span id="e2sIP">-</span></div>
-          </div>
-        </div>
-        <div class="sbs" id="e2sSecPlay" style="display:none"><button class="pb" id="e2sPlayBtn" onclick="e2sTogglePlay()">▶ PLAY</button></div>
-        <div class="sbs" id="e2sSecDet" style="display:none">
-          <div class="sbt">DETAILS</div>
-          <div class="e2s-controls">
-            <label>NAME</label>
-            <input type="text" class="ren" id="e2sRenIn" maxlength="16" placeholder="SAMPLE" onchange="e2sRename()">
-            <label>CATEGORY</label>
-            <select id="e2sCatSel" onchange="e2sSetCategory()">
-              <option value="0">Analog</option><option value="1">Audio In</option><option value="2">Kick</option><option value="3">Snare</option>
-              <option value="4">Clap</option><option value="5">HiHat</option><option value="6">Cymbal</option><option value="7">Tom</option>
-              <option value="8">Percussion</option><option value="9">Hits</option><option value="10">Shots</option><option value="11">Voice</option>
-              <option value="12">SE</option><option value="13">FX</option><option value="14">Phrase</option><option value="15">Loop</option>
-              <option value="16">PCM</option><option value="17">User</option>
-            </select>
-            <label>TUNE</label>
-            <div class="fx-row"><span class="fx-lbl">TUNE</span><input type="range" id="e2sTune" min="-63" max="63" value="0" oninput="e2sSetTune()"><span class="fx-val" id="e2sTuneV">0</span></div>
-            <div class="e2s-radio">
-              <label><input type="radio" name="e2sPlayMode" value="oneshot" checked onchange="e2sSetPlayMode()"> One-Shot</label>
-              <label><input type="radio" name="e2sPlayMode" value="loop" onchange="e2sSetPlayMode()"> Loop</label>
-            </div>
-            <div class="e2s-check">
-              <input type="checkbox" id="e2sBoost" onchange="e2sSetBoost()"><label for="e2sBoost">+12dB Boost</label>
-            </div>
-          </div>
-          <div id="e2sDetI" style="padding:0 16px"></div>
-          <div class="sa" style="padding:0 16px 14px">
-            <button class="btn btn-sm" onclick="e2sExportWav()">💾 WAV</button>
-            <button class="btn btn-sm btn-warn" onclick="e2sRemCur()">✕ DEL</button>
-          </div>
-        </div>
-        <div class="ms" style="margin-top:auto">
-          <div class="sbt">STORAGE</div>
-          <div class="mo"><div class="mi" id="e2sMB" style="width:0%"></div><div class="mt" id="e2sMT">0%</div></div>
-          <div class="mst"><div class="msi"><span id="e2sMU">0</span> / 24.0 MB</div><div class="msi"><span id="e2sMD">0</span>/499 slots</div></div>
-        </div>
-      </div>
-    </div>
-  </div><!-- /e2s-view -->
 
 
   <!-- ═══ PATTERN VIEWER ═══ -->
@@ -1902,12 +1805,6 @@ async function applyFeatureFlags() {
     const tab = document.querySelector('.vsb-item[data-device="esx1"]');
     if (tab) tab.style.display = 'none';
     const view = document.getElementById('esx1-view');
-    if (view) view.style.display = 'none';
-  }
-  if (F.E2S_SAMPLER === false) {
-    const tab = document.querySelector('.vsb-item[data-device="e2s"]');
-    if (tab) tab.style.display = 'none';
-    const view = document.getElementById('e2s-view');
     if (view) view.style.display = 'none';
   }
   if (F.PATTERN_VIEWER === false) {
@@ -3070,10 +2967,6 @@ function updateStatusBar(){
     const n=S.numSamples||0,pct=S.usedPercent||'0',dur=(S.totalDuration||0).toFixed(1);
     const dev=S.device==='e2s'?'E2S':'ESX-1',cap=S.maxSamples||256,unit=S.device==='e2s'?'samples':'mono';
     r.innerHTML=`${dev} | <span class="bl">${n}/${cap}</span> ${unit} | <span class="bl">${pct}%</span> mem | <span class="bl">${dur}s</span>${S.device==='e2s'?'':' / 285s'}`;
-  } else if(activeDevice==='e2s'){
-    const n=e2sSamples.filter(s=>s).length,sz=(e2sTotalSize/1048576).toFixed(1);
-    l.innerHTML=`E2S — <span class="hl">e2sSample.all</span>`;
-    r.innerHTML=`E2S | <span class="bl">${n}/499</span> samples | <span class="bl">${sz}</span> / 24.0 MB`;
   } else if(activeDevice==='e2pat'){
     const fmt=patFormat||'—';
     l.innerHTML=`Patterns — <span class="hl">${fmt}</span>`;
@@ -3409,189 +3302,6 @@ function paintRow(row,idx,on){
 })();
 document.addEventListener('dragend',()=>{_dragSample=null;document.querySelectorAll('.drop-hot').forEach(c=>c.classList.remove('drop-hot'))});
 document.addEventListener('drop',()=>{_dragSample=null}); // dragend can be swallowed when the source node was re-rendered mid-drag
-
-// ═══════════════════════════════════════════════════════════
-//  E2S SAMPLE MANAGEMENT
-// ═══════════════════════════════════════════════════════════
-const E2S_CATS=['Analog','Audio In','Kick','Snare','Clap','HiHat','Cymbal','Tom','Percussion','Hits','Shots','Voice','SE','FX','Phrase','Loop','PCM','User'];
-const E2S_CAT_COLORS=['#aaaaaa','#888888','#ff4444','#ff8844','#ffaa44','#ffdd44','#ddff44','#44ff44','#44ffaa','#44ddff','#4488ff','#8844ff','#dd44ff','#ff44dd','#44ffff','#88ff44','#aaaaaa','#4a9eff'];
-let e2sSamples=[],e2sSel=-1,e2sFilePath=null,e2sDirty=false,e2sTotalSize=0;
-
-async function e2sOpen(){
-  if(!window.api.e2s){toast('E2S module not available','error');return}
-  const r=await window.api.e2s.openFile();
-  if(!r)return;
-  if(r.error){toast(r.error,'error');return}
-  try{
-    // Parse in renderer using the returned buffer
-    e2sFilePath=r.filePath;
-    e2sSamples=r.samples||[];
-    e2sDirty=false;
-    e2sSel=-1;
-    e2sRenderList();
-    e2sUpdateMem();
-    updateStatusBar();
-    toast(`E2S LOADED: ${r.filePath.split(/[\\/]/).pop()}`,'success');
-  }catch(err){toast(err.message,'error')}
-}
-
-async function e2sSave(){
-  if(!window.api.e2s){toast('E2S module not available','error');return}
-  if(!e2sSamples.length){toast('NO SAMPLES','error');return}
-  const r=await window.api.e2s.saveFile();
-  if(r&&!r.error){e2sDirty=false;toast(`E2S SAVED: ${r.filePath.split(/[\\/]/).pop()}`,'success')}
-  else if(r&&r.error)toast(r.error,'error');
-}
-
-async function e2sImportWav(){
-  if(!window.api.e2s){toast('E2S module not available','error');return}
-  const r=await window.api.e2s.importWav();
-  if(!r)return;
-  if(r.error){toast(r.error,'error');return}
-  if(r.imported){
-    r.imported.filter(x=>x.error).forEach(x=>toast(x.error,'error'));
-    const ok=r.imported.filter(x=>x.ok).length;
-    if(ok>0){e2sDirty=true;toast(`${ok} IMPORTED (48kHz)`,'success')}
-    if(r.samples)e2sSamples=r.samples;
-    e2sRenderList();e2sUpdateMem();updateStatusBar();
-  }
-}
-
-async function e2sExportWav(){
-  if(!window.api.e2s||e2sSel<0){toast('No sample selected','error');return}
-  const r=await window.api.e2s.exportWav(e2sSel);
-  if(r)toast(`EXPORTED → ${r.split(/[\\/]/).pop()}`,'success');
-}
-
-function e2sRenderList(){
-  const l=document.getElementById('e2sSL');
-  document.getElementById('e2sSC').textContent=`${e2sSamples.filter(s=>s&&!s.empty).length}/499`;
-  if(!e2sSamples.length||e2sSamples.every(s=>!s||s.empty)){
-    l.innerHTML=`<div class="es"><div class="dz" onclick="e2sImportWav()"><i>⚡</i><p><strong>E2S SAMPLES</strong><br><br>wav → 16bit mono 48kHz<br>.all → load e2sSample.all</p></div></div>`;return}
-  let h='';
-  for(let i=0;i<e2sSamples.length;i++){
-    const s=e2sSamples[i];
-    if(!s||s.empty){
-      if(i>=500)h+=`<div class="ss e2s-slot-empty" onclick="e2sSelS(${i})"><div class="si">${i}</div><div class="sn" style="color:var(--txt-x)">(empty)</div><div class="sf">—</div><div class="sr">—</div><div class="sd">—</div><div class="sz">—</div><span></span></div>`;
-      continue;
-    }
-    const a=i===e2sSel,catIdx=s.category||0,catName=E2S_CATS[catIdx]||'User',catColor=E2S_CAT_COLORS[catIdx]||'#888';
-    const d=s.duration<1?`${(s.duration*1000).toFixed(0)}ms`:`${s.duration.toFixed(2)}s`;
-    const z=s.sizeBytes>1048576?`${(s.sizeBytes/1048576).toFixed(1)}M`:`${(s.sizeBytes/1024).toFixed(0)}K`;
-    h+=`<div class="ss ${a?'act':''}" onclick="e2sSelS(${i})"><div class="si">${i}</div><div class="sn">${esc(s.name||'')}</div><div class="sf"><span class="e2s-cat" style="background:${catColor}20;color:${catColor}">${catName}</span></div><div class="sr">48k</div><div class="sd">${d}</div><div class="sz">${z}</div><button class="sx" onclick="event.stopPropagation();e2sRemS(${i})">✕</button></div>`;
-  }
-  l.innerHTML=h;
-}
-
-function e2sSelS(i){
-  e2sSel=i;e2sRenderList();
-  const s=e2sSamples[i];
-  if(!s||s.empty){document.getElementById('e2sSecPlay').style.display='none';document.getElementById('e2sSecDet').style.display='none';return}
-  document.getElementById('e2sSecPlay').style.display='block';
-  document.getElementById('e2sSecDet').style.display='block';
-  document.getElementById('e2sRenIn').value=s.name||'';
-  document.getElementById('e2sCatSel').value=s.category||0;
-  document.getElementById('e2sTune').value=s.tune||0;
-  document.getElementById('e2sTuneV').textContent=s.tune||0;
-  const pm=s.playMode||'oneshot';
-  document.querySelectorAll('input[name=e2sPlayMode]').forEach(r=>r.checked=r.value===pm);
-  document.getElementById('e2sBoost').checked=!!s.boost;
-  const d=s.duration<1?`${(s.duration*1000).toFixed(1)}ms`:`${s.duration.toFixed(3)}s`;
-  const z=s.sizeBytes>1048576?`${(s.sizeBytes/1048576).toFixed(2)}MB`:`${(s.sizeBytes/1024).toFixed(1)}KB`;
-  document.getElementById('e2sDetI').innerHTML=`<div class="dr"><span class="dl">RATE</span><span class="dv">48,000 Hz</span></div><div class="dr"><span class="dl">FRAMES</span><span class="dv">${(s.numFrames||0).toLocaleString()}</span></div><div class="dr"><span class="dl">LENGTH</span><span class="dv">${d}</span></div><div class="dr"><span class="dl">SIZE</span><span class="dv">${z}</span></div>`;
-  // Fetch and draw waveform from main process
-  e2sDrawWaveform(i);
-}
-
-async function e2sDrawWaveform(slot){
-  const cvs=document.getElementById('e2sWfC'),emp=document.getElementById('e2sWfE'),inf=document.getElementById('e2sWfI');
-  const wf=await window.api.e2s.getWaveform(slot);
-  if(!wf||!wf.waveform){cvs.style.display='none';emp.style.display='flex';emp.textContent='// no waveform data';inf.style.display='none';return}
-  emp.style.display='none';cvs.style.display='block';inf.style.display='flex';
-  document.getElementById('e2sIR').textContent=wf.sampleRate;
-  document.getElementById('e2sIF').textContent=wf.numFrames.toLocaleString();
-  document.getElementById('e2sID').textContent=wf.duration<1?`${(wf.duration*1000).toFixed(1)}ms`:`${wf.duration.toFixed(3)}s`;
-  document.getElementById('e2sIP').textContent=wf.peakDb+'dB';
-  const ctx=cvs.getContext('2d'),W=cvs.parentElement.clientWidth-16,H=110;
-  const dpr=window.devicePixelRatio||1;cvs.width=W*dpr;cvs.height=H*dpr;cvs.style.width=W+'px';cvs.style.height=H+'px';ctx.scale(dpr,dpr);
-  ctx.fillStyle='#04060c';ctx.fillRect(0,0,W,H);
-  ctx.strokeStyle='#1a2035';ctx.beginPath();ctx.moveTo(0,H/2);ctx.lineTo(W,H/2);ctx.stroke();
-  const d=wf.waveform,n=d.length,sx=W/n,sy=H/2*.9;
-  ctx.fillStyle='rgba(0,204,255,.5)';ctx.beginPath();
-  for(let i=0;i<n;i++){const x=i*sx;ctx.lineTo(x,H/2-d[i].max*sy)}
-  for(let i=n-1;i>=0;i--){const x=i*sx;ctx.lineTo(x,H/2-d[i].min*sy)}
-  ctx.closePath();ctx.fill();
-  ctx.strokeStyle='#00ccff';ctx.lineWidth=.5;ctx.beginPath();
-  for(let i=0;i<n;i++){const x=i*sx;ctx.lineTo(x,H/2-d[i].max*sy)}ctx.stroke();
-  ctx.beginPath();for(let i=0;i<n;i++){const x=i*sx;ctx.lineTo(x,H/2-d[i].min*sy)}ctx.stroke();
-}
-
-async function e2sRemS(i){
-  if(i>=0&&i<e2sSamples.length){
-    e2sSamples[i]={index:i,empty:true};e2sDirty=true;
-    if(e2sSel===i)e2sSel=-1;
-    await window.api.e2s.removeSample(i);
-    e2sRenderList();e2sUpdateMem();updateStatusBar();
-  }
-}
-async function e2sRemCur(){if(e2sSel>=0)e2sRemS(e2sSel)}
-
-async function e2sRename(){
-  if(e2sSel<0||!e2sSamples[e2sSel]||e2sSamples[e2sSel].empty)return;
-  const name=document.getElementById('e2sRenIn').value.substring(0,24);
-  e2sSamples[e2sSel].name=name;e2sDirty=true;
-  await window.api.e2s.updateSample({slot:e2sSel,name});
-  e2sRenderList();
-}
-async function e2sSetCategory(){
-  if(e2sSel<0||!e2sSamples[e2sSel]||e2sSamples[e2sSel].empty)return;
-  const category=+document.getElementById('e2sCatSel').value;
-  e2sSamples[e2sSel].category=category;e2sDirty=true;
-  await window.api.e2s.updateSample({slot:e2sSel,category});
-  e2sRenderList();
-}
-function e2sSetTune(){if(e2sSel<0||!e2sSamples[e2sSel])return;const v=+document.getElementById('e2sTune').value;e2sSamples[e2sSel].tune=v;document.getElementById('e2sTuneV').textContent=(v>0?'+':'')+v;e2sDirty=true;window.api.e2s.updateSample({slot:e2sSel,tune:v})}
-async function e2sSetPlayMode(){
-  if(e2sSel<0||!e2sSamples[e2sSel]||e2sSamples[e2sSel].empty)return;
-  const v=document.querySelector('input[name=e2sPlayMode]:checked').value;
-  e2sSamples[e2sSel].playMode=v;e2sDirty=true;
-  await window.api.e2s.updateSample({slot:e2sSel,loopType:v==='loop'?1:0});
-}
-function e2sSetBoost(){if(e2sSel<0||!e2sSamples[e2sSel])return;const v=document.getElementById('e2sBoost').checked;e2sSamples[e2sSel].boost=v;e2sDirty=true;window.api.e2s.updateSample({slot:e2sSel,boost:v})}
-
-let e2sAudioCtx=null,e2sAudioSrc=null;
-async function e2sTogglePlay(){
-  if(e2sSel<0||!e2sSamples[e2sSel]||e2sSamples[e2sSel].empty)return;
-  const btn=document.getElementById('e2sPlayBtn');
-  if(e2sAudioSrc){try{e2sAudioSrc.stop()}catch(e){}e2sAudioSrc=null;btn.textContent='▶ PLAY';btn.classList.remove('pl');return}
-  const b64=await window.api.e2s.getWavPreview(e2sSel);
-  if(!b64)return;
-  if(!e2sAudioCtx)e2sAudioCtx=new AudioContext();
-  const arr=Uint8Array.from(atob(b64),c=>c.charCodeAt(0));
-  const abuf=await e2sAudioCtx.decodeAudioData(arr.buffer);
-  e2sAudioSrc=e2sAudioCtx.createBufferSource();e2sAudioSrc.buffer=abuf;
-  e2sAudioSrc.connect(e2sAudioCtx.destination);
-  e2sAudioSrc.onended=()=>{e2sAudioSrc=null;btn.textContent='▶ PLAY';btn.classList.remove('pl')};
-  e2sAudioSrc.start();btn.textContent='⏹ STOP';btn.classList.add('pl');
-}
-function e2sBatchNorm(){toast('E2S batch normalize — coming soon','info')}
-function e2sBatchTrim(){toast('E2S batch trim — coming soon','info')}
-
-function e2sUpdateMem(){
-  e2sTotalSize=0;
-  e2sSamples.forEach(s=>{if(s&&!s.empty&&s.sizeBytes)e2sTotalSize+=s.sizeBytes});
-  const pct=Math.min(100,(e2sTotalSize/(24*1048576)*100));
-  document.getElementById('e2sMB').style.width=pct+'%';
-  document.getElementById('e2sMT').textContent=pct.toFixed(1)+'%';
-  document.getElementById('e2sMU').textContent=(e2sTotalSize/1048576).toFixed(1)+' MB';
-  document.getElementById('e2sMD').textContent=e2sSamples.filter(s=>s&&!s.empty).length;
-  const b=document.getElementById('e2sMB');b.classList.remove('w','c');
-  if(pct>90)b.classList.add('c');else if(pct>70)b.classList.add('w');
-}
-
-// E2S drag-drop
-document.getElementById('e2s-view').addEventListener('dragover',e=>e.preventDefault());
-document.getElementById('e2s-view').addEventListener('drop',e=>{e.preventDefault();if(activeDevice==='e2s')e2sImportWav()});
 
 // ═══════════════════════════════════════════════════════════
 //  E2 PATTERN VIEWER
@@ -6008,7 +5718,9 @@ function convUpdateList(){
   else if(src==='e2s'&&tgt==='esx')info.textContent='Resampling: 48,000 Hz → 44,100 Hz | Method: Linear';
   else info.textContent='Same format — no resampling needed';
   // Build sample list
-  const samples=src==='esx'?S.samples:(e2sSamples.filter(s=>s&&!s.empty));
+  // The legacy E2S view is gone: a bank of either device now lives in a file
+  // tab, and S.samples is whichever one is active.
+  const samples=src===activeTabDevice()?S.samples:[];
   let h='';
   if(!samples||!samples.length){h='<div style="color:var(--txt-x);font-family:var(--lcd);font-size:12px;padding:8px">No samples loaded in source format</div>'}
   else{for(let i=0;i<samples.length;i++){

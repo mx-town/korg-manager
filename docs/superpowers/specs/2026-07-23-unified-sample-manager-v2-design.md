@@ -3,8 +3,16 @@
 **Date:** 2026-07-23
 **Stand (2026-08-18):** **Gebaut und in `main`** (`7683401`, `2717349`, `bfdf080`,
 `60f3461`). Zwei Abweichungen: `main.js` hat zwei `file:*`-Handler mehr als hier
-spezifiziert (`file:open-any`, `file:set-hacktribe`), und `#e2s-view` liegt wie
-angekündigt noch im Code — **der Cleanup-Commit steht aus.** Dieser Spec ist die
+spezifiziert (`file:open-any`, `file:set-hacktribe`).
+**Stand (2026-09-01):** `#e2s-view` ist entfernt — der angekündigte Cleanup-Commit
+ist erfolgt: DOM-Block, versteckter Sidebar-Eintrag, die exklusiv zugehörigen
+Renderer-Funktionen (`e2sOpen`/`e2sSave`/`e2sRenderList`/…), ihr Zustand
+(`e2sSamples` u. a.) und das tote CSS. `.e2s-toolbar` bleibt, weil der Pattern
+Viewer sie nutzt. **Folge:** der einzige Auslöser des Konversionsdialogs war der
+Knopf in dieser View — `openConversion()` ist damit unerreichbar, sein
+`convExecute()` war ohnehin nur ein Toast. Die `e2s:*`-IPC-Kanäle bleiben in
+`main.js`/`preload.js` (dort noch von anderen Pfaden benutzt), werden vom
+Renderer aber nicht mehr gerufen. Dieser Spec ist die
 Grundlage von `docs/adr/0002-dateien-als-tabs-statt-zweier-baenke.md` und ersetzt
 `2026-07-17-unified-sample-manager-design.md`. Kein Plan vorhanden.
 **Status:** Approved (goal-directive; refines the parked Project S per the
