@@ -3023,7 +3023,9 @@ document.addEventListener('keydown',e=>{
   if(activeDevice==='esx1'&&e.key==='ArrowDown'&&sel<S.numSamples-1)selS(sel+1);
   if(activeDevice==='esx1'&&e.key==='ArrowUp'&&sel>0)selS(sel-1);
   if(activeDevice==='esx1'&&e.key==='F2'&&sel>=0)startRen(sel);
-  if(e.ctrlKey&&e.key==='a'&&activeDevice==='esx1'){e.preventDefault();toggleSelectAll()}
+  // Not while split is on: the checkbox column is hidden there, so a select-all
+  // would build an invisible selection that then drives batch MODIFY / DEL.
+  if(e.ctrlKey&&e.key==='a'&&activeDevice==='esx1'&&!splitOn()){e.preventDefault();toggleSelectAll()}
   // Slot management binds neither Delete nor F2: its bar has buttons, and the
   // two keys already mean something in the sample manager.
   if(e.ctrlKey&&e.key==='a'&&activeDevice==='e2pat'&&emxActive()){e.preventDefault();emxSelectAll()}
@@ -3241,8 +3243,10 @@ function applySplit(){
   const wrap=document.getElementById('splWrap');
   const slw=document.querySelector('#esx1-view .sl-w');
   if(!wrap||!slw)return;
-  const was=slw.classList.contains('split-on');
-  if(on&&!was&&checked.size){checked.clear();updateSelBadge()} // the checkbox column is invisible in split — an invisible selection must not drive DEL/MODIFY
+  // The checkbox column is invisible in split — an invisible selection must not
+  // drive DEL/MODIFY. Cleared on every call rather than only on the off->on
+  // transition, because Ctrl+A and friends can refill it while split is already on.
+  if(on&&checked.size){checked.clear();updateSelBadge()}
   slw.classList.toggle('split-on',on);
   wrap.style.display=on?'flex':'none';
   if(on)renderSplitLists();
@@ -3381,6 +3385,9 @@ function paintRow(row,idx,on){
   });
   l.addEventListener('mouseover',e=>{
     if(!_paintArm&&!_paint)return;
+    // A mouseup lost outside the window (native dialog, OS focus steal) would
+    // leave the stroke armed, and the next bare hover would keep toggling.
+    if(!(e.buttons&1)){endPaint();return}
     const row=e.target.closest('.ss');if(!row||row.dataset.idx===undefined)return;
     const idx=+row.dataset.idx;
     if(_paintArm){
@@ -3391,13 +3398,14 @@ function paintRow(row,idx,on){
     }
     paintRow(row,idx,_paint.on);
   });
-  document.addEventListener('mouseup',()=>{
+  function endPaint(){
     _paintArm=null;
     if(_paint){
       _paint=null;_justPainted=true;setTimeout(()=>{_justPainted=false},0);
       lastCheckedIndex=-1;renderList();
     }
-  });
+  }
+  document.addEventListener('mouseup',endPaint);
 })();
 document.addEventListener('dragend',()=>{_dragSample=null;document.querySelectorAll('.drop-hot').forEach(c=>c.classList.remove('drop-hot'))});
 document.addEventListener('drop',()=>{_dragSample=null}); // dragend can be swallowed when the source node was re-rendered mid-drag
