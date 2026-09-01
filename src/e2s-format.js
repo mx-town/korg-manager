@@ -234,10 +234,18 @@ function buildEsliData(meta) {
     if (!fromRaw || movedSlot || buf.readUInt16LE(ESLI.IMPORT_NUM) === 0) {
       const impOff  = meta.importNumOffset ?? IMPORT_NUM_OFFSET;
       const userOff = meta.userNumOffset   ?? USER_NUM_OFFSET;
-      // Clamp rather than wrap: with the stock offset, slots below the
-      // Hacktribe user base would go negative.
-      buf.writeUInt16LE(Math.max(0, Math.min(0xFFFF, slot + impOff)),  ESLI.IMPORT_NUM);
-      buf.writeUInt16LE(Math.max(0, Math.min(0xFFFF, slot + userOff)), ESLI.USER_NUM);
+      // 0 is the one value these two fields must never carry: a bank holding it
+      // is rejected with File Error (hardware-confirmed 2026-08-11). The stock
+      // offset (-500) cannot express a slot below 501, so clamping at 0 would
+      // write the illegal value precisely where the fallback applies. Fall back
+      // instead to the other encoding real hardware is known to accept: the slot
+      // itself, as the Hacktribe card stores it.
+      const numbered = (off) => {
+        const v = slot + off;
+        return Math.min(0xFFFF, v >= 1 ? v : Math.max(1, slot));
+      };
+      buf.writeUInt16LE(numbered(impOff),  ESLI.IMPORT_NUM);
+      buf.writeUInt16LE(numbered(userOff), ESLI.USER_NUM);
     }
   }
 

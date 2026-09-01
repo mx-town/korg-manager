@@ -174,10 +174,27 @@ describe('E2S - fresh sample ESLI matches hardware invariants', () => {
     expect(buf.readUInt16LE(0x4e)).toBe(921 - 500);
   });
 
-  it('never writes a negative user number for slots below the Hacktribe base', () => {
+  it('never writes 0 as the user number for slots below the Hacktribe base', () => {
+    // 0 is the one illegal value here: a bank carrying it is rejected with
+    // File Error (hardware-confirmed 2026-08-11). The stock offset cannot
+    // express slot 430, so the slot itself is written — the other encoding
+    // real hardware is known to accept.
     const buf = buildEsliData({ slotNumber: 430 }); // stock user area
     expect(buf.readUInt16LE(0x14)).toBe(480);
-    expect(buf.readUInt16LE(0x4e)).toBe(0);
+    expect(buf.readUInt16LE(0x4e)).not.toBe(0);
+    expect(buf.readUInt16LE(0x4e)).toBe(430);
+  });
+
+  it('repairs a preserved block whose 0x4e is already the illegal 0', () => {
+    // The "repair a bank written by an older build" case: every preserved 0x4e
+    // is 0, so deriveEsliNumbering observes nothing and the fallback applies.
+    // Writing 0 straight back would silently preserve the damage.
+    const raw = buildEsliData({ slotNumber: 430 });
+    raw.writeUInt16LE(0, 0x4e);
+    raw.writeUInt16LE(0, 0x14);
+    const fixed = buildEsliData({ _raw: raw, slotNumber: 430 });
+    expect(fixed.readUInt16LE(0x4e)).not.toBe(0);
+    expect(fixed.readUInt16LE(0x14)).not.toBe(0);
   });
 
   it('keeps a preserved 0x14/0x4e pair when the sample stays in its slot', () => {
@@ -286,8 +303,10 @@ describe('E2S - index fields follow the conventions of the file being edited', (
     expect(buf.readUInt16LE(0x4e)).toBe(921);
   });
 
-  it('still clamps a negative user number to 0', () => {
-    expect(buildEsliData({ slotNumber: 100, userNumOffset: -500 }).readUInt16LE(0x4e)).toBe(0);
+  it('falls back to the slot itself when an offset would go below 1', () => {
+    // 0 is illegal at 0x4e, so an offset the slot cannot carry yields the other
+    // hardware-accepted encoding rather than the rejected value.
+    expect(buildEsliData({ slotNumber: 100, userNumOffset: -500 }).readUInt16LE(0x4e)).toBe(100);
   });
 
   it('gives an appended sample the same 0x4e convention as its neighbours', () => {

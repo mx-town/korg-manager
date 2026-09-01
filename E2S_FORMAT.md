@@ -126,8 +126,11 @@ on the card.
 off the file being written and `buildE2sAllFile` passes them down, so a fresh
 sample copies the convention of the file it joins. An offset is adopted only when
 every sample that has the field set agrees on it; a self-inconsistent file falls
-back to the dump constants (`+50` / `−500`). 0x4E is clamped at 0 rather than
-wrapping, which only the stock offset on a low slot can reach.
+back to the dump constants (`+50` / `−500`). Neither field may come out **0** —
+that is the value the hardware rejects with *File Error* — so when `slot + K`
+would fall below 1 the **slot itself** is written instead, the encoding the
+Hacktribe card is confirmed to load. Only the stock offset on a slot under 501
+reaches this, which is exactly the stock user area (base 421).
 
 ## Writing: preserve-and-patch
 

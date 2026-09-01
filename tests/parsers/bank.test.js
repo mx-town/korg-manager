@@ -572,7 +572,10 @@ describe('ESX → E2S import writes a hardware-conformant ESLI block', () => {
     const { slot, raw } = importAndReadBack();
     expect(raw.readUInt16LE(0x00)).toBe(slot);
     expect(raw.readUInt16LE(0x14)).toBe(slot + 50);
-    expect(raw.readUInt16LE(0x4e)).toBe(slot - 500);
+    // The first free user slot is 500, where slot − 500 would be 0 — the value
+    // the hardware rejects with File Error. The slot itself is written instead.
+    expect(raw.readUInt16LE(0x4e)).toBe(slot - 500 >= 1 ? slot - 500 : slot);
+    expect(raw.readUInt16LE(0x4e)).not.toBe(0);
   });
 
   it('assigns the "User" category, not firmware-only category 0 (Analog)', () => {

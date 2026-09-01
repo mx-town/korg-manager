@@ -99,7 +99,8 @@ Fonts: Orbitron (headings), Share Tech Mono (LCD values), Rajdhani (labels).
 - No checksums in the format — files can be freely written
 - ESLI metadata chunk is 1,172 bytes inside a `korg` RIFF chunk
 - **Offset table = 1020 entries × uint32LE START offset, data starts at 0x1000.** One start offset per entry, `0` = empty — NOT 510×8-byte `[start, end]` pairs; that reading was refuted (`E2S_FORMAT.md:10`) and corrected in `5636c89`. Derive a sample's length from its RIFF header, not from the table. Skip garbage entries; never throw.
-- **ESLI field map is NON-obvious**: name @0x02 (16B, not 24), category @0x12, sampleRate @0x48, points (start/loop/end/length) @0x28/0x2C/0x30/0x3C stored as **BYTES (frame×2)**. There is **no loop-type byte** — a loop is active iff `loopStart < endPoint`.
+- **ESLI field map is NON-obvious**: name @0x02 (16B, not 24), category @0x12, sampleRate @0x48, points (start/loop/end/length) @0x28/0x2C/0x30/0x3C stored as **BYTES (frame×2)**. The loop flag at 0x34 is **explicit** (1 = one-shot, 0 = loop) and always agrees with `loopStart < endPoint`, so the app derives both from one loop state and writes them together. (An earlier revision of `E2S_FORMAT.md` claimed there was no such byte; that was wrong — see `E2S_FORMAT.md:87`.)
+- **0x14 and 0x4E must never be written as 0.** Both are slot-derived, and 0 is the value the hardware rejects with *File Error*. When `slot + K` would fall below 1 the slot itself is written instead — never a clamp into 0.
 - **Writer uses preserve-and-patch**: samples loaded from a real file keep `esli._raw` (the full 1172-byte block); `buildEsliData` patches only known fields so undocumented bytes stay hardware-identical. `main.js` must thread `esli._raw` through `e2sStoredSamples` for this to work in the app.
 - **Read `E2S_FORMAT.md` before touching `e2s-format.js`** — full spec, reverse-engineered from real hardware dumps.
 
