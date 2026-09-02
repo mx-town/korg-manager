@@ -3,6 +3,7 @@ dist/
 .env
 tmpclaude-*
 .superpowers/
+.claude/worktrees/
 
 # Real hardware dumps (factory content — not committed)
 test-data/e2s/hacktribe.e2sSample.all

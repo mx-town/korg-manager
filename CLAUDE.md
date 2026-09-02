@@ -15,7 +15,7 @@ The app has three main sections:
 
 ```bash
 npm start              # Run app in dev mode (Electron)
-npm test               # Run all tests once (Vitest) — 240+ tests, ALL must pass
+npm test               # Run all tests once (Vitest) — 455 tests, ALL must pass
 npm run test:watch     # Watch mode
 npm run test:coverage  # Coverage report (V8 provider)
 npm run build          # Build Windows NSIS installer
@@ -133,8 +133,30 @@ The pattern viewer normalizes all device formats into a unified UI format:
 ## Development Workflow
 
 - **Large comprehensive prompts preferred** — not incremental small fixes
-- **All 240+ tests MUST pass** after every change — `npm test`
+- **All 455 tests MUST pass** after every change — `npm test`
 - **Git tags** mark milestones
 - **Read format docs before touching parsers** — check `ESX_FILE_STRUCTURE.md` and `EMX_SMARTCARD_FORMAT.md`
 - **When adding IPC handlers**: update main.js handler + preload.js bridge + renderer call site
 - **When modifying pattern toUI converters**: spread full part objects, don't cherry-pick fields
+
+## Agent skills
+
+Configuration the `mattpocock-skills` engineering skills read. Written by
+`/setup-matt-pocock-skills` on 2026-09-02; edit these files directly rather than
+re-running the setup.
+
+### Issue tracker
+
+GitHub Issues in the private `mx-town/korg-manager`, via the `gh` CLI. See
+`docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five default roles (`needs-triage`, `needs-info`, `ready-for-agent`,
+`ready-for-human`, `wontfix`); only `wontfix` exists so far. See
+`docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `CONTEXT.md` (glossary) plus `docs/adr/`, and the per-device format
+specs a parser change must be read against. See `docs/agents/domain.md`.
