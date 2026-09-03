@@ -21,7 +21,8 @@ This repo is **single-context**:
 │                                     Backup Store
 ├── docs/adr/
 │   ├── 0001-keine-versionsverwaltung-fuer-backups.md
-│   └── 0002-dateien-als-tabs-statt-zweier-baenke.md
+│   ├── 0002-dateien-als-tabs-statt-zweier-baenke.md
+│   └── 0003-firmware-modus-wird-erklaert-nicht-erkannt.md
 ├── docs/superpowers/specs/         ← design specs, each with a `**Stand (date):**`
 │                                     header saying whether it was built
 └── src/

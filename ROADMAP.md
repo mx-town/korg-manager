@@ -1,5 +1,9 @@
 # Roadmap
 
+> **Where the project actually stands is `STATUS.md`** — what is built, what comes next in
+> which order, and what has been confirmed on hardware. This file is the idea pool that
+> feeds it: candidate features and the working agreement, not a statement of status.
+
 Forward-looking work for the NBG-GESCHRUBBE Korg Electribe manager. Kept deliberately
 lean: build **one small, standalone feature at a time**, additively, and **verify each
 step in the running app** — not just `npm test` (the suite covers the binary parsers,

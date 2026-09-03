@@ -78,7 +78,7 @@ Field offsets **within the esli data** (after the 8-byte `esli` sub-chunk header
 | 0x34 | u32 | **one-shot flag** | **1 = one-shot, 0 = loop.** 403/403 agreement with `loopStart < endPoint`. |
 | 0x3C | u32 | **length** | total, in **BYTES** (frame × 2) |
 | 0x48 | u32 | **sampleRate** | Hz (old code read 0x30) |
-| 0x4E | u16 | **user number** | slot **+ K**, where K varies **per file** — see below. `− 500` in 403/403 stock-dump samples, `0` on a Hacktribe card. |
+| 0x4E | u16 | **original index** | the index a sample was *first* assigned, and never rewritten afterwards — so on a relocated sample it is stale. See below. |
 
 Key points:
 
@@ -106,21 +106,51 @@ damage.
 > and `file-ordinal + K'` fit 0x14/0x4E equally well. The slot-derived reading is
 > used (it needs no file-wide context and reproduces the dump exactly).
 
-### 0x4E is per-file, not a constant
+### 0x4E is build residue, not a firmware convention
 
 Two real files hold the *same* 403 samples and disagree on 0x4E alone — 2 bytes
 per sample, nothing else:
 
 | File | 0x4E for slot 518 |
 |------|-------------------|
-| `electribe sampler/Sample/e2sSample.all` (stock layout) | `18` — slot − 500 |
-| `hacktribe/Sample/e2sSample.all` (Hacktribe card) | `518` — the slot itself |
+| `electribe sampler/Sample/e2sSample.all` | `18` — slot − 500 |
+| `hacktribe/Sample/e2sSample.all` | `518` — the slot itself |
 
-The Hacktribe card loads on the device without complaint, so **both encodings are
-accepted**; the constant reverse-engineered from one dump is not a law. No version
-of this app has ever written 0x4E (the pre-2026-07-28 field map stopped at 0x34,
-and a load→save of either file is byte-identical), so the difference was already
-on the card.
+**An earlier revision of this document read that as a per-card *firmware*
+convention — stock writes `slot − 500`, a Hacktribe card writes the slot. That
+reading is refuted** (issue #6, 2026-09-02); it is kept here so it does not get
+re-derived.
+
+0x4E is **build residue**. Oe2sSLE writes it (`OSC_0index1`) only when a sample's
+number is first assigned — `self.OSC_0index = self.OSC_0index1 = num-1` — and its
+`save()` recomputes **0x14 only**. A *relocated* sample therefore keeps a stale
+0x4E pointing at its original index while 0x14 follows the new slot. Measured on
+the 403-sample dump (slots 518–920):
+
+| Field | Value across the dump | Reading |
+|-------|----------------------|---------|
+| 0x4E | `18` … `420` | the original factory indices, never rewritten |
+| 0x14 | `568` … `970` | `slot + 50`, rewritten on every save |
+| names | `Hippy`, `BigBreaks`, `Vinyl`, `GamelanWave` | Korg factory sample names |
+
+Oe2sSLE's `factory_importNums` covers `OSC_0index` **18–420 — 403 entries**, exactly
+this range. The file is the **stock factory set relocated by +500** into the
+Hacktribe user area, and `slot − 500` is arithmetic coincidence: the relocation
+offset happened to be 500.
+
+> **No byte in a `.e2sSample.all` identifies the firmware that wrote it.** No
+> primary source — Oe2sSLE, Hacktribe's code, wiki or maintainer — documents one
+> (issue #5). The app does not detect the mode; the user declares it. See
+> `docs/adr/0003-firmware-modus-wird-erklaert-nicht-erkannt.md`.
+
+*Residual uncertainty, stated plainly:* the two-card byte diff was never
+performed. This rests on the reference implementation's behaviour plus the exact
+factory-index match on one file, and would be overturned by a genuine Hacktribe
+dump whose 0x4E holds something no tool would have written.
+
+**The behaviour this justified is unchanged.** Both encodings are device-accepted,
+so a fresh sample must copy the convention of the file it joins rather than a
+hardcoded constant.
 
 `deriveEsliNumbering(samples)` therefore reads the offsets for 0x14 and 0x4E back
 off the file being written and `buildE2sAllFile` passes them down, so a fresh

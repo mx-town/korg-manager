@@ -6,10 +6,24 @@ This file provides guidance to Claude Code when working with this repository.
 
 **NBG-GESCHRUBBE** — an Electron 28 desktop app for managing Korg Electribe hardware: ESX-1 (sampler), E2S (sampler), EMX-1 (synth), and E2 (synth/sampler). Pure JavaScript, no UI framework, vanilla CSS with cyberpunk/hardware aesthetic.
 
-The app has three main sections:
-1. **ESX-1 Sample Manager** — full read/write with 18 DSP effects, waveform editor, batch ops
-2. **E2S Sample Manager** — full read/write with cross-device conversion (ESX↔E2S)
-3. **Pattern Viewer** — unified viewer for ESX-1, EMX-1, E2/E2S patterns with audio playback (ESX only)
+The app has **two** sections in the sidebar:
+1. **Sample Manager** — one view (`#esx1-view`) handling both ESX-1 and E2S through a
+   browser-style file-tab bar (max 2 open files) plus a split view. Full read/write, 18 DSP
+   effects, waveform editor, batch ops; drag & drop between tabs converts ESX↔E2S via
+   `src/bank.js`. There is no separate E2S view — it was removed in `08e9404`. See ADR-0002.
+2. **Pattern Viewer** (`#e2pat-view`) — unified viewer for ESX-1, EMX-1, E2/E2S patterns with
+   audio playback (ESX only), plus EMX-1 pattern management (move/copy/delete/swap/rename).
+
+## Current state — read this first
+
+**`STATUS.md` is the single source of truth for where the project stands**: what is built,
+what comes next in which order, and — the column that exists nowhere else — **what has
+actually been confirmed on real hardware**. Read it before proposing work, and keep in mind
+that green tests prove nothing about device behaviour: the parsers are reverse-engineered,
+so a test checks the parser against the writer's own assumptions.
+
+Never claim a feature works on a device unless `STATUS.md` carries a date for it.
+"Unverified" is a valid state here and is stated deliberately.
 
 ## Commands
 
@@ -62,10 +76,13 @@ Read these files before modifying any parser code.
 
 ### UI (`src/index.html`)
 
-Single HTML file (~5000+ lines) containing all CSS and JS inline. Three sidebar tabs:
-- ESX-1 SAMPLER — sample list, waveform, modify modal (18 effects), batch ops
-- E2S SAMPLER — sample list, waveform, category/tune/boost controls
-- PATTERNS VIEWER — unified for all devices, three view modes (PARTS/STEPS/GRID)
+Single HTML file (~5000+ lines) containing all CSS and JS inline. Two sidebar tabs:
+- SAMPLE MANAGER (`#esx1-view`) — file-tab bar, split view, sample list, waveform,
+  modify modal (18 effects), batch ops. Serves ESX-1 *and* E2S; the tab carries the device.
+- PATTERNS VIEWER (`#e2pat-view`) — unified for all devices, three view modes (PARTS/STEPS/GRID)
+
+Dead scaffolding to ignore: the `#convBg` conversion modal and `convExecute()` are a stub
+(toast only) that nothing opens. Real conversion happens on tab drag & drop.
 
 Uses CSS custom properties for theming (`--hi`, `--led`, `--cyan`, `--void`, `--panel`, `--brd`, etc.).
 Fonts: Orbitron (headings), Share Tech Mono (LCD values), Rajdhani (labels).
@@ -138,6 +155,26 @@ The pattern viewer normalizes all device formats into a unified UI format:
 - **Read format docs before touching parsers** — check `ESX_FILE_STRUCTURE.md` and `EMX_SMARTCARD_FORMAT.md`
 - **When adding IPC handlers**: update main.js handler + preload.js bridge + renderer call site
 - **When modifying pattern toUI converters**: spread full part objects, don't cherry-pick fields
+
+### Update `STATUS.md` in the same commit
+
+Finishing a feature, running a hardware test, or settling a decision **is not done until
+`STATUS.md` reflects it** — in the same commit, not a follow-up cleanup. A status file that
+lags is worse than none, because people believe it.
+
+| What happened | What changes in `STATUS.md` |
+|---|---|
+| Feature finished | Row in section 1, "Am Gerät" column set to `— nie` |
+| Hardware test passed | `— nie` → `✓ YYYY-MM-DD` |
+| Hardware test **failed** | Row stays `— nie`; the finding goes to section 4 |
+| Decision settled | Write the ADR, link it from section 3 |
+| Something ruled out | Row in section 3, with the reason |
+| Gap found | Row in section 4, even if it is not being fixed now |
+| Review objection worth generalising | Row in section 5 |
+
+Also update the header line: date, branch, test count. Keep entries to one line that points
+at where the thing really lives (spec, ADR, format doc, issue) — `STATUS.md` is an index, not
+a store.
 
 ## Agent skills
 
