@@ -7,3 +7,4 @@ tmpclaude-*
 
 # Real hardware dumps (factory content — not committed)
 test-data/e2s/hacktribe.e2sSample.all
+test-data/e2s/reference/
